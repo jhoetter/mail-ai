@@ -1,6 +1,11 @@
+// Re-export the pg Pool type so callers (e.g. @mailai/server) can hold
+// a typed pool reference without importing 'pg' directly — the
+// architecture check pins `pg` to this package only.
+export type { Pool } from "pg";
 export * from "./schema.js";
 export * from "./client.js";
 export * from "./repositories/accounts.js";
+export * from "./repositories/oauth-accounts.js";
 export * from "./repositories/messages.js";
 export * from "./repositories/threads.js";
 export * from "./repositories/audit.js";

@@ -5,8 +5,12 @@
 
 import { HttpAgentClient } from "@mailai/agent";
 
-function baseUrl(): string {
-  return process.env["NEXT_PUBLIC_MAILAI_API_URL"] ?? "http://127.0.0.1:8080";
+export function baseUrl(): string {
+  // Empty string → relative URLs hit the Next dev server, which is
+  // configured (next.config.ts) to rewrite /api/* to the actual API
+  // origin. Override with NEXT_PUBLIC_MAILAI_API_URL when the web app
+  // is served from a different origin than the API in production.
+  return process.env["NEXT_PUBLIC_MAILAI_API_URL"] ?? "";
 }
 
 function token(): string {

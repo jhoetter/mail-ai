@@ -6,6 +6,7 @@ import Fastify, { type FastifyInstance } from "fastify";
 import { CommandBus, type Command } from "@mailai/core";
 import { CommandPayloadSchema } from "@mailai/agent";
 import { EventBroadcaster } from "./events.js";
+import { registerOauthRoutes, type OauthRoutesDeps } from "./oauth/routes.js";
 
 export interface AppDeps {
   readonly bus: CommandBus;
@@ -13,11 +14,20 @@ export interface AppDeps {
   readonly identity: (req: { headers: Record<string, unknown> }) => Promise<{
     userId: string;
     tenantId: string;
+    email?: string;
+    displayName?: string;
   }>;
+  // Optional: when omitted, OAuth onboarding routes are NOT mounted.
+  // Useful for tests that don't want a Postgres dep.
+  readonly oauth?: Omit<OauthRoutesDeps, "identity">;
 }
 
 export function buildApp(deps: AppDeps): FastifyInstance {
   const app = Fastify({ logger: true });
+
+  if (deps.oauth) {
+    registerOauthRoutes(app, { ...deps.oauth, identity: deps.identity });
+  }
 
   app.post("/api/commands", async (req, reply) => {
     const ident = await deps.identity({ headers: req.headers as Record<string, unknown> });

@@ -55,6 +55,41 @@ export const accounts = pgTable(
   }),
 );
 
+// OAuth-connected mail accounts (Gmail / Outlook). Kept separate from
+// `accounts` because the latter requires IMAP host/port/credentials up
+// front, and we want OAuth wiring to land independently of the IMAP
+// pool. Once we wire @mailai/imap-sync to XOAUTH2 we can either join
+// here or migrate to a single accounts table — see oauth_accounts.md.
+export const oauthAccounts = pgTable(
+  "oauth_accounts",
+  {
+    id: text("id").primaryKey(),
+    tenantId: text("tenant_id").notNull(),
+    userId: text("user_id").references(() => users.id).notNull(),
+    provider: text("provider").notNull(), // 'google-mail' | 'outlook'
+    email: text("email").notNull(),
+    accessToken: text("access_token").notNull(),
+    refreshToken: text("refresh_token"),
+    tokenType: text("token_type").notNull().default("Bearer"),
+    scope: text("scope"),
+    expiresAt: timestamp("expires_at", { withTimezone: true }),
+    nangoConnectionId: text("nango_connection_id"),
+    nangoProviderConfigKey: text("nango_provider_config_key"),
+    rawJson: jsonb("raw_json"), // full Nango connection payload for debugging
+    status: text("status").notNull().default("ok"), // 'ok' | 'needs-reauth' | 'revoked'
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+    lastRefreshedAt: timestamp("last_refreshed_at", { withTimezone: true }),
+  },
+  (t) => ({
+    emailIdx: uniqueIndex("oauth_accounts_tenant_email_idx").on(
+      t.tenantId,
+      t.provider,
+      t.email,
+    ),
+  }),
+);
+
 export const mailboxes = pgTable("mailboxes", {
   id: text("id").primaryKey(),
   accountId: text("account_id").references(() => accounts.id).notNull(),

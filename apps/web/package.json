@@ -17,6 +17,7 @@
     "@mailai/core": "workspace:*",
     "@mailai/design-tokens": "workspace:*",
     "@mailai/ui": "workspace:*",
+    "@nangohq/frontend": "^0.70.1",
     "next": "15.1.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0"

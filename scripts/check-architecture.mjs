@@ -32,6 +32,7 @@ const HEADLESS = new Set([
   "collaboration",
   "agent",
   "server",
+  "oauth-tokens",
 ]);
 
 const FORBIDDEN_IN_HEADLESS = [

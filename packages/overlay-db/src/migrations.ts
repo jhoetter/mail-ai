@@ -241,6 +241,34 @@ export const MIGRATIONS: Array<{ id: string; up: string }> = [
       DO $$ BEGIN CREATE POLICY tenant_iso ON inbox_members USING (tenant_id = current_setting('mailai.tenant_id', true)); EXCEPTION WHEN duplicate_object THEN NULL; END $$;
     `,
   },
+  {
+    id: "0005_oauth_accounts",
+    up: `
+      CREATE TABLE IF NOT EXISTS oauth_accounts (
+        id text PRIMARY KEY,
+        tenant_id text NOT NULL,
+        user_id text NOT NULL REFERENCES users(id),
+        provider text NOT NULL CHECK (provider IN ('google-mail','outlook')),
+        email text NOT NULL,
+        access_token text NOT NULL,
+        refresh_token text,
+        token_type text NOT NULL DEFAULT 'Bearer',
+        scope text,
+        expires_at timestamptz,
+        nango_connection_id text,
+        nango_provider_config_key text,
+        raw_json jsonb,
+        status text NOT NULL DEFAULT 'ok' CHECK (status IN ('ok','needs-reauth','revoked')),
+        created_at timestamptz NOT NULL DEFAULT now(),
+        updated_at timestamptz NOT NULL DEFAULT now(),
+        last_refreshed_at timestamptz
+      );
+      CREATE UNIQUE INDEX IF NOT EXISTS oauth_accounts_tenant_email_idx
+        ON oauth_accounts(tenant_id, provider, email);
+      ALTER TABLE oauth_accounts ENABLE ROW LEVEL SECURITY;
+      DO $$ BEGIN CREATE POLICY tenant_iso ON oauth_accounts USING (tenant_id = current_setting('mailai.tenant_id', true)); EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+    `,
+  },
 ];
 
 export async function runMigrations(pool: Pool): Promise<void> {
