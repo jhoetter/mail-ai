@@ -9,14 +9,15 @@
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "bin": {
-    "mail-agent": "./dist/cli.js"
+    "mail-agent": "./bin/mail-agent.mjs"
   },
   "files": [
     "dist",
+    "bin",
     "README.md"
   ],
   "scripts": {
-    "build": "tsc -p tsconfig.json && chmod +x dist/cli.js || true",
+    "build": "tsc -p tsconfig.json && (chmod +x dist/cli.js 2>/dev/null || true)",
     "lint": "tsc --noEmit",
     "typecheck": "tsc --noEmit",
     "test": "vitest run"
@@ -29,6 +30,7 @@
     "zod": "^3.23.8"
   },
   "devDependencies": {
+    "tsx": "^4.19.2",
     "typescript": "^5.6.3",
     "vitest": "^2.1.3"
   }

@@ -20,7 +20,6 @@ export async function startMcpStdio(): Promise<void> {
       // The MCP SDK uses zod-derived JSON schemas; we hand-roll them
       // here so the CLI scaffold stays compilable without a full SDK
       // schema dependency tree.
-      // @ts-expect-error - shape pinned in @modelcontextprotocol/sdk
       schema: undefined,
     } as never,
     async () => ({

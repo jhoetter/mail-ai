@@ -17,7 +17,7 @@ export type MailaiErrorCode =
 
 export class MailaiError extends Error {
   readonly code: MailaiErrorCode;
-  readonly cause?: unknown;
+  override readonly cause?: unknown;
   readonly meta?: Record<string, unknown>;
 
   constructor(code: MailaiErrorCode, message: string, opts: { cause?: unknown; meta?: Record<string, unknown> } = {}) {

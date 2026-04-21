@@ -43,7 +43,7 @@ describe("runSlaTick", () => {
     });
     expect(out.reopened).toEqual(["t9"]);
     expect(issue).toHaveBeenCalledOnce();
-    expect(issue.mock.calls[0][0]).toMatchObject({
+    expect(issue.mock.calls[0]?.[0]).toMatchObject({
       type: "thread:set-status",
       threadId: "t9",
       status: "open",

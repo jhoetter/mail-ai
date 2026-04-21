@@ -1,5 +1,5 @@
 import type { HTMLAttributes, ReactNode } from "react";
-import { cn } from "../lib/cn.js";
+import { cn } from "../lib/cn";
 
 // Tiny self-contained dialog (no Radix dep). Accessibility is sufficient
 // for the v1 surface — keyboard close, focus trap is left to consumers.

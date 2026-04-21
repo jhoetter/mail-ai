@@ -30,7 +30,7 @@ export class HttpAgentClient {
     return new URL(path, this.opts.baseUrl).toString();
   }
 
-  private headers(extra: Record<string, string> = {}): HeadersInit {
+  private headers(extra: Record<string, string> = {}): Record<string, string> {
     return {
       "content-type": "application/json",
       authorization: `Bearer ${this.opts.token}`,

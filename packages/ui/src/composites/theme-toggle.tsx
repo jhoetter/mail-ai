@@ -1,5 +1,7 @@
+"use client";
+
 import { useEffect, useState } from "react";
-import { Button } from "../primitives/button.js";
+import { Button } from "../primitives/button";
 
 export function ThemeToggle() {
   const [dark, setDark] = useState(false);

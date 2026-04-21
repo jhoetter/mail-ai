@@ -14,7 +14,12 @@ export interface OverlayPluginDeps {
 
 export class OverlayPlugin {
   readonly name = "overlay";
-  constructor(private readonly _deps: OverlayPluginDeps) {}
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  constructor(_deps: OverlayPluginDeps) {
+    // _deps is reserved for upcoming IMAP-side handlers (mark-read writes
+    // through to the IMAP store via the connection pool); kept on the
+    // signature so callers don't have to rewire when those land.
+  }
 
   register(bus: CommandBus): void {
     bus.register("mail:mark-read", async (cmd: Command): Promise<HandlerResult> => {

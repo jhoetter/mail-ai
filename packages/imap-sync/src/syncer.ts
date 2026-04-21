@@ -127,12 +127,12 @@ function toHeader(msg: {
   uid?: number;
   flags?: Set<string> | string[];
   modseq?: number | bigint | string;
-  internalDate?: Date;
+  internalDate?: Date | string;
   size?: number;
   envelope?: {
     messageId?: string;
     subject?: string;
-    date?: Date;
+    date?: Date | string;
     from?: Array<{ name?: string; address?: string }>;
     to?: Array<{ name?: string; address?: string }>;
     inReplyTo?: string;
@@ -140,16 +140,28 @@ function toHeader(msg: {
   bodyStructure?: unknown;
 }): MessageHeader {
   const env = msg.envelope ?? {};
+  const internal =
+    msg.internalDate instanceof Date
+      ? msg.internalDate
+      : typeof msg.internalDate === "string"
+        ? new Date(msg.internalDate)
+        : new Date(0);
+  const envDate =
+    env.date instanceof Date
+      ? env.date
+      : typeof env.date === "string"
+        ? new Date(env.date)
+        : null;
   return {
     uid: msg.uid ?? 0,
     flags: msg.flags ? Array.from(msg.flags) : [],
     modSeq: msg.modseq != null ? BigInt(msg.modseq.toString()) : null,
-    internalDate: msg.internalDate ?? new Date(0),
+    internalDate: internal,
     size: msg.size ?? 0,
     envelope: {
       messageId: env.messageId ?? null,
       subject: env.subject ?? null,
-      date: env.date ?? null,
+      date: envDate,
       from: (env.from ?? []).flatMap((a) => {
         if (!a.address) return [];
         const out: { name?: string; address: string } = { address: a.address };

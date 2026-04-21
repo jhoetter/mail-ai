@@ -49,8 +49,12 @@ services:
       - "8080:8080" # API + webmail
 
   # Dovecot: a real-world IMAP server for harder coexistence tests.
-  # Built from a thin Dockerfile so we can seed maildirs deterministically.
+  # Opt-in via `--profile dovecot` (or `make stack-up-dovecot`) — the
+  # default `make stack-up` skips it because Greenmail covers every
+  # integration test we ship today, and the upstream image moved to
+  # 2.4.x with a new config format that we have not yet rewritten.
   dovecot:
+    profiles: ["dovecot"]
     build:
       context: ./dovecot
       dockerfile: Dockerfile
@@ -60,16 +64,18 @@ services:
       - "1993:993" # IMAPS
 
   # MinIO: S3-compatible object storage for attachment blobs.
+  # 9200 (S3) / 9201 (console) match the 3200/8200 series and avoid
+  # collaboration-ai's MinIO on 9100/9101 + hof-os's on 9000/9001.
   minio:
     image: minio/minio:latest
     restart: unless-stopped
     environment:
       MINIO_ROOT_USER: mailai
       MINIO_ROOT_PASSWORD: mailai-dev-secret
-    command: server /data --console-address ":9101"
+    command: server /data --console-address ":9201"
     ports:
-      - "9100:9000"
-      - "9101:9101"
+      - "9200:9000"
+      - "9201:9201"
     volumes:
       - miniodata:/data
 

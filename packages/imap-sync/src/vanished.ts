@@ -15,8 +15,10 @@ export async function computeVanishedUids(
   if (!client) throw new MailaiError("internal_error", "connection not open");
   const lock = await client.getMailboxLock(mailboxPath);
   try {
-    const serverUids = (await client.search({ all: true }, { uid: true })) ?? [];
-    const serverSet = new Set<number>(serverUids.map(Number));
+    // imapflow returns `false` when nothing matches; treat that as empty.
+    const searchResult = await client.search({ all: true }, { uid: true });
+    const serverUids: number[] = Array.isArray(searchResult) ? searchResult.map(Number) : [];
+    const serverSet = new Set<number>(serverUids);
     const vanished: number[] = [];
     for (const uid of knownUids) {
       if (!serverSet.has(uid)) vanished.push(uid);

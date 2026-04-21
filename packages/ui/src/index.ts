@@ -1,9 +1,12 @@
-export { Button } from "./primitives/button.js";
-export { Input } from "./primitives/input.js";
-export { Card } from "./primitives/card.js";
-export { Dialog } from "./primitives/dialog.js";
-export { DataTable } from "./composites/data-table.js";
-export { PageHeader } from "./composites/page-header.js";
-export { Shell } from "./composites/shell.js";
-export { ThemeToggle } from "./composites/theme-toggle.js";
-export { cn } from "./lib/cn.js";
+// Source-only barrel. Consumers (Next, Vite) resolve .tsx natively, so
+// we deliberately omit file extensions here. The package.json `exports`
+// points straight at this file.
+export { Button } from "./primitives/button";
+export { Input } from "./primitives/input";
+export { Card } from "./primitives/card";
+export { Dialog } from "./primitives/dialog";
+export { DataTable } from "./composites/data-table";
+export { PageHeader } from "./composites/page-header";
+export { Shell } from "./composites/shell";
+export { ThemeToggle } from "./composites/theme-toggle";
+export { cn } from "./lib/cn";
