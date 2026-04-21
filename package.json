@@ -1,0 +1,35 @@
+{
+  "name": "mail-ai",
+  "private": true,
+  "version": "0.0.0",
+  "description": "AI-native email collaboration platform — IMAP overlay",
+  "license": "MIT",
+  "packageManager": "pnpm@9.15.4",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "build": "turbo run build",
+    "dev": "turbo run dev --parallel",
+    "lint": "turbo run lint",
+    "lint:root": "eslint scripts --ext .mjs,.js,.ts || true",
+    "typecheck": "turbo run typecheck",
+    "test": "turbo run test",
+    "test:integration": "turbo run test:integration",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "architecture": "node scripts/check-architecture.mjs",
+    "bundle:dry-run": "node scripts/bundle-dry-run.mjs",
+    "verify": "pnpm format:check && pnpm lint && pnpm architecture && pnpm typecheck && pnpm test && pnpm build && pnpm bundle:dry-run",
+    "fixtures:generate": "node scripts/generate-fixtures.mjs",
+    "bump-version": "node scripts/bump-version.mjs"
+  },
+  "devDependencies": {
+    "@types/node": "^22.7.0",
+    "eslint": "^9.13.0",
+    "prettier": "^3.3.3",
+    "turbo": "^2.2.3",
+    "typescript": "^5.6.3",
+    "vitest": "^2.1.3"
+  }
+}

@@ -1,0 +1,5 @@
+{
+  "$comment": "Placeholder. Mirrors infra/officeai.lock.json in hof-os. When mail-ai is integrated into hof-os, the release pipeline will populate `agent` and `react-app` with tag, sha256, and tarball URL — see docs/release-pipeline.md.",
+  "agent": null,
+  "react-app": null
+}

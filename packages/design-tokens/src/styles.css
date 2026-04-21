@@ -1,0 +1,28 @@
+/* Global stylesheet shipped with @mailai/design-tokens.
+   Imported by apps/web and re-bundled into @mailai/react-app for hosts. */
+
+@layer base {
+  :root {
+    color-scheme: light dark;
+    --mailai-bg: #ffffff;
+    --mailai-fg: #0f172a;
+    --mailai-muted: #64748b;
+    --mailai-accent: #2563eb;
+    --mailai-border: #e2e8f0;
+    --mailai-surface: #f8fafc;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --mailai-bg: #0a0a0a;
+      --mailai-fg: #f1f5f9;
+      --mailai-muted: #94a3b8;
+      --mailai-accent: #60a5fa;
+      --mailai-border: #1f2937;
+      --mailai-surface: #111827;
+    }
+  }
+  body {
+    background: var(--mailai-bg);
+    color: var(--mailai-fg);
+  }
+}

@@ -1,0 +1,11 @@
+@import "@mailai/design-tokens/styles.css";
+
+/* Embed-side global styles. Host pages may already provide a Tailwind
+   reset; this file ships only mail-ai-specific tokens + a thin reset
+   so the embed renders consistently in any modern host. */
+
+.mailai-shell {
+  font-family: var(--mailai-font-sans, system-ui);
+  color: var(--mailai-fg);
+  background: var(--mailai-bg);
+}

@@ -1,0 +1,78 @@
+# Local dev stack for mail-ai. Boot with `make stack-up`.
+# Ports are chosen to avoid colliding with hof-os (5432, 6379, 9000) AND
+# office-ai (1234) when all three repos are running on the same laptop.
+
+name: mail-ai-dev
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: mailai
+      POSTGRES_PASSWORD: mailai
+      POSTGRES_DB: mailai
+    ports:
+      - "5532:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U mailai"]
+      interval: 2s
+      timeout: 3s
+      retries: 20
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    ports:
+      - "6479:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 2s
+      timeout: 3s
+      retries: 20
+
+  # Greenmail: a Java-based test SMTP/IMAP server with IDLE.
+  # Default users live in greenmail.properties (mounted below).
+  greenmail:
+    image: greenmail/standalone:2.0.1
+    restart: unless-stopped
+    environment:
+      GREENMAIL_OPTS: "-Dgreenmail.setup.test.all -Dgreenmail.users=alice:alice@mailai.test,bob:bob@mailai.test,carol:carol@mailai.test -Dgreenmail.auth.disabled -Dgreenmail.verbose"
+    ports:
+      - "3025:3025" # SMTP
+      - "3110:3110" # POP3 (unused)
+      - "3143:3143" # IMAP
+      - "3465:3465" # SMTPS
+      - "3993:3993" # IMAPS
+      - "8080:8080" # API + webmail
+
+  # Dovecot: a real-world IMAP server for harder coexistence tests.
+  # Built from a thin Dockerfile so we can seed maildirs deterministically.
+  dovecot:
+    build:
+      context: ./dovecot
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    ports:
+      - "1143:143" # IMAP (STARTTLS)
+      - "1993:993" # IMAPS
+
+  # MinIO: S3-compatible object storage for attachment blobs.
+  minio:
+    image: minio/minio:latest
+    restart: unless-stopped
+    environment:
+      MINIO_ROOT_USER: mailai
+      MINIO_ROOT_PASSWORD: mailai-dev-secret
+    command: server /data --console-address ":9101"
+    ports:
+      - "9100:9000"
+      - "9101:9101"
+    volumes:
+      - miniodata:/data
+
+volumes:
+  pgdata:
+  miniodata:

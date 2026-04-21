@@ -1,0 +1,12 @@
+Message-ID: <tb-1@mailai.test>
+Date: Tue, 21 Apr 2026 09:00:00 +0000
+From: ed@example.org
+To: bob@example.com
+Subject: Plain flowed
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+Content-Type: text/plain; charset=UTF-8; format=flowed; delsp=no
+
+Line one is long enough to wrap and wrap and wrap and wrap and wrap and wrap and wrap. 
+Line two.

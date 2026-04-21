@@ -1,0 +1,3 @@
+alice@mailai.test:{plain}alice::::::userdb_mail=maildir:/srv/mail/alice
+bob@mailai.test:{plain}bob::::::userdb_mail=maildir:/srv/mail/bob
+carol@mailai.test:{plain}carol::::::userdb_mail=maildir:/srv/mail/carol

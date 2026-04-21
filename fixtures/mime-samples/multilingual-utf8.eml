@@ -1,0 +1,10 @@
+Message-ID: <ml-utf8@mailai.test>
+Date: Tue, 21 Apr 2026 09:00:00 +0000
+From: françois@example.fr
+To: bob@example.com
+Subject: =?UTF-8?B?VG9rb24gw6lww6ljaWFsZQ==?=
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+Bonjour le monde. Épécial.

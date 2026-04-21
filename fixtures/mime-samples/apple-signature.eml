@@ -1,0 +1,19 @@
+Message-ID: <apple-1@mailai.test>
+Date: Tue, 21 Apr 2026 09:00:00 +0000
+From: dan@icloud.com
+To: bob@example.com
+Subject: Sent from Apple Mail
+MIME-Version: 1.0
+Content-Type: multipart/alternative; boundary="=_b_apple-1"
+
+--=_b_apple-1
+Content-Type: text/plain; charset=UTF-8
+
+Hello
+
+Sent from my iPhone
+--=_b_apple-1
+Content-Type: text/html; charset=UTF-8
+
+<div>Hello</div><div class="apple-mail-signature">Sent from my iPhone</div>
+--=_b_apple-1--

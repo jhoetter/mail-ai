@@ -1,0 +1,20 @@
+Message-ID: <gmail-3@mailai.test>
+Date: Tue, 21 Apr 2026 09:00:00 +0000
+From: alice@gmail.com
+To: bob@example.com
+Subject: Gmail-style sample 3
+MIME-Version: 1.0
+Content-Type: multipart/alternative; boundary="=_b_gmail-3"
+
+--=_b_gmail-3
+Content-Type: text/plain; charset=UTF-8
+
+Hi,
+This is plaintext part 3.
+-- 
+Alice
+--=_b_gmail-3
+Content-Type: text/html; charset=UTF-8
+
+<div dir="ltr"><p>This is HTML part 3.</p><div class="gmail_signature">Alice</div></div>
+--=_b_gmail-3--

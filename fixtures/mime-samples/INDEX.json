@@ -1,0 +1,66 @@
+{
+  "generated_at": "2026-04-21T13:53:31.868Z",
+  "note": "Synthetic fixtures. Replace with real .eml files before production.",
+  "samples": [
+    {
+      "file": "gmail-simple-0.eml",
+      "category": "gmail",
+      "synthetic": true
+    },
+    {
+      "file": "gmail-simple-1.eml",
+      "category": "gmail",
+      "synthetic": true
+    },
+    {
+      "file": "gmail-simple-2.eml",
+      "category": "gmail",
+      "synthetic": true
+    },
+    {
+      "file": "gmail-simple-3.eml",
+      "category": "gmail",
+      "synthetic": true
+    },
+    {
+      "file": "gmail-simple-4.eml",
+      "category": "gmail",
+      "synthetic": true
+    },
+    {
+      "file": "outlook-refs-0.eml",
+      "category": "outlook",
+      "synthetic": true
+    },
+    {
+      "file": "outlook-refs-1.eml",
+      "category": "outlook",
+      "synthetic": true
+    },
+    {
+      "file": "outlook-refs-2.eml",
+      "category": "outlook",
+      "synthetic": true
+    },
+    {
+      "file": "apple-signature.eml",
+      "category": "apple",
+      "synthetic": true
+    },
+    {
+      "file": "thunderbird-flowed.eml",
+      "category": "thunderbird",
+      "synthetic": true
+    },
+    {
+      "file": "multilingual-utf8.eml",
+      "category": "multilingual",
+      "synthetic": true
+    },
+    {
+      "file": "malformed-unterminated.eml",
+      "category": "malformed",
+      "synthetic": true
+    }
+  ]
+}
