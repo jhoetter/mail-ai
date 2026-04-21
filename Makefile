@@ -27,9 +27,14 @@ RT_PORT  ?= 1235
 PNPM     := pnpm
 COMPOSE  := docker compose -f infra/docker/compose.dev.yml
 
+# Where `make dev` parks the detached dev-stack process + its log. Both
+# files are gitignored. Don't move these without updating .gitignore.
+DEV_LOG  := .mailai-dev.log
+DEV_PID  := .mailai-dev.pid
+
 .PHONY: help install \
         stack-up stack-up-dovecot stack-down stack-logs stack-reset \
-        build-libs dev dev-web dev-api dev-embed kill-ports \
+        build-libs dev dev-wait dev-logs dev-stop dev-web dev-api dev-embed kill-ports \
         verify fixtures
 
 help:
@@ -41,9 +46,11 @@ help:
 	@echo "  stack-logs         Follow the dev-stack logs"
 	@echo "  stack-reset        Wipe stack volumes (DESTRUCTIVE)"
 	@echo "  build-libs         Build all workspace libs (so tsx watchers can resolve them)"
-	@echo "  dev                Boot stack + free ports + run web (:$(WEB_PORT)) + api (:$(API_PORT)); api embeds realtime ws on :$(RT_PORT)"
-	@echo "  dev-web            Web UI only on :$(WEB_PORT)"
-	@echo "  dev-api            API server only on :$(API_PORT)"
+	@echo "  dev                Boot stack, verify health on web/api/ws, then stream logs (servers detach + survive a kill)"
+	@echo "  dev-logs           Re-attach to a running \`make dev\` log stream"
+	@echo "  dev-stop           Stop the detached dev stack started by \`make dev\`"
+	@echo "  dev-web            Web UI only on :$(WEB_PORT) (foreground, no detach)"
+	@echo "  dev-api            API server only on :$(API_PORT) (foreground, no detach)"
 	@echo "  dev-embed          Vite embed-host smoke harness (separate from main dev loop)"
 	@echo "  kill-ports         Free :$(WEB_PORT) :$(API_PORT) :$(RT_PORT) (matches collaboration-ai)"
 	@echo "  verify             Lint + typecheck + tests + build (CI parity)"
@@ -110,18 +117,106 @@ kill-ports:
 build-libs:
 	$(PNPM) turbo run build --filter './packages/**'
 
-# NOTE: kill-ports must be the LAST prereq before launching turbo, so the
-# ~few-second window between freeing ports and binding them isn't long
-# enough for a stale watcher to sneak back in. build-libs runs first so
-# kill-ports is closest to the actual `turbo run dev` invocation.
+# `make dev` is split into three phases so "everything works" is *proven*,
+# not assumed:
+#
+#   1. boot   — stack-up + build-libs + kill-ports + start the dev
+#               servers DETACHED (`(nohup ... &)` in a subshell so the
+#               child is reparented to launchd; an external SIGKILL on
+#               `make` itself can no longer take the dev stack down).
+#               stdout+stderr go to .mailai-dev.log; pid is captured
+#               into .mailai-dev.pid for `make dev-stop`.
+#
+#   2. verify — `dev-wait` polls `/api/health`, `:WEB_PORT/`, and a TCP
+#               connect on `:RT_PORT` until ALL three respond (timeout
+#               60s). Only when all three are green do we declare the
+#               stack healthy. If any fails we tail the log, run
+#               `dev-stop`, and exit non-zero.
+#
+#   3. tail   — `exec tail -F .mailai-dev.log` so the make process is
+#               REPLACED by tail. If the user closes the terminal /
+#               IDE kills the foreground command / OOM, only tail
+#               dies — the dev servers keep running. Re-attach any
+#               time via `make dev-logs`; stop via `make dev-stop`.
+#
+# kill-ports must be the LAST prereq before the launch so the ~few-second
+# window between freeing ports and binding them isn't long enough for a
+# stale watcher to sneak back in.
 dev: stack-up build-libs kill-ports
-	@echo "→ web        http://localhost:$(WEB_PORT)"
-	@echo "→ api        http://localhost:$(API_PORT)"
-	@echo "→ realtime   ws://localhost:$(RT_PORT)"
-	WEB_PORT=$(WEB_PORT) API_PORT=$(API_PORT) MAILAI_RT_PORT=$(RT_PORT) \
-	  $(PNPM) turbo run dev --parallel \
-	    --filter @mailai/web \
-	    --filter @mailai/server
+	@rm -f $(DEV_LOG) $(DEV_PID)
+	@echo "→ Booting dev stack (detached; logs → $(DEV_LOG))..."
+	@( WEB_PORT=$(WEB_PORT) API_PORT=$(API_PORT) MAILAI_RT_PORT=$(RT_PORT) \
+	   nohup $(PNPM) turbo run dev --parallel \
+	     --filter @mailai/web \
+	     --filter @mailai/server \
+	     >"$(DEV_LOG)" 2>&1 & echo $$! >"$(DEV_PID)" )
+	@$(MAKE) --no-print-directory dev-wait || ( \
+	  echo ""; \
+	  echo "❌ dev: services failed to come up healthy in 60s."; \
+	  echo "─── last 80 log lines ($(DEV_LOG)) ─────────────────────────────"; \
+	  tail -n 80 "$(DEV_LOG)" || true; \
+	  echo "────────────────────────────────────────────────────────────────"; \
+	  $(MAKE) --no-print-directory dev-stop >/dev/null 2>&1 || true; \
+	  exit 1 \
+	)
+	@echo ""
+	@echo "✅ web        http://localhost:$(WEB_PORT)"
+	@echo "✅ api        http://localhost:$(API_PORT)/api/health"
+	@echo "✅ realtime   ws://localhost:$(RT_PORT)"
+	@echo ""
+	@echo "Streaming logs. Ctrl-C / closing this terminal only stops the tail —"
+	@echo "the dev stack keeps running. Re-attach: \`make dev-logs\`. Stop: \`make dev-stop\`."
+	@echo ""
+	@exec tail -F "$(DEV_LOG)"
+
+# Polls the three local endpoints until each responds OR the deadline
+# (60s) elapses. Prints a tick per service as it comes up so the user
+# sees progress instead of a blank wait. Returns 0 only when ALL three
+# are green — the `dev` target uses that to gate its "healthy" banner.
+dev-wait:
+	@deadline=$$(($$(date +%s) + 60)); \
+	api=0; web=0; rt=0; \
+	while [ "$$(date +%s)" -lt "$$deadline" ]; do \
+	  if [ "$$api" = 0 ] && curl -fsS -o /dev/null --max-time 1 \
+	      http://127.0.0.1:$(API_PORT)/api/health 2>/dev/null; then \
+	    api=1; echo "  ✓ api   :$(API_PORT)/api/health"; \
+	  fi; \
+	  if [ "$$web" = 0 ] && curl -fsS -o /dev/null --max-time 1 \
+	      http://127.0.0.1:$(WEB_PORT)/ 2>/dev/null; then \
+	    web=1; echo "  ✓ web   :$(WEB_PORT)/"; \
+	  fi; \
+	  if [ "$$rt" = 0 ] && nc -z -w 1 127.0.0.1 $(RT_PORT) >/dev/null 2>&1; then \
+	    rt=1; echo "  ✓ ws    :$(RT_PORT) (tcp)"; \
+	  fi; \
+	  if [ "$$api" = 1 ] && [ "$$web" = 1 ] && [ "$$rt" = 1 ]; then \
+	    exit 0; \
+	  fi; \
+	  sleep 0.5; \
+	done; \
+	echo "  api=$$api web=$$web rt=$$rt (1 = healthy)" >&2; \
+	exit 1
+
+# Re-attach to the streaming dev log. Useful after the foreground tail
+# was killed (terminal close, IDE timeout) but the detached servers
+# kept running.
+dev-logs:
+	@test -f "$(DEV_LOG)" || (echo "no $(DEV_LOG) — run \`make dev\` first" >&2; exit 1)
+	@exec tail -F "$(DEV_LOG)"
+
+# Stop the detached dev stack: kill the captured turbo PID + its
+# descendants, then run `kill-ports` to mop up any orphaned watchers.
+# Idempotent — safe to run when nothing is up.
+dev-stop:
+	@if [ -f "$(DEV_PID)" ]; then \
+	  pid=$$(cat "$(DEV_PID)"); \
+	  if [ -n "$$pid" ] && kill -0 "$$pid" 2>/dev/null; then \
+	    echo "Stopping detached dev stack (pid $$pid + descendants)..."; \
+	    pkill -9 -P "$$pid" 2>/dev/null || true; \
+	    kill -9 "$$pid" 2>/dev/null || true; \
+	  fi; \
+	  rm -f "$(DEV_PID)"; \
+	fi
+	@$(MAKE) --no-print-directory kill-ports
 
 dev-web:
 	$(PNPM) --filter @mailai/web dev
