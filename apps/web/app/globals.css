@@ -1,5 +1,37 @@
-/* Tailwind setup is a follow-up; for now we just pull in the design
-   tokens (CSS variables) so the UI primitives in @mailai/ui resolve
-   their colors. Add `@import "tailwindcss";` + `@tailwindcss/postcss`
-   plugin in apps/web/postcss.config.mjs once we wire Tailwind v4. */
+@import "tailwindcss";
 @import "@mailai/design-tokens/styles.css";
+
+/* Tailwind v4 only auto-scans the current package's source by default.
+   Our UI primitives live in a sibling workspace, so we explicitly add
+   them as a content source here — otherwise classes like `bg-accent`
+   coming from @mailai/ui get tree-shaken out of the generated CSS. */
+@source "../../../packages/ui/src/**/*.{ts,tsx}";
+
+/* Map the design-token CSS variables (defined in
+   @mailai/design-tokens/styles.css) onto Tailwind v4's theme so utility
+   classes used across the app and @mailai/ui resolve to the right
+   values in both light and dark mode. */
+@theme {
+  --color-bg: var(--mailai-bg);
+  --color-fg: var(--mailai-fg);
+  --color-muted: var(--mailai-muted);
+  --color-accent: var(--mailai-accent);
+  --color-border: var(--mailai-border);
+  --color-surface: var(--mailai-surface);
+  --color-danger: #dc2626;
+  --color-success: #16a34a;
+
+  --radius-sm: 4px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  --radius-xl: 16px;
+
+  --font-sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto,
+    sans-serif;
+  --font-mono: ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
+html,
+body {
+  font-family: var(--font-sans);
+}

@@ -15,7 +15,11 @@ export default function Home() {
       <PageHeader
         title="mail-ai"
         subtitle="AI-native email collaboration — IMAP overlay"
-        actions={<Button variant="primary">Connect account</Button>}
+        actions={
+          <Link href="/settings/account">
+            <Button variant="primary">Connect account</Button>
+          </Link>
+        }
       />
       <Card>
         <h2 className="text-base font-semibold">Welcome</h2>
