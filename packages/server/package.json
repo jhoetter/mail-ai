@@ -17,6 +17,7 @@
     "@mailai/agent": "workspace:*",
     "@mailai/collaboration": "workspace:*",
     "@mailai/core": "workspace:*",
+    "@mailai/oauth-tokens": "workspace:*",
     "@mailai/overlay-db": "workspace:*",
     "fastify": "^5.1.0",
     "ws": "^8.18.0",

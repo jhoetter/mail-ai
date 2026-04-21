@@ -5,6 +5,7 @@
 import { WebSocketServer } from "ws";
 import { CommandBus } from "@mailai/core";
 import { createPool, runMigrations } from "@mailai/overlay-db";
+import { loadProviderCredentialsFromEnv } from "@mailai/oauth-tokens";
 import { buildApp } from "./app.js";
 import { EventBroadcaster } from "./events.js";
 import { NangoClient } from "./oauth/nango-client.js";
@@ -60,6 +61,10 @@ async function main() {
         "google-mail": process.env["NANGO_GOOGLE_INTEGRATION"] ?? "google-mail",
         outlook: process.env["NANGO_OUTLOOK_INTEGRATION"] ?? "outlook",
       },
+      // Provider client credentials for direct refresh / REST sync.
+      // Empty object is fine — sync routes will surface a clear
+      // "no GOOGLE_OAUTH_CLIENT_ID" auth_error in that case.
+      credentials: loadProviderCredentialsFromEnv(),
       ...(nango ? { nango } : {}),
     },
   });

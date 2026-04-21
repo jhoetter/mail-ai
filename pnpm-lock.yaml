@@ -322,6 +322,9 @@ importers:
       '@mailai/core':
         specifier: workspace:*
         version: link:../core
+      '@mailai/oauth-tokens':
+        specifier: workspace:*
+        version: link:../oauth-tokens
       '@mailai/overlay-db':
         specifier: workspace:*
         version: link:../overlay-db

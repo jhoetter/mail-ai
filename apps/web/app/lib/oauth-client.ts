@@ -20,6 +20,21 @@ export interface AccountSummary {
   status: "ok" | "needs-reauth" | "revoked";
   expiresAt: string | null;
   createdAt: string;
+  lastSyncedAt: string | null;
+  lastSyncError: string | null;
+}
+
+export interface SyncResult {
+  fetched: number;
+  inserted: number;
+  updated: number;
+  durationMs: number;
+}
+
+export interface FinalizeResponse extends AccountSummary {
+  initialSync:
+    | ({ status: "ok" } & SyncResult)
+    | { status: "pending" };
 }
 
 export interface OauthApiError {
@@ -66,13 +81,13 @@ export async function createConnectSession(
 export async function finalizeConnection(args: {
   provider: ConnectProvider;
   connectionId: string;
-}): Promise<AccountSummary> {
+}): Promise<FinalizeResponse> {
   const res = await fetch(`${baseUrl()}/api/oauth/finalize`, {
     method: "POST",
     headers: { "content-type": "application/json" },
     body: JSON.stringify(args),
   });
-  return jsonOrThrow<AccountSummary>(res);
+  return jsonOrThrow<FinalizeResponse>(res);
 }
 
 export async function listAccounts(): Promise<AccountSummary[]> {
@@ -86,4 +101,11 @@ export async function deleteAccount(id: string): Promise<void> {
     method: "DELETE",
   });
   await jsonOrThrow<{ ok: true }>(res);
+}
+
+export async function syncAccount(id: string): Promise<SyncResult> {
+  const res = await fetch(`${baseUrl()}/api/accounts/${encodeURIComponent(id)}/sync`, {
+    method: "POST",
+  });
+  return jsonOrThrow<SyncResult>(res);
 }

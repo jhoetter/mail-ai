@@ -80,6 +80,8 @@ export const oauthAccounts = pgTable(
     createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
     lastRefreshedAt: timestamp("last_refreshed_at", { withTimezone: true }),
+    lastSyncedAt: timestamp("last_synced_at", { withTimezone: true }),
+    lastSyncError: text("last_sync_error"),
   },
   (t) => ({
     emailIdx: uniqueIndex("oauth_accounts_tenant_email_idx").on(
@@ -87,6 +89,40 @@ export const oauthAccounts = pgTable(
       t.provider,
       t.email,
     ),
+  }),
+);
+
+// Lightweight message store for the Gmail/Graph REST sync path. See
+// migration 0006_oauth_messages for the rationale for not reusing
+// `messages` (uid is a 4-byte int; provider ids are 16-hex strings).
+export const oauthMessages = pgTable(
+  "oauth_messages",
+  {
+    id: text("id").primaryKey(),
+    tenantId: text("tenant_id").notNull(),
+    oauthAccountId: text("oauth_account_id")
+      .references(() => oauthAccounts.id, { onDelete: "cascade" })
+      .notNull(),
+    provider: text("provider").notNull(),
+    providerMessageId: text("provider_message_id").notNull(),
+    providerThreadId: text("provider_thread_id").notNull(),
+    subject: text("subject"),
+    fromName: text("from_name"),
+    fromEmail: text("from_email"),
+    toAddr: text("to_addr"),
+    snippet: text("snippet").notNull().default(""),
+    internalDate: timestamp("internal_date", { withTimezone: true }).notNull(),
+    labelsJson: jsonb("labels_json").notNull(),
+    unread: boolean("unread").notNull().default(false),
+    fetchedAt: timestamp("fetched_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => ({
+    msgIdx: uniqueIndex("oauth_messages_account_msg_idx").on(
+      t.oauthAccountId,
+      t.providerMessageId,
+    ),
+    dateIdx: index("oauth_messages_tenant_date_idx").on(t.tenantId, t.internalDate),
+    threadIdx: index("oauth_messages_thread_idx").on(t.tenantId, t.providerThreadId),
   }),
 );
 

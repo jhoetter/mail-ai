@@ -269,6 +269,47 @@ export const MIGRATIONS: Array<{ id: string; up: string }> = [
       DO $$ BEGIN CREATE POLICY tenant_iso ON oauth_accounts USING (tenant_id = current_setting('mailai.tenant_id', true)); EXCEPTION WHEN duplicate_object THEN NULL; END $$;
     `,
   },
+  {
+    // Lightweight, OAuth-only message store for the Gmail/Graph REST
+    // sync path. Lives alongside the IMAP-shaped `messages` table —
+    // not inside it — because Gmail message ids are 16-hex strings and
+    // `messages.uid` is a 4-byte integer. Once @mailai/imap-sync grows
+    // a real XOAUTH2 path we can backfill into `messages` and drop
+    // this; until then it lets the UI surface real mail the moment the
+    // popup closes.
+    id: "0006_oauth_messages",
+    up: `
+      CREATE TABLE IF NOT EXISTS oauth_messages (
+        id text PRIMARY KEY,
+        tenant_id text NOT NULL,
+        oauth_account_id text NOT NULL REFERENCES oauth_accounts(id) ON DELETE CASCADE,
+        provider text NOT NULL CHECK (provider IN ('google-mail','outlook')),
+        provider_message_id text NOT NULL,
+        provider_thread_id text NOT NULL,
+        subject text,
+        from_name text,
+        from_email text,
+        to_addr text,
+        snippet text NOT NULL DEFAULT '',
+        internal_date timestamptz NOT NULL,
+        labels_json jsonb NOT NULL DEFAULT '[]'::jsonb,
+        unread boolean NOT NULL DEFAULT false,
+        fetched_at timestamptz NOT NULL DEFAULT now()
+      );
+      CREATE UNIQUE INDEX IF NOT EXISTS oauth_messages_account_msg_idx
+        ON oauth_messages(oauth_account_id, provider_message_id);
+      CREATE INDEX IF NOT EXISTS oauth_messages_tenant_date_idx
+        ON oauth_messages(tenant_id, internal_date DESC);
+      CREATE INDEX IF NOT EXISTS oauth_messages_thread_idx
+        ON oauth_messages(tenant_id, provider_thread_id);
+      ALTER TABLE oauth_messages ENABLE ROW LEVEL SECURITY;
+      DO $$ BEGIN CREATE POLICY tenant_iso ON oauth_messages USING (tenant_id = current_setting('mailai.tenant_id', true)); EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+
+      ALTER TABLE oauth_accounts
+        ADD COLUMN IF NOT EXISTS last_synced_at timestamptz,
+        ADD COLUMN IF NOT EXISTS last_sync_error text;
+    `,
+  },
 ];
 
 export async function runMigrations(pool: Pool): Promise<void> {

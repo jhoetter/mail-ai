@@ -6,6 +6,7 @@ export * from "./schema.js";
 export * from "./client.js";
 export * from "./repositories/accounts.js";
 export * from "./repositories/oauth-accounts.js";
+export * from "./repositories/oauth-messages.js";
 export * from "./repositories/messages.js";
 export * from "./repositories/threads.js";
 export * from "./repositories/audit.js";

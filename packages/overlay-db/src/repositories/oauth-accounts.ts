@@ -31,6 +31,8 @@ export interface OauthAccountRow {
   readonly createdAt: Date;
   readonly updatedAt: Date;
   readonly lastRefreshedAt: Date | null;
+  readonly lastSyncedAt: Date | null;
+  readonly lastSyncError: string | null;
 }
 
 export interface OauthAccountInsert {
@@ -176,9 +178,65 @@ export class OauthAccountsRepository {
       .where(and(eq(oauthAccounts.tenantId, tenantId), eq(oauthAccounts.id, id)));
   }
 
+  // Used by /api/oauth/finalize when the verified address from the
+  // provider differs from the placeholder (or earlier guess) we
+  // persisted. Skips the unique index race by going through the same
+  // (tenant, provider, email) lookup path as upsert.
+  async updateEmail(tenantId: string, id: string, email: string): Promise<void> {
+    await this.db
+      .update(oauthAccounts)
+      .set({ email, updatedAt: new Date() })
+      .where(and(eq(oauthAccounts.tenantId, tenantId), eq(oauthAccounts.id, id)));
+  }
+
+  // Records the result of an initial / on-demand REST sync. `error`
+  // is null on success; otherwise it's the truncated error message.
+  async markSync(
+    tenantId: string,
+    id: string,
+    args: { at: Date; error: string | null },
+  ): Promise<void> {
+    await this.db
+      .update(oauthAccounts)
+      .set({
+        lastSyncedAt: args.at,
+        lastSyncError: args.error,
+        updatedAt: new Date(),
+      })
+      .where(and(eq(oauthAccounts.tenantId, tenantId), eq(oauthAccounts.id, id)));
+  }
+
   async delete(tenantId: string, id: string): Promise<void> {
     await this.db
       .delete(oauthAccounts)
       .where(and(eq(oauthAccounts.tenantId, tenantId), eq(oauthAccounts.id, id)));
+  }
+
+  // Remove any "placeholder" rows for this user+provider whose email
+  // looks like the `<provider>-<connectionId>@unknown.local` fallback
+  // we used before userinfo resolution. Called from /api/oauth/finalize
+  // so reconnecting an account doesn't leave the broken row alongside
+  // the now-correctly-named one (the unique index is on email, so a
+  // simple upsert can't fix this case on its own).
+  async deletePlaceholders(args: {
+    tenantId: string;
+    userId: string;
+    provider: OauthProvider;
+  }): Promise<number> {
+    const rows = await this.db
+      .select({ id: oauthAccounts.id, email: oauthAccounts.email })
+      .from(oauthAccounts)
+      .where(
+        and(
+          eq(oauthAccounts.tenantId, args.tenantId),
+          eq(oauthAccounts.userId, args.userId),
+          eq(oauthAccounts.provider, args.provider),
+        ),
+      );
+    const placeholders = rows.filter((r) => r.email.endsWith("@unknown.local"));
+    for (const r of placeholders) {
+      await this.delete(args.tenantId, r.id);
+    }
+    return placeholders.length;
   }
 }
