@@ -12,6 +12,15 @@
 # Realtime ws lives on 1235 (office-ai uses 1234).
 # ----------------------------------------------------------------------
 
+# Auto-load .env so `make dev` picks up NANGO_SECRET_KEY, OAuth client
+# creds, DATABASE_URL, etc. without each developer needing to remember
+# `set -a; . ./.env; set +a` first. The `-` means "don't fail if the
+# file is missing" (CI, fresh clones). `export` then re-exports every
+# variable defined above this line to all child processes (pnpm, turbo,
+# tsx, next), which is what the API server and Next runtime read from.
+-include .env
+export
+
 WEB_PORT ?= 3200
 API_PORT ?= 8200
 RT_PORT  ?= 1235
