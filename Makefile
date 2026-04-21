@@ -1,52 +1,76 @@
 # mail-ai Makefile
 # ----------------------------------------------------------------------
-# Default Next.js port 3200 (one digit above office-ai's 3100, two above
-# hof-os' 3000) so all three coexist on a developer laptop without
-# port-stomping. Override with `PORT=3000 make dev` if running mail-ai
-# in isolation. Realtime ws defaults to 1235 (office-ai uses 1234).
+# Mirrors the collaboration-ai layout (`make dev` brings up infra +
+# backend + web in one shot, `kill-ports` frees ours before re-running).
+#
+# Local "AI suite" port allocation (must match collaboration-ai's
+# Makefile comment so all four repos coexist on one laptop):
+#   3000 -> hof-os         (8000 backend)
+#   3100 -> office-ai      (8100 backend)
+#   3200 -> mail-ai        (8200 backend)  <-- this repo
+#   3300 -> collaboration  (8300 backend)
+# Realtime ws lives on 1235 (office-ai uses 1234).
 # ----------------------------------------------------------------------
 
-PORT ?= 3200
-RT_PORT ?= 1235
-COMPOSE := docker compose -f infra/docker/compose.dev.yml
+WEB_PORT ?= 3200
+API_PORT ?= 8200
+RT_PORT  ?= 1235
+PNPM     := pnpm
+COMPOSE  := docker compose -f infra/docker/compose.dev.yml
 
-.PHONY: help
+.PHONY: help \
+        stack-up stack-down stack-logs stack-reset \
+        dev dev-web dev-api kill-ports \
+        verify fixtures
+
 help:
 	@echo "Targets:"
-	@echo "  make stack-up       Bring up Postgres, Redis, Dovecot, Greenmail, MinIO"
-	@echo "  make stack-down     Stop the dev stack"
-	@echo "  make stack-logs     Follow the dev-stack logs"
-	@echo "  make dev            Boot stack + run apps in watch mode"
-	@echo "  make verify         Lint + typecheck + tests + build (CI parity)"
-	@echo "  make fixtures       Generate the synthetic MIME fixture corpus"
-	@echo "  make stack-reset    Wipe stack volumes (DESTRUCTIVE)"
+	@echo "  stack-up      Bring up Postgres, Redis, Dovecot, Greenmail, MinIO"
+	@echo "  stack-down    Stop the dev stack"
+	@echo "  stack-logs    Follow the dev-stack logs"
+	@echo "  stack-reset   Wipe stack volumes (DESTRUCTIVE)"
+	@echo "  dev           Boot stack + free ports + run web (:$(WEB_PORT)) + api (:$(API_PORT)) + realtime (:$(RT_PORT))"
+	@echo "  dev-web       Web UI only on :$(WEB_PORT)"
+	@echo "  dev-api       API server only on :$(API_PORT)"
+	@echo "  kill-ports    Free :$(WEB_PORT) :$(API_PORT) :$(RT_PORT) (matches collaboration-ai)"
+	@echo "  verify        Lint + typecheck + tests + build (CI parity)"
+	@echo "  fixtures      Generate the synthetic MIME fixture corpus"
 
-.PHONY: stack-up
 stack-up:
 	$(COMPOSE) up -d
 
-.PHONY: stack-down
 stack-down:
 	$(COMPOSE) down
 
-.PHONY: stack-logs
 stack-logs:
 	$(COMPOSE) logs -f
 
-.PHONY: stack-reset
 stack-reset:
 	$(COMPOSE) down -v
 
-.PHONY: dev
-dev: stack-up
-	@echo "→ next dev          http://localhost:$(PORT)"
-	@echo "→ realtime ws       ws://localhost:$(RT_PORT)"
-	PORT=$(PORT) MAILAI_RT_PORT=$(RT_PORT) pnpm turbo run dev --parallel
+# Frees the ports we own before spinning back up — matches
+# collaboration-ai's `kill-ports` so re-running `make dev` after a
+# Ctrl-C doesn't trip "address already in use".
+kill-ports:
+	@lsof -ti :$(WEB_PORT) | xargs kill -9 2>/dev/null || true
+	@lsof -ti :$(API_PORT) | xargs kill -9 2>/dev/null || true
+	@lsof -ti :$(RT_PORT)  | xargs kill -9 2>/dev/null || true
 
-.PHONY: verify
+dev: stack-up kill-ports
+	@echo "→ web        http://localhost:$(WEB_PORT)"
+	@echo "→ api        http://localhost:$(API_PORT)"
+	@echo "→ realtime   ws://localhost:$(RT_PORT)"
+	WEB_PORT=$(WEB_PORT) API_PORT=$(API_PORT) MAILAI_RT_PORT=$(RT_PORT) \
+	  $(PNPM) turbo run dev --parallel
+
+dev-web:
+	$(PNPM) --filter @mailai/web dev
+
+dev-api:
+	API_PORT=$(API_PORT) $(PNPM) --filter @mailai/server dev
+
 verify:
-	pnpm verify
+	$(PNPM) verify
 
-.PHONY: fixtures
 fixtures:
-	pnpm fixtures:generate
+	$(PNPM) fixtures:generate
