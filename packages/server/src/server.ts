@@ -17,7 +17,7 @@ async function main() {
     identity: async () => ({ userId: "u_dev", tenantId: "t_dev" }),
   });
 
-  const port = Number(process.env["PORT"] ?? 4000);
+  const port = Number(process.env["API_PORT"] ?? process.env["PORT"] ?? 8200);
   const wsPort = Number(process.env["MAILAI_RT_PORT"] ?? 1235);
 
   await app.listen({ host: "0.0.0.0", port });
