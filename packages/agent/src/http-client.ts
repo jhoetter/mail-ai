@@ -173,7 +173,7 @@ export class HttpAgentClient {
     const headers: Record<string, string> = {};
     if (input.idempotencyKey) headers["idempotency-key"] = input.idempotencyKey;
     if (input.inboxId) headers["x-inbox-id"] = input.inboxId;
-    if (input.propose) headers["x-mailai-source"] = "agent";
+    if (input.source) headers["x-mailai-source"] = input.source;
     const res = await this.fetchImpl(this.url("/api/commands"), {
       method: "POST",
       headers: this.headers(headers),
@@ -184,34 +184,6 @@ export class HttpAgentClient {
     const m = body.results?.[0];
     if (!m) throw new MailaiError("internal_error", "empty mutation result from server");
     return m;
-  }
-
-  async listPending(filter?: { actorId?: string; type?: CommandTypeString }): Promise<Mutation[]> {
-    const url = new URL(this.url("/api/mutations/pending"));
-    if (filter?.actorId) url.searchParams.set("actorId", filter.actorId);
-    if (filter?.type) url.searchParams.set("type", filter.type);
-    const res = await this.fetchImpl(url.toString(), { headers: this.headers() });
-    if (!res.ok) await throwHttp(res);
-    return (await res.json()) as Mutation[];
-  }
-
-  async approve(id: string): Promise<Mutation> {
-    const res = await this.fetchImpl(this.url(`/api/mutations/${id}/approve`), {
-      method: "POST",
-      headers: this.headers(),
-    });
-    if (!res.ok) await throwHttp(res);
-    return (await res.json()) as Mutation;
-  }
-
-  async reject(id: string, reason?: string): Promise<Mutation> {
-    const res = await this.fetchImpl(this.url(`/api/mutations/${id}/reject`), {
-      method: "POST",
-      headers: this.headers(),
-      body: JSON.stringify({ reason }),
-    });
-    if (!res.ok) await throwHttp(res);
-    return (await res.json()) as Mutation;
   }
 
   async whoami(): Promise<{ userId: string; tenantId: string; displayName: string }> {

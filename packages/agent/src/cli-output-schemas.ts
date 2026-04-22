@@ -6,7 +6,7 @@ import { z } from "zod";
 
 export const MutationOutputSchema = z.object({
   id: z.string(),
-  status: z.enum(["pending", "applied", "failed", "rolled-back", "rejected"]),
+  status: z.enum(["applied", "failed"]),
   command: z.object({
     type: z.string(),
     actorId: z.string(),
@@ -20,11 +20,6 @@ export const WhoamiOutputSchema = z.object({
   userId: z.string(),
   tenantId: z.string(),
   displayName: z.string(),
-});
-
-export const PendingListOutputSchema = z.object({
-  items: z.array(MutationOutputSchema),
-  count: z.number().int().min(0),
 });
 
 export const ApplyResultOutputSchema = z.object({

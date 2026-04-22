@@ -263,13 +263,11 @@ thread
   .description("Assign a thread to a user")
   .requiredOption("--to <userId>", "assignee user id")
   .option("--idempotency-key <key>", "idempotency key")
-  .option("--propose", "stage for human approval instead of applying", false)
-  .action(async (threadId: string, opts: { to: string; idempotencyKey?: string; propose?: boolean }) => {
+  .action(async (threadId: string, opts: { to: string; idempotencyKey?: string }) => {
     const m = await client().applyCommand({
       type: "thread:assign",
       payload: { threadId, assigneeId: opts.to },
       ...(opts.idempotencyKey ? { idempotencyKey: opts.idempotencyKey } : {}),
-      ...(opts.propose ? { propose: true } : {}),
     });
     emit(ok(m));
   });
@@ -279,14 +277,12 @@ thread
   .description("Set thread status")
   .requiredOption("--status <s>", "open|snoozed|resolved|archived")
   .option("--idempotency-key <key>", "idempotency key")
-  .option("--propose", "stage for human approval instead of applying", false)
   .action(
-    async (threadId: string, opts: { status: string; idempotencyKey?: string; propose?: boolean }) => {
+    async (threadId: string, opts: { status: string; idempotencyKey?: string }) => {
       const m = await client().applyCommand({
         type: "thread:set-status",
         payload: { threadId, status: opts.status },
         ...(opts.idempotencyKey ? { idempotencyKey: opts.idempotencyKey } : {}),
-        ...(opts.propose ? { propose: true } : {}),
       });
       emit(ok(m));
     },
@@ -298,11 +294,10 @@ thread
   .option("--add <tag...>", "tags to add (repeatable)")
   .option("--remove <tag...>", "tags to remove (repeatable)")
   .option("--idempotency-key <key>", "idempotency key")
-  .option("--propose", "stage for human approval instead of applying", false)
   .action(
     async (
       threadId: string,
-      opts: { add?: string[]; remove?: string[]; idempotencyKey?: string; propose?: boolean },
+      opts: { add?: string[]; remove?: string[]; idempotencyKey?: string },
     ) => {
       const adds = opts.add ?? [];
       const rems = opts.remove ?? [];
@@ -315,7 +310,6 @@ thread
           type: "thread:add-tag",
           payload: { threadId, tag: t },
           ...(opts.idempotencyKey ? { idempotencyKey: `${opts.idempotencyKey}:add:${t}` } : {}),
-          ...(opts.propose ? { propose: true } : {}),
         });
         results.push(shapeMutation(m));
       }
@@ -324,7 +318,6 @@ thread
           type: "thread:remove-tag",
           payload: { threadId, tag: t },
           ...(opts.idempotencyKey ? { idempotencyKey: `${opts.idempotencyKey}:rem:${t}` } : {}),
-          ...(opts.propose ? { propose: true } : {}),
         });
         results.push(shapeMutation(m));
       }
@@ -468,17 +461,15 @@ comment
   .requiredOption("--text <text>", "comment body")
   .option("--mention <user...>", "mention user ids")
   .option("--idempotency-key <key>", "idempotency key")
-  .option("--propose", "stage for human approval instead of applying", false)
   .action(
     async (
       threadId: string,
-      opts: { text: string; mention?: string[]; idempotencyKey?: string; propose?: boolean },
+      opts: { text: string; mention?: string[]; idempotencyKey?: string },
     ) => {
       const m = await client().applyCommand({
         type: "comment:add",
         payload: { threadId, text: opts.text, mentions: opts.mention },
         ...(opts.idempotencyKey ? { idempotencyKey: opts.idempotencyKey } : {}),
-        ...(opts.propose ? { propose: true } : {}),
       });
       emit(ok(m));
     },
@@ -497,7 +488,6 @@ program
   .option("--body-file <path>", "read body from file")
   .option("--account <id>", "account id to send from (defaults to first connected)")
   .option("--idempotency-key <key>", "idempotency key (recommended for send)")
-  .option("--propose", "stage for human approval instead of sending immediately", false)
   .action(
     async (opts: {
       to: string[];
@@ -508,7 +498,6 @@ program
       bodyFile?: string;
       account?: string;
       idempotencyKey?: string;
-      propose?: boolean;
     }) => {
       const body = await resolveBody(opts);
       const m = await client().applyCommand({
@@ -522,7 +511,6 @@ program
           ...(opts.account ? { accountId: opts.account } : {}),
         },
         ...(opts.idempotencyKey ? { idempotencyKey: opts.idempotencyKey } : {}),
-        ...(opts.propose ? { propose: true } : {}),
       });
       emit(ok(m));
     },
@@ -535,7 +523,6 @@ program
   .option("--body-file <path>", "read reply body from file")
   .option("--account <id>", "account id to send from")
   .option("--idempotency-key <key>", "idempotency key (recommended)")
-  .option("--propose", "stage for human approval instead of sending immediately", false)
   .action(
     async (
       threadId: string,
@@ -544,7 +531,6 @@ program
         bodyFile?: string;
         account?: string;
         idempotencyKey?: string;
-        propose?: boolean;
       },
     ) => {
       const body = await resolveBody(opts);
@@ -556,45 +542,10 @@ program
           ...(opts.account ? { accountId: opts.account } : {}),
         },
         ...(opts.idempotencyKey ? { idempotencyKey: opts.idempotencyKey } : {}),
-        ...(opts.propose ? { propose: true } : {}),
       });
       emit(ok(m));
     },
   );
-
-// -------------------------------------------------------------- PENDING
-
-const pending = program.command("pending").description("Human approval queue for staged commands");
-
-pending
-  .command("list")
-  .description("List staged mutations awaiting approval")
-  .option("--type <t>", "filter by command type")
-  .option("--actor <id>", "filter by actor id")
-  .action(async (opts: { type?: string; actor?: string }) => {
-    const filter: { actorId?: string; type?: `${string}:${string}` } = {};
-    if (opts.actor) filter.actorId = opts.actor;
-    if (opts.type) filter.type = opts.type as `${string}:${string}`;
-    const items = await client().listPending(filter);
-    emit({ items: items.map(shapeMutation), count: items.length });
-  });
-
-pending
-  .command("approve <id>")
-  .description("Approve a pending mutation (executes the underlying command)")
-  .action(async (id: string) => {
-    const m = await client().approve(id);
-    emit(ok(m));
-  });
-
-pending
-  .command("reject <id>")
-  .description("Reject a pending mutation (drops it; nothing executes)")
-  .option("--reason <text>", "rejection reason")
-  .action(async (id: string, opts: { reason?: string }) => {
-    const m = await client().reject(id, opts.reason);
-    emit(ok(m));
-  });
 
 // ---------------------------------------------------------------- WATCH
 

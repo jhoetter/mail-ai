@@ -196,10 +196,6 @@ function statusClass(s: string): string {
       return "text-success";
     case "failed":
       return "text-danger";
-    case "rejected":
-      return "text-warning";
-    case "pending":
-      return "text-muted";
     default:
       return "";
   }

@@ -83,24 +83,14 @@ mail-agent search "from:boss@acme.com unread" --limit 20
 mail-agent comment add <thread_id> --text "Can you take this one?" --mention u_alice
 ```
 
-### Send / reply (with optional human review)
+### Send / reply
 
 ```bash
 mail-agent send --to to@example.com --subject "Q3 numbers" --body-file ./draft.md
 mail-agent reply <thread_id> --body-file ./reply.md
-mail-agent reply <thread_id> --body-file ./reply.md --propose   # stages for approval
 ```
 
-`--propose` flips the `x-mailai-source` header to `agent`, which trips the staging policy and routes the command into the `/pending` review queue instead of executing it. A human approves it in the web UI (or `mail-agent pending approve <id>`).
-
-### Pending review queue
-
-```bash
-mail-agent pending list
-mail-agent pending list --type mail:send --actor u_alice
-mail-agent pending approve <mut_id>
-mail-agent pending reject  <mut_id> --reason "wrong tone"
-```
+There is no in-app human-review queue: every command runs immediately against the user's mailbox. Agents that want a human-in-the-loop should gate their own dispatches before calling `mail-agent`.
 
 ### Idempotency
 
@@ -161,4 +151,4 @@ Things NOT to rely on:
 
 ## Architecture
 
-The CLI is a thin shell over `HttpAgentClient`, which in turn talks to mail-ai's HTTP API. Mutations always go through the server's CommandBus — the CLI never writes to the DB directly, so audit / staging / idempotency apply uniformly to CLI-, web-, and SDK-driven changes.
+The CLI is a thin shell over `HttpAgentClient`, which in turn talks to mail-ai's HTTP API. Mutations always go through the server's CommandBus — the CLI never writes to the DB directly, so audit and idempotency apply uniformly to CLI-, web-, and SDK-driven changes.

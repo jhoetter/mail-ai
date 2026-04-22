@@ -7,7 +7,6 @@ import {
   ApplyResultOutputSchema,
   ErrorOutputSchema,
   MutationOutputSchema,
-  PendingListOutputSchema,
   WhoamiOutputSchema,
 } from "./cli-output-schemas.js";
 
@@ -24,9 +23,6 @@ describe("cli-output-schemas", () => {
   });
   it("ApplyResultOutputSchema accepts ok=true wrapper", () => {
     expect(ApplyResultOutputSchema.parse({ ok: true, mutation: sampleMutation })).toBeTruthy();
-  });
-  it("PendingListOutputSchema accepts an empty list", () => {
-    expect(PendingListOutputSchema.parse({ items: [], count: 0 })).toEqual({ items: [], count: 0 });
   });
   it("WhoamiOutputSchema requires the three identity fields", () => {
     expect(() => WhoamiOutputSchema.parse({ userId: "u" })).toThrow();
