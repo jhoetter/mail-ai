@@ -17,7 +17,7 @@ import {
   buildContactsProviderRegistry,
   buildMailProviderRegistry,
 } from "./providers.js";
-import { EventBroadcaster } from "./events.js";
+import { EventBroadcaster, type MutationSubjectKind } from "./events.js";
 import { registerOauthRoutes, type OauthRoutesDeps } from "./oauth/routes.js";
 import { registerSearchRoutes } from "./routes/search.js";
 import { registerThreadRoutes } from "./routes/threads.js";
@@ -176,7 +176,11 @@ export function buildApp(deps: AppDeps): FastifyInstance {
       };
       const m = await deps.bus.dispatch(cmd, inboxId ? { inboxId } : {});
       results.push(m);
-      deps.broadcaster.publish({ kind: "mutation", mutation: m });
+      deps.broadcaster.publish({
+        kind: "mutation",
+        subjectKind: subjectKindForCommand(cmd.type),
+        mutation: m,
+      });
     }
     return { results };
   });
@@ -189,4 +193,25 @@ export function buildApp(deps: AppDeps): FastifyInstance {
   app.get("/api/health", async () => ({ ok: true }));
 
   return app;
+}
+
+// Map a command type onto the realtime mutation envelope's
+// `subjectKind` so the calendar UI (and only the calendar UI) reacts
+// to event/calendar mutations. Kept narrow + total so a new command
+// type forces a deliberate decision here.
+function subjectKindForCommand(type: Command["type"]): MutationSubjectKind {
+  if (type.startsWith("calendar:")) {
+    return type === "calendar:create-event" ||
+      type === "calendar:update-event" ||
+      type === "calendar:delete-event" ||
+      type === "calendar:respond"
+      ? "event"
+      : "calendar";
+  }
+  if (type.startsWith("thread:") || type.startsWith("inbox:")) return "thread";
+  if (type.startsWith("comment:")) return "comment";
+  if (type.startsWith("mail:") || type.startsWith("draft:") || type.startsWith("attachment:")) {
+    return "message";
+  }
+  return "other";
 }

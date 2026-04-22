@@ -1,9 +1,9 @@
 // Views repository.
 //
 // Each row is a saved query (filter + sort + group) per user. The
-// built-in defaults (Inbox / Drafts / Sent / Snoozed / Done / All
-// Mail) are seeded by `ensureBuiltinsForUser` on first read so a new
-// user lands on a populated tab strip.
+// built-in defaults (Inbox / Drafts / Sent / Snoozed / Done / Trash
+// / Spam) are seeded by `ensureBuiltinsForUser` on first read so a
+// new user lands on a populated sidebar.
 //
 // filter_json is opaque to the repo — the views route compiles it
 // into a SQL predicate. Keeping the schema flexible (jsonb) means
@@ -77,7 +77,6 @@ const BUILTINS: ReadonlyArray<{
   { suffix: "done", name: "Done", icon: "✓", position: 4, filter: { kind: "default", status: ["done"] } },
   { suffix: "trash", name: "Trash", icon: "🗑️", position: 5, filter: { kind: "trash" } },
   { suffix: "spam", name: "Spam", icon: "🚫", position: 6, filter: { kind: "spam" } },
-  { suffix: "all", name: "All Mail", icon: "📚", position: 7, filter: { kind: "all" } },
 ];
 
 export class ViewsRepository {

@@ -34,6 +34,8 @@ export interface OauthMessageRow {
   readonly fromName: string | null;
   readonly fromEmail: string | null;
   readonly toAddr: string | null;
+  readonly ccAddr: string | null;
+  readonly bccAddr: string | null;
   readonly snippet: string;
   readonly internalDate: Date;
   readonly labelsJson: string[];
@@ -61,6 +63,8 @@ export interface OauthMessageInsert {
   readonly fromName: string | null;
   readonly fromEmail: string | null;
   readonly toAddr: string | null;
+  readonly ccAddr: string | null;
+  readonly bccAddr: string | null;
   readonly snippet: string;
   readonly internalDate: Date;
   readonly labelsJson: string[];
@@ -86,13 +90,14 @@ export class OauthMessagesRepository {
         INSERT INTO oauth_messages (
           id, tenant_id, oauth_account_id, provider,
           provider_message_id, provider_thread_id,
-          subject, from_name, from_email, to_addr,
+          subject, from_name, from_email, to_addr, cc_addr, bcc_addr,
           snippet, internal_date, labels_json, unread, fetched_at,
           well_known_folder
         ) VALUES (
           ${r.id}, ${r.tenantId}, ${r.oauthAccountId}, ${r.provider},
           ${r.providerMessageId}, ${r.providerThreadId},
           ${r.subject}, ${r.fromName}, ${r.fromEmail}, ${r.toAddr},
+          ${r.ccAddr}, ${r.bccAddr},
           ${r.snippet}, ${r.internalDate.toISOString()}::timestamptz,
           ${JSON.stringify(r.labelsJson)}::jsonb, ${r.unread}, now(),
           ${r.wellKnownFolder}
@@ -102,6 +107,8 @@ export class OauthMessagesRepository {
           from_name = EXCLUDED.from_name,
           from_email = EXCLUDED.from_email,
           to_addr = EXCLUDED.to_addr,
+          cc_addr = EXCLUDED.cc_addr,
+          bcc_addr = EXCLUDED.bcc_addr,
           snippet = EXCLUDED.snippet,
           labels_json = EXCLUDED.labels_json,
           unread = EXCLUDED.unread,

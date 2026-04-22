@@ -93,7 +93,7 @@ export function Shell({ sidebar, children }: Props) {
 
   return (
     <SidebarContext.Provider value={api}>
-      <div className="flex h-screen min-h-0 bg-background text-foreground md:grid md:grid-cols-[240px_1fr]">
+      <div className="flex h-full min-h-0 bg-background text-foreground md:grid md:grid-cols-[240px_1fr]">
         {/*
           Sidebar
           ───────

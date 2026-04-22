@@ -16,13 +16,24 @@ import {
 } from "./paletteRegistry";
 import type { PaletteCommand } from "./types";
 import { CommandErrorToast } from "../../components/CommandErrorToast";
+import { TopBar } from "../../components/TopBar";
 
 export function AppShell({ children }: { children: ReactNode }) {
   // Static commands are computed inside an inner component so the
   // memo identity is stable across renders of the page tree.
+  //
+  // Layout: the TopBar (global search) is the first row, every page
+  // tree mounts inside the flex-1 region below it. Shell (used by
+  // each page) was switched from h-screen to h-full so it fills
+  // *this* container instead of overflowing past the search bar.
   return (
     <ShellWithStaticCommands>
-      <KeybindLayer>{children}</KeybindLayer>
+      <div className="flex h-screen min-h-0 flex-col">
+        <TopBar />
+        <div className="flex min-h-0 flex-1 flex-col">
+          <KeybindLayer>{children}</KeybindLayer>
+        </div>
+      </div>
       <CommandPalette />
       <CommandErrorToast />
     </ShellWithStaticCommands>
@@ -47,14 +58,6 @@ function ShellWithStaticCommands({ children }: { children: ReactNode }) {
         section: t("palette.groupNavigation"),
         shortcut: "g i",
         run: () => navigate("/inbox"),
-      },
-      {
-        id: "go-search",
-        label: t("commands.go-search.label"),
-        hint: t("commands.go-search.description"),
-        section: t("palette.groupNavigation"),
-        shortcut: "g s",
-        run: () => navigate("/search"),
       },
       {
         id: "go-calendar",

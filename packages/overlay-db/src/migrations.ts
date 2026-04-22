@@ -815,6 +815,59 @@ export const MIGRATIONS: Array<{ id: string; up: string }> = [
       ];
     `,
   },
+  {
+    // Drop the legacy "All Mail" built-in view that was seeded for
+    // every user up to migration 0020. The view itself still works
+    // if you re-create it manually, but it's no longer part of the
+    // default sidebar — the dedicated wellKnownFolder columns make
+    // it redundant with Inbox + Trash + Spam combined.
+    //
+    // We match by (is_builtin = true AND filter_json->>'kind' = 'all')
+    // so any user-created view that happens to be called "All Mail"
+    // survives, and we don't accidentally delete a renamed builtin.
+    id: "0021_drop_all_mail_view",
+    up: `
+      DELETE FROM views
+      WHERE is_builtin = true
+        AND filter_json->>'kind' = 'all';
+    `,
+  },
+  {
+    // The original 0013_calendar migration constrained calendars.provider
+    // to ('google-cal','outlook'), but the rest of the codebase — schema.ts,
+    // CalendarRepository, and the sync route in routes/calendar.ts — uses
+    // the same 'google-mail' value as oauth_accounts so the calendar adapter
+    // can be looked up by the OAuth account's provider directly. The result
+    // was that POST /api/calendars/sync hit calendars_provider_check on every
+    // insert. Re-base the constraint on 'google-mail' and migrate any rows
+    // that may have squeaked in under the old value.
+    id: "0022_calendar_provider_naming",
+    up: `
+      ALTER TABLE calendars DROP CONSTRAINT IF EXISTS calendars_provider_check;
+      UPDATE calendars SET provider = 'google-mail' WHERE provider = 'google-cal';
+      ALTER TABLE calendars
+        ADD CONSTRAINT calendars_provider_check
+        CHECK (provider IN ('google-mail','outlook'));
+    `,
+  },
+  {
+    // Surface the source message's Cc / Bcc headers so "Reply all"
+    // can pre-fill the right recipient sets without having to re-fetch
+    // the raw MIME on every reply. Stored as comma-separated text to
+    // mirror to_addr's encoding (parsed in the web layer); future
+    // work may promote both columns to jsonb arrays so we can tag
+    // names alongside addresses, but this matches the existing
+    // `to_addr` shape and keeps the migration cheap. New rows get
+    // populated by the sync workers (Gmail + Graph adapters) on the
+    // next pull; older rows stay NULL and the UI gracefully falls
+    // back to "just the From" for those threads.
+    id: "0023_oauth_messages_cc_bcc",
+    up: `
+      ALTER TABLE oauth_messages
+        ADD COLUMN IF NOT EXISTS cc_addr text,
+        ADD COLUMN IF NOT EXISTS bcc_addr text;
+    `,
+  },
 ];
 
 export async function runMigrations(pool: Pool): Promise<void> {

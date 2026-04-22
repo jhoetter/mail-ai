@@ -44,7 +44,11 @@ import type {
   CalendarProviderRegistry,
   MailProviderRegistry,
 } from "@mailai/providers";
-import type { NormalizedEventPatch } from "@mailai/providers/calendar";
+import type {
+  EventEditScope,
+  NormalizedEventPatch,
+  RecurrenceRule,
+} from "@mailai/providers/calendar";
 
 export interface CalendarHandlerDeps {
   readonly pool: Pool;
@@ -62,6 +66,17 @@ export interface CalendarHandlerDeps {
 // schema (packages/agent/src/schemas.ts) and the UI dropdown.
 type MeetingChoice = "gmeet" | "teams" | "none";
 
+// Wire-shaped RRULE — the agent schema validates this. We accept
+// `until` as an ISO string and convert to Date inside the handler.
+interface RecurrenceRulePayload {
+  freq: "DAILY" | "WEEKLY" | "MONTHLY" | "YEARLY";
+  interval?: number;
+  count?: number;
+  until?: string;
+  byday?: ReadonlyArray<"MO" | "TU" | "WE" | "TH" | "FR" | "SA" | "SU">;
+  bymonthday?: ReadonlyArray<number>;
+}
+
 interface CreateEventPayload {
   calendarId: string;
   summary: string;
@@ -72,6 +87,8 @@ interface CreateEventPayload {
   allDay?: boolean;
   attendees?: string[];
   meeting?: MeetingChoice;
+  timeZone?: string;
+  recurrence?: RecurrenceRulePayload;
 }
 
 interface UpdateEventPayload {
@@ -81,10 +98,18 @@ interface UpdateEventPayload {
   location?: string;
   startsAt?: string;
   endsAt?: string;
+  allDay?: boolean;
+  attendeesAdd?: string[];
+  attendeesRemove?: string[];
+  meeting?: MeetingChoice;
+  recurrence?: RecurrenceRulePayload | null;
+  timeZone?: string;
+  scope?: EventEditScope;
 }
 
 interface DeleteEventPayload {
   eventId: string;
+  scope?: EventEditScope;
 }
 
 interface RespondPayload {
@@ -105,6 +130,21 @@ export function buildCalendarCreateEventHandler(
     assertMeetingCompatible(meeting, ctx.account.provider, ctx.calendarAdapter);
     const attendees = cmd.payload.attendees ?? [];
 
+    const recurrence = cmd.payload.recurrence
+      ? toRecurrenceRule(cmd.payload.recurrence)
+      : undefined;
+    if (recurrence && !ctx.calendarAdapter.capabilities.recurrence) {
+      throw new MailaiError(
+        "validation_error",
+        `provider ${ctx.account.provider} does not support recurrence`,
+      );
+    }
+    if (cmd.payload.timeZone && !ctx.calendarAdapter.capabilities.timeZones) {
+      throw new MailaiError(
+        "validation_error",
+        `provider ${ctx.account.provider} does not support time zones on events`,
+      );
+    }
     const created = await ctx.calendarAdapter.createEvent({
       accessToken: ctx.accessToken,
       calendarId: ctx.calendar.providerCalendarId,
@@ -118,6 +158,8 @@ export function buildCalendarCreateEventHandler(
       ...(cmd.payload.allDay !== undefined ? { allDay: cmd.payload.allDay } : {}),
       ...(attendees.length > 0 ? { attendees } : {}),
       conference: meetingChoiceToConference(meeting),
+      ...(cmd.payload.timeZone ? { timeZone: cmd.payload.timeZone } : {}),
+      ...(recurrence ? { recurrence } : {}),
     });
     const providerEventId = created.providerEventId;
     const icalUid = created.icalUid;
@@ -190,21 +232,69 @@ export function buildCalendarUpdateEventHandler(
       throw new MailaiError("not_found", `event ${cmd.payload.eventId} not found`);
     }
     const ctx = await loadCalendar(deps, event.calendarId);
+    const scope = cmd.payload.scope;
+    if (scope && !ctx.calendarAdapter.capabilities.editScopes.includes(scope)) {
+      throw new MailaiError(
+        "validation_error",
+        `provider ${ctx.account.provider} does not support edit scope ${scope}`,
+      );
+    }
+    if (
+      ((cmd.payload.attendeesAdd && cmd.payload.attendeesAdd.length > 0) ||
+        (cmd.payload.attendeesRemove && cmd.payload.attendeesRemove.length > 0)) &&
+      !ctx.calendarAdapter.capabilities.patchAttendees
+    ) {
+      throw new MailaiError(
+        "validation_error",
+        `provider ${ctx.account.provider} does not support attendee patches`,
+      );
+    }
+    if (
+      cmd.payload.recurrence !== undefined &&
+      !ctx.calendarAdapter.capabilities.recurrence
+    ) {
+      throw new MailaiError(
+        "validation_error",
+        `provider ${ctx.account.provider} does not support recurrence patches`,
+      );
+    }
+    if (cmd.payload.timeZone && !ctx.calendarAdapter.capabilities.timeZones) {
+      throw new MailaiError(
+        "validation_error",
+        `provider ${ctx.account.provider} does not support time zones on events`,
+      );
+    }
     // Build a normalized patch — every set field flows into a
     // provider-shaped body inside the adapter so this handler stays
     // free of provider branching.
+    const recurrencePatch =
+      cmd.payload.recurrence === undefined
+        ? undefined
+        : cmd.payload.recurrence === null
+          ? null
+          : toRecurrenceRule(cmd.payload.recurrence);
     const patch: NormalizedEventPatch = {
       ...(cmd.payload.summary !== undefined ? { summary: cmd.payload.summary } : {}),
       ...(cmd.payload.description !== undefined ? { description: cmd.payload.description } : {}),
       ...(cmd.payload.location !== undefined ? { location: cmd.payload.location } : {}),
       ...(cmd.payload.startsAt ? { startsAt: new Date(cmd.payload.startsAt) } : {}),
       ...(cmd.payload.endsAt ? { endsAt: new Date(cmd.payload.endsAt) } : {}),
+      ...(cmd.payload.allDay !== undefined ? { allDay: cmd.payload.allDay } : {}),
+      ...(cmd.payload.attendeesAdd && cmd.payload.attendeesAdd.length > 0
+        ? { attendeesAdd: cmd.payload.attendeesAdd }
+        : {}),
+      ...(cmd.payload.attendeesRemove && cmd.payload.attendeesRemove.length > 0
+        ? { attendeesRemove: cmd.payload.attendeesRemove }
+        : {}),
+      ...(recurrencePatch !== undefined ? { recurrence: recurrencePatch } : {}),
+      ...(cmd.payload.timeZone ? { timeZone: cmd.payload.timeZone } : {}),
     };
     await ctx.calendarAdapter.patchEvent({
       accessToken: ctx.accessToken,
       calendarId: ctx.calendar.providerCalendarId,
       providerEventId: event.providerEventId,
       patch,
+      ...(scope ? { scope } : {}),
     });
 
     const startsAt = cmd.payload.startsAt ? new Date(cmd.payload.startsAt) : event.startsAt;
@@ -317,10 +407,18 @@ export function buildCalendarDeleteEventHandler(
       });
     }
 
+    const deleteScope = cmd.payload.scope;
+    if (deleteScope && !ctx.calendarAdapter.capabilities.editScopes.includes(deleteScope)) {
+      throw new MailaiError(
+        "validation_error",
+        `provider ${ctx.account.provider} does not support delete scope ${deleteScope}`,
+      );
+    }
     await ctx.calendarAdapter.deleteEvent({
       accessToken: ctx.accessToken,
       calendarId: ctx.calendar.providerCalendarId,
       providerEventId: event.providerEventId,
+      ...(deleteScope ? { scope: deleteScope } : {}),
     });
     await withTenant(deps.pool, deps.tenantId, (tx) =>
       new CalendarRepository(tx).deleteEvent(deps.tenantId, event.id),
@@ -456,6 +554,21 @@ async function loadCalendar(
       calendarAdapter: adapter,
     };
   });
+}
+
+// Translate the wire-shaped recurrence (with `until` as ISO string)
+// into the port shape the adapter expects (with a Date).
+function toRecurrenceRule(payload: RecurrenceRulePayload): RecurrenceRule {
+  return {
+    freq: payload.freq,
+    ...(payload.interval !== undefined ? { interval: payload.interval } : {}),
+    ...(payload.count !== undefined ? { count: payload.count } : {}),
+    ...(payload.until ? { until: new Date(payload.until) } : {}),
+    ...(payload.byday && payload.byday.length > 0 ? { byday: payload.byday } : {}),
+    ...(payload.bymonthday && payload.bymonthday.length > 0
+      ? { bymonthday: payload.bymonthday }
+      : {}),
+  };
 }
 
 // Map the UI-facing meeting choice onto the CalendarProvider's

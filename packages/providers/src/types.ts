@@ -91,6 +91,12 @@ export interface NormalizedMessage {
   readonly from: NormalizedAddress | null;
   readonly to: ReadonlyArray<NormalizedAddress>;
   readonly cc: ReadonlyArray<NormalizedAddress>;
+  // Bcc is normally invisible to recipients, but the *sender's*
+  // copy of an outgoing message keeps the Bcc header — Gmail and
+  // Graph both surface it on /me/messages for messages we sent
+  // ourselves. Adapters return [] when no Bcc was set or when
+  // the user is a regular recipient and can't see it.
+  readonly bcc: ReadonlyArray<NormalizedAddress>;
   readonly snippet: string;
   // RFC822 epoch the provider attaches to the message (Gmail
   // internalDate, Graph receivedDateTime). The Sent mirror uses

@@ -71,11 +71,21 @@ export interface ThreadMessage {
   readonly unread: boolean;
 }
 
+// Top-bar search wire-shape mirrors what GET /api/search returns.
+// The CLI exposes this as a single flat list (the messages tab is
+// the only one CLI users have ever consumed), but the type stays
+// rich so future commands can surface other categories without
+// another bump.
 export interface SearchHit {
   readonly threadId: string;
-  readonly subject: string;
+  readonly providerThreadId: string;
+  readonly subject: string | null;
   readonly snippet: string;
-  readonly rank: number;
+  readonly fromName: string | null;
+  readonly fromEmail: string | null;
+  readonly date: string;
+  readonly hasAttachments: boolean;
+  readonly accountId: string;
 }
 
 export type SyncFolder =
@@ -359,8 +369,10 @@ export class HttpAgentClient {
     if (opts.limit) url.searchParams.set("limit", String(opts.limit));
     const res = await this.fetchImpl(url.toString(), { headers: this.headers() });
     if (!res.ok) await throwHttp(res);
-    const body = (await res.json()) as { hits: SearchHit[] };
-    return body.hits;
+    // The endpoint returns six categories now; the CLI surfaces
+    // messages only, matching the previous behaviour.
+    const body = (await res.json()) as { messages: SearchHit[] };
+    return body.messages ?? [];
   }
 }
 

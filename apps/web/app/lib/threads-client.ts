@@ -59,6 +59,12 @@ export interface ThreadMessage {
   fromName: string | null;
   fromEmail: string | null;
   to: string | null;
+  // Comma-joined recipient strings stored verbatim from the source
+  // headers. The InlineReply component splits these into chips when
+  // it pre-fills "Reply all". For received mail Bcc is almost
+  // always null (only the sender's copy carries it).
+  cc: string | null;
+  bcc: string | null;
   date: string;
   snippet: string;
   unread: boolean;

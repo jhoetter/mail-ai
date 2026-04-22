@@ -1,16 +1,24 @@
-// GET /api/search — Postgres FTS over the OAuth message store.
+// GET /api/search — multiplexed global search backing the top bar.
 //
-// Lives here (not in oauth/routes.ts) because search is a tenant-wide
-// read concern, not part of the OAuth onboarding flow. We compute the
-// tsvector inline against `oauth_messages` rather than indexing a
-// generated column; once corpus volume justifies it we add a GIN
-// index in one migration without changing this surface.
+// One request, six result categories (messages / files / people /
+// mailboxes / tags / calendar). The repository layer
+// (`searchAll` in @mailai/overlay-db) does the fan-out; this file
+// just owns the HTTP contract: parse query params, run inside a
+// tenant-scoped transaction, and shape the JSON the front-end
+// expects.
 //
-// Response shape matches what apps/web's search page already expects:
-//   { hits: [{ threadId, subject, snippet, rank }] }
+// Query params:
+//   q              free-text query (optional when chips are set)
+//   accountId      restrict to an oauth_accounts.id ("Postfach")
+//   fromEmail      substring match against from_email
+//   toEmail        substring match against to_addr
+//   tag            tag name (case-insensitive)
+//   hasAttachment  "1" | "true" toggle
+//   hasLink        "1" | "true" toggle
+//   limit          per-domain row cap override (1–50)
 
 import type { FastifyInstance } from "fastify";
-import { searchOauthMessages, withTenant, type Pool } from "@mailai/overlay-db";
+import { searchAll, withTenant, type Pool } from "@mailai/overlay-db";
 
 export interface SearchRoutesDeps {
   readonly pool: Pool;
@@ -20,31 +28,77 @@ export interface SearchRoutesDeps {
   }>;
 }
 
+function asBool(v: unknown): boolean {
+  if (typeof v !== "string") return false;
+  return v === "1" || v.toLowerCase() === "true";
+}
+
 export function registerSearchRoutes(app: FastifyInstance, deps: SearchRoutesDeps): void {
   app.get("/api/search", async (req, reply) => {
     const ident = await deps.identity({ headers: req.headers as Record<string, unknown> });
-    const q = (req.query as { q?: string; limit?: string }) ?? {};
-    const query = (q.q ?? "").trim();
-    if (query.length === 0) {
-      return reply.code(400).send({ error: "validation_error", message: "missing q" });
-    }
-    const limit = q.limit ? Math.min(Math.max(Number(q.limit) || 50, 1), 200) : 50;
+    const params = (req.query as Record<string, string | undefined>) ?? {};
 
-    const hits = await withTenant(deps.pool, ident.tenantId, (tx) =>
-      searchOauthMessages(tx, { tenantId: ident.tenantId, q: query, limit }),
+    const q = (params.q ?? "").trim();
+    const accountId = params.accountId?.trim() || undefined;
+    const fromEmail = params.fromEmail?.trim() || undefined;
+    const toEmail = params.toEmail?.trim() || undefined;
+    const tag = params.tag?.trim() || undefined;
+    const hasAttachment = asBool(params.hasAttachment);
+    const hasLink = asBool(params.hasLink);
+
+    const hasAnyFilter =
+      q.length > 0 ||
+      Boolean(accountId) ||
+      Boolean(fromEmail) ||
+      Boolean(toEmail) ||
+      Boolean(tag) ||
+      hasAttachment ||
+      hasLink;
+    if (!hasAnyFilter) {
+      // The empty-input case never hits Postgres — it returns the
+      // canonical empty payload so the client can always treat the
+      // shape as exhaustive.
+      return reply.send({
+        messages: [],
+        files: [],
+        people: [],
+        mailboxes: [],
+        tags: [],
+        calendar: [],
+      });
+    }
+
+    // Optional uniform per-domain cap. The repository defaults are
+    // tuned per category; this just lets a caller force-clip them
+    // (e.g. for embeds) without exposing six distinct knobs.
+    const limit = params.limit
+      ? Math.min(Math.max(Number(params.limit) || 0, 1), 50)
+      : undefined;
+    const limits = limit
+      ? {
+          messages: limit,
+          files: limit,
+          people: limit,
+          mailboxes: limit,
+          tags: limit,
+          calendar: limit,
+        }
+      : undefined;
+
+    const result = await withTenant(deps.pool, ident.tenantId, (tx) =>
+      searchAll(tx, {
+        tenantId: ident.tenantId,
+        q,
+        ...(accountId ? { accountId } : {}),
+        ...(fromEmail ? { fromEmail } : {}),
+        ...(toEmail ? { toEmail } : {}),
+        ...(tag ? { tag } : {}),
+        ...(hasAttachment ? { hasAttachment: true } : {}),
+        ...(hasLink ? { hasLink: true } : {}),
+        ...(limits ? { limits } : {}),
+      }),
     );
 
-    return {
-      hits: hits.map((h) => ({
-        // The UI clicks navigate to `/inbox/thread/<threadId>`; using
-        // the row id keeps the link consistent with the inbox list,
-        // which also keys on `oauth_messages.id` (provider thread id
-        // collisions are rare but the row id is canonical).
-        threadId: h.id,
-        subject: h.subject ?? "(no subject)",
-        snippet: h.snippet,
-        rank: h.rank,
-      })),
-    };
+    return reply.send(result);
   });
 }

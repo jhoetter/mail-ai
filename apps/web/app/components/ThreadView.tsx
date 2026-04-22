@@ -12,10 +12,12 @@
 //
 // We never trust raw HTML straight from Gmail/Graph: it goes through
 // DOMPurify with a tight allow-list before we ever hand it to the
-// iframe, and the iframe itself is sandboxed (no scripts, no
-// same-origin) as a defence-in-depth.
+// iframe (see app/lib/email-html.ts). The iframe itself sandboxes
+// scripts / forms / top-navigation as defence-in-depth — it keeps
+// `allow-same-origin` so we can measure the rendered height, but
+// `allow-scripts` is intentionally absent which is what makes
+// keeping <style> tags safe.
 
-import DOMPurify from "dompurify";
 import {
   ArrowLeft,
   Download,
@@ -24,9 +26,9 @@ import {
   FileText,
   ImageOff,
   Paperclip,
-  ScrollText,
   Star,
 } from "lucide-react";
+import { useTheme } from "next-themes";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { baseUrl } from "../lib/api";
 import {
@@ -41,6 +43,12 @@ import { ThreadActions } from "./ThreadActions";
 import { useTranslator } from "../lib/i18n/useTranslator";
 import { useRegisterPaletteCommands } from "../lib/shell";
 import { dispatchCommand } from "../lib/commands-client";
+import {
+  buildIframeDoc,
+  rewriteEmailHtml,
+  sanitizeEmailHtml,
+  stripAngles,
+} from "../lib/email-html";
 
 interface Props {
   threadId: string;
@@ -61,9 +69,6 @@ export function ThreadView({ threadId, subject, refreshKey, onBack }: Props) {
   const [error, setError] = useState<string | null>(null);
   const [localRefresh, setLocalRefresh] = useState(0);
   const [replyTick, setReplyTick] = useState(0);
-  const [forwardMessage, setForwardMessage] = useState<ThreadMessage | null>(null);
-  const [forwardTick, setForwardTick] = useState(0);
-  const [showOriginal, setShowOriginal] = useState<ThreadMessage | null>(null);
   // Per-thread session decision to allow remote (non-cid) images.
   const [allowRemoteImages, setAllowRemoteImages] = useState(false);
 
@@ -99,13 +104,10 @@ export function ThreadView({ threadId, subject, refreshKey, onBack }: Props) {
     return () => clearTimeout(handle);
   }, [detail]);
 
-  const onForward = useCallback((m: ThreadMessage) => {
-    setForwardMessage(m);
-    setForwardTick((n) => n + 1);
-  }, []);
-  const onShowOriginal = useCallback((m: ThreadMessage) => {
-    setShowOriginal(m);
-  }, []);
+  // The bottom InlineReply bar owns the Forward UI now (Reply / Reply
+  // All / Forward). The default forward target is the latest message
+  // in the thread — same convention as Gmail / Outlook desktop.
+  const forwardMessage = detail?.messages[detail.messages.length - 1] ?? null;
 
   const headerCount = detail
     ? t(detail.messages.length === 1 ? "thread.messageCountOne" : "thread.messageCount", {
@@ -199,49 +201,65 @@ export function ThreadView({ threadId, subject, refreshKey, onBack }: Props) {
         <TagChips threadId={threadId} />
       </div>
 
-      <div className="min-h-0 flex-1 overflow-y-auto px-3 py-3 sm:px-4 sm:py-4">
+      {/*
+        Scroll container holds the messages only — the reply pane is
+        a flex sibling below, NOT a sticky child of this scroller.
+        Sticky-inside-scroll meant a translucent reply bar would let
+        white email iframes peek through whenever the user scrolled,
+        and a white card could occasionally render below the bar
+        because the sticky stack order changed mid-scroll. Pulling
+        the reply pane out of the scroller eliminates both: the
+        scroller shrinks to fit the remaining height, the reply pane
+        owns the bottom rail outright.
+      */}
+      <div className="min-h-0 flex-1 overflow-y-auto bg-background">
         {error ? (
-          <p className="text-sm text-error">{t("thread.loadError", { error })}</p>
+          <p className="px-3 py-3 text-sm text-error sm:px-4 sm:py-4">
+            {t("thread.loadError", { error })}
+          </p>
         ) : detail === null ? (
-          <p className="text-sm text-secondary">{t("thread.loading")}</p>
+          <p className="px-3 py-3 text-sm text-secondary sm:px-4 sm:py-4">
+            {t("thread.loading")}
+          </p>
         ) : (
-          <ol className="flex flex-col gap-3">
+          <ol className="flex flex-col">
             {detail.messages.map((m, i) => (
-              <li key={m.id}>
+              <li
+                key={m.id}
+                className={
+                  // Flat Gmail/Outlook-style row. We only draw a
+                  // top-divider between messages (not around them) so
+                  // the conversation reads as one continuous column
+                  // rather than a stack of independent cards.
+                  i === 0 ? "" : "border-t border-divider"
+                }
+              >
                 <MessageCard
                   message={m}
                   defaultExpanded={i === detail.messages.length - 1}
                   allowRemoteImages={allowRemoteImages}
                   onAllowImages={() => setAllowRemoteImages(true)}
-                  onForward={() => onForward(m)}
-                  onShowOriginal={() => onShowOriginal(m)}
                   onChanged={() => setLocalRefresh((n) => n + 1)}
                 />
               </li>
             ))}
           </ol>
         )}
+      </div>
 
-        {detail ? (
+      {detail ? (
+        <div className="shrink-0 border-t border-divider bg-background">
           <InlineReply
             thread={detail}
             autoExpandKey={replyTick}
             {...(forwardMessage ? { forwardMessage } : {})}
-            forwardKey={forwardTick}
             onSent={() => {
-              setForwardMessage(null);
               setLocalRefresh((n) => n + 1);
             }}
           />
-        ) : null}
-      </div>
-
-      {showOriginal ? (
-        <ShowOriginalModal
-          message={showOriginal}
-          onClose={() => setShowOriginal(null)}
-        />
+        </div>
       ) : null}
+
     </div>
   );
 }
@@ -251,8 +269,6 @@ interface MessageCardProps {
   defaultExpanded: boolean;
   allowRemoteImages: boolean;
   onAllowImages: () => void;
-  onForward: () => void;
-  onShowOriginal: () => void;
   onChanged: () => void;
 }
 
@@ -261,8 +277,6 @@ function MessageCard({
   defaultExpanded,
   allowRemoteImages,
   onAllowImages,
-  onForward,
-  onShowOriginal,
   onChanged,
 }: MessageCardProps) {
   const { t } = useTranslator();
@@ -288,14 +302,21 @@ function MessageCard({
   }, [message.providerMessageId, onChanged, starred]);
 
   return (
+    // Flat row layout (Gmail/Outlook style). No outer border or
+    // radius — the parent <li> draws a 1px top divider between
+    // siblings so the whole conversation reads as one column.
+    // Unread messages get a 2px accent rail on the left instead of
+    // a ring, which is the same affordance Outlook uses.
     <article
       className={
-        "rounded-lg border border-divider bg-surface text-sm transition-colors " +
-        (message.unread ? "ring-1 ring-accent/40" : "")
+        "text-sm transition-colors " +
+        (message.unread
+          ? "border-l-2 border-accent bg-background"
+          : "border-l-2 border-transparent bg-background")
       }
     >
       <header
-        className="flex items-start gap-3 px-3 py-3 sm:px-4"
+        className="flex items-start gap-3 px-3 py-3 sm:px-4 sm:py-3.5"
         onClick={() => setExpanded((v) => !v)}
         role="button"
         aria-expanded={expanded}
@@ -343,6 +364,19 @@ function MessageCard({
               >
                 {formatRelativeOrShort(message.date)}
               </time>
+              {expanded ? (
+                <a
+                  href={`${baseUrl()}/api/messages/${encodeURIComponent(message.id)}/raw.eml`}
+                  target="_blank"
+                  rel="noreferrer noopener"
+                  onClick={(e) => e.stopPropagation()}
+                  title={t("thread.downloadEml")}
+                  aria-label={t("thread.downloadEml")}
+                  className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded text-tertiary hover:text-foreground"
+                >
+                  <Download size={14} aria-hidden />
+                </a>
+              ) : null}
             </div>
           </div>
           {expanded ? (
@@ -394,11 +428,6 @@ function MessageCard({
           {message.attachments.length > 0 ? (
             <AttachmentsList attachments={message.attachments} />
           ) : null}
-          <MessageFooterActions
-            message={message}
-            onForward={onForward}
-            onShowOriginal={onShowOriginal}
-          />
         </div>
       ) : null}
     </article>
@@ -443,47 +472,6 @@ function formatSize(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`;
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} kB`;
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
-}
-
-interface FooterProps {
-  message: ThreadMessage;
-  onForward: () => void;
-  onShowOriginal: () => void;
-}
-
-function MessageFooterActions({ message, onForward, onShowOriginal }: FooterProps) {
-  const { t } = useTranslator();
-  return (
-    <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-divider pt-2 text-xs text-secondary">
-      <button
-        type="button"
-        onClick={onForward}
-        className="inline-flex items-center gap-1 rounded border border-divider px-2 py-1 hover:bg-foreground/5 hover:text-foreground"
-        title={t("thread.forward")}
-      >
-        {t("thread.forward")}
-      </button>
-      <a
-        href={`${baseUrl()}/api/messages/${encodeURIComponent(message.id)}/raw.eml`}
-        target="_blank"
-        rel="noreferrer noopener"
-        className="inline-flex items-center gap-1 rounded border border-divider px-2 py-1 hover:bg-foreground/5 hover:text-foreground"
-        title={t("thread.downloadEml")}
-      >
-        <Download size={12} aria-hidden />
-        {t("thread.downloadEml")}
-      </a>
-      <button
-        type="button"
-        onClick={onShowOriginal}
-        className="inline-flex items-center gap-1 rounded border border-divider px-2 py-1 hover:bg-foreground/5 hover:text-foreground"
-        title={t("thread.showOriginal")}
-      >
-        <ScrollText size={12} aria-hidden />
-        {t("thread.showOriginal")}
-      </button>
-    </div>
-  );
 }
 
 interface MessageBodyProps {
@@ -593,8 +581,16 @@ interface HtmlBodyProps {
 
 function HtmlBody({ html, attachments, allowRemoteImages, onAllowImages }: HtmlBodyProps) {
   const { t } = useTranslator();
+  // resolvedTheme collapses "system" to the actual rendered theme.
+  // We only paint the iframe canvas dark once the client mounts; SSR
+  // and the first paint stay on white so a light-mode user never sees
+  // a flash of dark canvas.
+  const { resolvedTheme } = useTheme();
   const iframeRef = useRef<HTMLIFrameElement | null>(null);
-  const [height, setHeight] = useState<number>(120);
+  // Start at 0 so empty/short messages don't reserve a fat blank
+  // band before the first measurement lands. We bump to the real
+  // height as soon as the iframe DOM is reachable.
+  const [height, setHeight] = useState<number>(0);
   const [mounted, setMounted] = useState(false);
   useEffect(() => {
     setMounted(true);
@@ -608,38 +604,94 @@ function HtmlBody({ html, attachments, allowRemoteImages, onAllowImages }: HtmlB
     return m;
   }, [attachments]);
 
+  const inlineUrl = useCallback(
+    (attId: string) =>
+      `${baseUrl()}/api/attachments/${encodeURIComponent(attId)}/inline`,
+    [],
+  );
+
   const { html: rewritten, blockedRemote } = useMemo(
     () =>
       mounted
-        ? rewriteEmailHtml(html, cidMap, allowRemoteImages)
+        ? rewriteEmailHtml({
+            html,
+            cidToAttachmentId: cidMap,
+            allowRemoteImages,
+            attachmentInlineUrl: inlineUrl,
+          })
         : { html: "", blockedRemote: false },
-    [html, mounted, cidMap, allowRemoteImages],
+    [html, mounted, cidMap, allowRemoteImages, inlineUrl],
   );
 
   const safe = useMemo(() => (mounted ? sanitizeEmailHtml(rewritten) : ""), [
     rewritten,
     mounted,
   ]);
-  const doc = useMemo(() => buildIframeDoc(safe), [safe]);
+  // Match the iframe canvas to the app theme. We don't try to invert
+  // sender-pinned colours (see email-html.ts for the rationale) — we
+  // just blend the default canvas so personal/plain mail stops being
+  // a glowing white card inside the dark app.
+  const darkMode = mounted && resolvedTheme === "dark";
+  const doc = useMemo(() => buildIframeDoc(safe, { darkMode }), [safe, darkMode]);
 
   useEffect(() => {
     const el = iframeRef.current;
     if (!el) return;
-    const sync = () => {
+    let cancelled = false;
+    const measure = () => {
+      if (cancelled) return;
       try {
-        const h = el.contentDocument?.documentElement?.scrollHeight ?? 0;
-        if (h > 0) setHeight(Math.min(h + 4, 4000));
+        const inner = el.contentDocument;
+        const root = inner?.documentElement;
+        const body = inner?.body;
+        if (!inner || !root || !body) return;
+        // documentElement.scrollHeight is what the rendered viewport
+        // would need to fit the content with no scrollbars. body
+        // fallback covers documents that set `html { height: 100% }`
+        // which can pin scrollHeight to the iframe's current height.
+        const h = Math.max(root.scrollHeight, body.scrollHeight);
+        if (h > 0) setHeight(Math.min(h + 4, 8000));
       } catch {
-        // Cross-origin (shouldn't happen with srcdoc) — leave as is.
+        // Without `allow-same-origin` we'd land here. With it the
+        // catch is dead code; keep it so a future tightening of the
+        // sandbox doesn't crash the reader.
       }
     };
-    el.addEventListener("load", sync);
-    // Re-measure twice because images / fonts can land late and
-    // change layout after the initial load fires.
-    const t1 = setTimeout(sync, 200);
-    const t2 = setTimeout(sync, 1200);
+
+    const onLoad = () => {
+      measure();
+      // Wire image load + ResizeObserver from the parent side. The
+      // iframe runs without `allow-scripts` so we can't inject a
+      // listener inside the doc — but `allow-same-origin` lets us
+      // observe its DOM from out here, which is enough to catch
+      // late-arriving images, web fonts, and CSS-driven reflow.
+      try {
+        const inner = el.contentDocument;
+        if (!inner) return;
+        for (const img of Array.from(inner.images)) {
+          if (img.complete) continue;
+          img.addEventListener("load", measure, { once: true });
+          img.addEventListener("error", measure, { once: true });
+        }
+        if (typeof ResizeObserver !== "undefined" && inner.body) {
+          const ro = new ResizeObserver(() => measure());
+          ro.observe(inner.body);
+          // Disconnect when the iframe unloads/replaces.
+          el.addEventListener("unload", () => ro.disconnect(), { once: true });
+        }
+      } catch {
+        // Same as above — ignored under stricter sandbox.
+      }
+    };
+
+    el.addEventListener("load", onLoad);
+    // Belt-and-braces: srcDoc updates that don't fire `load` (rare
+    // but we've seen it on Safari for tiny docs) still get a measure.
+    const t1 = setTimeout(measure, 250);
+    const t2 = setTimeout(measure, 1500);
     return () => {
-      el.removeEventListener("load", sync);
+      cancelled = true;
+      el.removeEventListener("load", onLoad);
       clearTimeout(t1);
       clearTimeout(t2);
     };
@@ -663,105 +715,29 @@ function HtmlBody({ html, attachments, allowRemoteImages, onAllowImages }: HtmlB
       <iframe
         ref={iframeRef}
         title="message body"
-        sandbox="allow-popups allow-popups-to-escape-sandbox"
+        // `allow-same-origin` is required so we can read scrollHeight
+        // and observe image load events from the parent. We DO NOT
+        // grant `allow-scripts`, which is what keeps inline <style>
+        // and `style` attributes safe even though the iframe shares
+        // an origin with us.
+        sandbox="allow-popups allow-popups-to-escape-sandbox allow-same-origin"
         srcDoc={doc}
-        style={{ width: "100%", height, border: "0" }}
+        // min-height keeps single-line "(empty)" messages from
+        // collapsing to nothing while the first measurement lands.
+        // The inline background matches the iframe's internal canvas
+        // so a brief gap during srcdoc load doesn't flash a contrast.
+        style={{
+          width: "100%",
+          height: height || undefined,
+          minHeight: height ? undefined : 32,
+          border: "0",
+          display: "block",
+          background: darkMode ? "#191919" : "#ffffff",
+          colorScheme: darkMode ? "dark" : "only light",
+        }}
       />
     </div>
   );
-}
-
-function stripAngles(s: string): string {
-  return s.replace(/^<|>$/g, "");
-}
-
-// Rewrite `cid:` references to /api/attachments/:id/inline so the
-// iframe can load them directly from the API. Block all remote
-// (http/https) images by default; the parent can opt in.
-function rewriteEmailHtml(
-  html: string,
-  cidMap: Map<string, string>,
-  allowRemoteImages: boolean,
-): { html: string; blockedRemote: boolean } {
-  if (typeof DOMParser === "undefined") {
-    return { html, blockedRemote: false };
-  }
-  const parser = new DOMParser();
-  const doc = parser.parseFromString(html, "text/html");
-  let blockedRemote = false;
-
-  doc.querySelectorAll("img").forEach((img) => {
-    const src = img.getAttribute("src") ?? "";
-    if (src.startsWith("cid:")) {
-      const cid = stripAngles(src.slice(4));
-      const attId = cidMap.get(cid);
-      if (attId) {
-        img.setAttribute(
-          "src",
-          `${baseUrl()}/api/attachments/${encodeURIComponent(attId)}/inline`,
-        );
-      } else {
-        img.removeAttribute("src");
-        img.setAttribute("alt", img.getAttribute("alt") ?? "(missing inline image)");
-      }
-      return;
-    }
-    if (/^https?:/i.test(src)) {
-      if (!allowRemoteImages) {
-        blockedRemote = true;
-        img.setAttribute("data-mailai-remote-src", src);
-        img.removeAttribute("src");
-      }
-      return;
-    }
-    if (src.startsWith("data:")) return;
-    if (src.startsWith("/")) return;
-    img.removeAttribute("src");
-  });
-
-  return { html: doc.body.innerHTML, blockedRemote };
-}
-
-function buildIframeDoc(sanitizedBody: string): string {
-  // Inline a minimal style reset so the rendered email picks up
-  // sensible defaults regardless of what the sender's HTML brings.
-  // Pull the live theme tokens from the parent so the rendered mail
-  // matches the surrounding chrome (white-on-light vs. soft-on-dark).
-  const isDark =
-    typeof document !== "undefined" && document.documentElement.classList.contains("dark");
-  const fg = isDark ? "#e3e2e0" : "#37352f";
-  const muted = isDark ? "#9b9a97" : "#787774";
-  const link = isDark ? "#60a5fa" : "#2563eb";
-  const quote = isDark ? "#5a5a58" : "#d6d6d4";
-  return `<!doctype html>
-<html><head>
-<meta charset="utf-8" />
-<base target="_blank" />
-<style>
-  html,body { margin:0; padding:0; background: transparent; }
-  body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
-         font-size: 15px; line-height: 1.6; color: ${fg}; word-wrap: break-word; }
-  a { color: ${link}; }
-  img { max-width: 100%; height: auto; }
-  blockquote { border-left: 2px solid ${quote}; margin: 0 0 8px 0; padding: 0 0 0 12px; color: ${muted}; }
-  pre, code { white-space: pre-wrap; word-wrap: break-word; }
-  table { max-width: 100%; }
-</style>
-</head><body>${sanitizedBody}</body></html>`;
-}
-
-function sanitizeEmailHtml(html: string): string {
-  // Strip everything dangerous: scripts, event handlers, javascript:
-  // URLs, <object>/<embed>/<iframe>, etc. Keep the structural tags
-  // emails actually use. We keep style attributes because most HTML
-  // emails rely on inline styles for layout, but DOMPurify still
-  // strips `expression()` and url(javascript:…) from them.
-  return DOMPurify.sanitize(html, {
-    USE_PROFILES: { html: true },
-    FORBID_TAGS: ["script", "style", "iframe", "object", "embed", "link", "meta"],
-    FORBID_ATTR: ["onerror", "onclick", "onload", "onmouseover", "onfocus"],
-    ALLOW_DATA_ATTR: false,
-  });
 }
 
 function Avatar({ name }: { name: string }) {
@@ -817,87 +793,3 @@ function formatExact(iso: string): string {
   });
 }
 
-interface OriginalDoc {
-  headers: Record<string, string>;
-  raw: string;
-}
-
-function ShowOriginalModal({
-  message,
-  onClose,
-}: {
-  message: ThreadMessage;
-  onClose: () => void;
-}) {
-  const { t } = useTranslator();
-  const [data, setData] = useState<OriginalDoc | null>(null);
-  const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    let cancelled = false;
-    fetch(`${baseUrl()}/api/messages/${encodeURIComponent(message.id)}/headers`)
-      .then((r) => {
-        if (!r.ok) throw new Error(`${r.status}`);
-        return r.json() as Promise<OriginalDoc>;
-      })
-      .then((d) => {
-        if (!cancelled) setData(d);
-      })
-      .catch((err) => {
-        if (!cancelled) setError(err instanceof Error ? err.message : String(err));
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [message.id]);
-
-  return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-foreground/40 p-4"
-      onClick={onClose}
-    >
-      <div
-        className="flex max-h-[90vh] w-full max-w-3xl flex-col overflow-hidden rounded-lg border border-divider bg-background shadow-2xl"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <header className="flex items-center justify-between border-b border-divider px-4 py-2">
-          <h3 className="text-sm font-medium">{t("thread.showOriginal")}</h3>
-          <button
-            type="button"
-            onClick={onClose}
-            className="rounded px-2 py-1 text-xs text-secondary hover:bg-foreground/5 hover:text-foreground"
-          >
-            {t("common.close")}
-          </button>
-        </header>
-        <div className="flex-1 overflow-auto px-4 py-3 text-xs">
-          {error ? (
-            <p className="text-error">{error}</p>
-          ) : !data ? (
-            <p className="text-secondary">{t("thread.loading")}</p>
-          ) : (
-            <>
-              <dl className="mb-3 grid grid-cols-[max-content_1fr] gap-x-3 gap-y-0.5">
-                {Object.entries(data.headers).map(([k, v]) => (
-                  <FragmentRow key={k} k={k} v={v} />
-                ))}
-              </dl>
-              <pre className="whitespace-pre-wrap break-words rounded border border-divider bg-foreground/5 p-3 font-mono text-[11px] leading-snug">
-                {data.raw}
-              </pre>
-            </>
-          )}
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function FragmentRow({ k, v }: { k: string; v: string }) {
-  return (
-    <>
-      <dt className="text-tertiary">{k}</dt>
-      <dd className="break-words font-mono">{v}</dd>
-    </>
-  );
-}

@@ -35,7 +35,7 @@ DEV_PID  := .mailai-dev.pid
 .PHONY: help install \
         stack-up stack-up-dovecot stack-down stack-logs stack-reset \
         build-libs dev dev-wait dev-logs dev-stop dev-web dev-api dev-embed kill-ports \
-        verify fixtures
+        reset-db verify fixtures
 
 help:
 	@echo "Targets:"
@@ -53,6 +53,7 @@ help:
 	@echo "  dev-api            API server only on :$(API_PORT) (foreground, no detach)"
 	@echo "  dev-embed          Vite embed-host smoke harness (separate from main dev loop)"
 	@echo "  kill-ports         Free :$(WEB_PORT) :$(API_PORT) :$(RT_PORT) (matches collaboration-ai)"
+	@echo "  reset-db           Drop & recreate the dev Postgres schema (clears all data, keeps volumes; migrations replay on next \`make dev\`)"
 	@echo "  verify             Lint + typecheck + tests + build (CI parity)"
 	@echo "  fixtures           Generate the synthetic MIME fixture corpus"
 
@@ -228,6 +229,33 @@ dev-api: build-libs
 dev-embed:
 	$(PNPM) --filter @mailai/react-app build
 	$(PNPM) --filter @mailai/embed-host dev
+
+# Wipe every row in the dev Postgres without nuking the docker volume.
+#
+# Stops the detached dev stack first so the API isn't holding live PG
+# connections (DROP SCHEMA blocks behind them and we'd just hang). Then
+# ensures Postgres is up, waits for it to be ready, and drops + recreates
+# the `public` schema. That nukes every table AND the `schema_migrations`
+# bookkeeping table, so the next `make dev` boot replays every migration
+# from scratch via runMigrations() in @mailai/overlay-db.
+#
+# MinIO is left alone on purpose — orphaned attachment blobs are harmless
+# in dev (the bucket is reused, no DB row points at them anymore). For a
+# full nuke including object storage volumes, use `make stack-reset`.
+reset-db: dev-stop stack-up
+	@echo "→ Waiting for postgres to accept connections..."
+	@for i in 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15; do \
+	  $(COMPOSE) exec -T postgres pg_isready -U mailai -q && break; \
+	  sleep 1; \
+	  if [ $$i = 15 ]; then \
+	    echo "reset-db: postgres never became ready" >&2; exit 1; \
+	  fi; \
+	done
+	@echo "→ Dropping & recreating public schema in dev DB (mailai)..."
+	@$(COMPOSE) exec -T postgres psql -U mailai -d mailai -v ON_ERROR_STOP=1 -q -c \
+	  "DROP SCHEMA IF EXISTS public CASCADE; CREATE SCHEMA public; GRANT ALL ON SCHEMA public TO mailai; GRANT ALL ON SCHEMA public TO public;"
+	@echo ""
+	@echo "✅ Dev database wiped. Run \`make dev\` to replay migrations and start fresh."
 
 verify:
 	$(PNPM) verify

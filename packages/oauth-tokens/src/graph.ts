@@ -10,7 +10,8 @@ const MAIL_FOLDERS_BASE = "https://graph.microsoft.com/v1.0/me/mailFolders";
 
 const GRAPH_MESSAGE_SELECT =
   "id,conversationId,subject,bodyPreview,receivedDateTime," +
-  "isRead,categories,from,toRecipients,parentFolderId";
+  "isRead,categories,from,toRecipients,ccRecipients,bccRecipients," +
+  "parentFolderId";
 
 export interface MicrosoftUserInfo {
   readonly email: string;
@@ -57,8 +58,18 @@ export interface GraphMessageMetadata {
   readonly fromName: string | null;
   readonly fromEmail: string | null;
   readonly to: string | null;
+  // Comma-joined RFC822 strings to mirror Gmail's shape. Adapters
+  // unpack them via parseAddressList in the mail layer. Bcc is
+  // present on messages we *sent* (Graph keeps it on the sender's
+  // copy); for received mail it's typically null.
+  readonly cc: string | null;
+  readonly bcc: string | null;
   readonly labelIds: readonly string[]; // categories
   readonly unread: boolean;
+}
+
+interface GraphRecipient {
+  emailAddress?: { name?: string; address?: string };
 }
 
 interface GraphMessage {
@@ -70,7 +81,9 @@ interface GraphMessage {
   isRead?: boolean;
   categories?: string[];
   from?: { emailAddress?: { name?: string; address?: string } };
-  toRecipients?: { emailAddress?: { name?: string; address?: string } }[];
+  toRecipients?: GraphRecipient[];
+  ccRecipients?: GraphRecipient[];
+  bccRecipients?: GraphRecipient[];
 }
 
 interface GraphMessagesResponse {
@@ -140,11 +153,6 @@ export async function listGraphFolderMessages(args: {
 function toMetadata(m: GraphMessage): GraphMessageMetadata {
   const fromName = m.from?.emailAddress?.name ?? null;
   const fromEmail = m.from?.emailAddress?.address ?? null;
-  const to =
-    (m.toRecipients ?? [])
-      .map((r) => r.emailAddress?.address)
-      .filter((s): s is string => !!s)
-      .join(", ") || null;
   const date = m.receivedDateTime ? new Date(m.receivedDateTime) : new Date();
   return {
     id: m.id,
@@ -154,10 +162,20 @@ function toMetadata(m: GraphMessage): GraphMessageMetadata {
     subject: m.subject ?? null,
     fromName: fromName && fromName.length ? fromName : null,
     fromEmail,
-    to,
+    to: joinRecipients(m.toRecipients),
+    cc: joinRecipients(m.ccRecipients),
+    bcc: joinRecipients(m.bccRecipients),
     labelIds: m.categories ?? [],
     unread: m.isRead === false,
   };
+}
+
+function joinRecipients(rs: GraphRecipient[] | undefined): string | null {
+  if (!rs || rs.length === 0) return null;
+  const out = rs
+    .map((r) => r.emailAddress?.address)
+    .filter((s): s is string => !!s);
+  return out.length > 0 ? out.join(", ") : null;
 }
 
 // Full body for a single Graph message. Microsoft returns ONE body,

@@ -1,4 +1,4 @@
-import { Button, Card, PageBody, PageHeader, Shell } from "@mailai/ui";
+import { Button, Card, PageBody, PageHeader, Shell, useDialogs } from "@mailai/ui";
 import { useCallback, useEffect, useState } from "react";
 import { AppNav } from "../components/AppNav";
 import { Composer } from "../components/Composer";
@@ -12,6 +12,7 @@ import {
 
 export default function DraftsPage() {
   const { t } = useTranslator();
+  const dialogs = useDialogs();
   const [drafts, setDrafts] = useState<DraftSummary[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [editingDraft, setEditingDraft] = useState<DraftSummary | null>(null);
@@ -45,7 +46,13 @@ export default function DraftsPage() {
   };
 
   const onDelete = async (draft: DraftSummary) => {
-    if (!confirm("Discard this draft?")) return;
+    const ok = await dialogs.confirm({
+      title: "Discard this draft?",
+      description: draft.subject ? `"${draft.subject}" will be deleted.` : undefined,
+      confirmLabel: "Discard",
+      tone: "danger",
+    });
+    if (!ok) return;
     setBusyId(draft.id);
     try {
       await deleteDraft(draft.id);

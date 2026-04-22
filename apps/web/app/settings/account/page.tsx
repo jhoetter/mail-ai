@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { Button, Card, DataTable, PageBody, PageHeader, Shell } from "@mailai/ui";
+import { Button, Card, DataTable, PageBody, PageHeader, Shell, useDialogs } from "@mailai/ui";
 import { ConnectAccountDialog } from "../../components/connect-account-dialog";
 import { AppNav } from "../../components/AppNav";
 import { SignatureCard } from "../../components/SignatureCard";
@@ -21,6 +21,7 @@ interface AccountRow extends AccountSummary {
 
 export default function AccountSettingsPage() {
   const { t } = useTranslator();
+  const dialogs = useDialogs();
   const [accounts, setAccounts] = useState<AccountSummary[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -55,17 +56,25 @@ export default function AccountSettingsPage() {
 
   const onDisconnect = useCallback(
     async (id: string) => {
-      if (!confirm("Disconnect this account? mail-ai will stop fetching mail for it.")) {
-        return;
-      }
+      const ok = await dialogs.confirm({
+        title: "Disconnect this account?",
+        description: "mail-ai will stop fetching mail for it.",
+        confirmLabel: "Disconnect",
+        tone: "danger",
+      });
+      if (!ok) return;
       try {
         await deleteAccount(id);
         await refresh();
       } catch (err) {
-        alert(err instanceof Error ? err.message : String(err));
+        await dialogs.alert({
+          title: "Couldn't disconnect account",
+          description: err instanceof Error ? err.message : String(err),
+          tone: "danger",
+        });
       }
     },
-    [refresh],
+    [dialogs, refresh],
   );
 
   const onSync = useCallback(
@@ -82,15 +91,21 @@ export default function AccountSettingsPage() {
             : r.updated > 0
               ? `${r.updated} updated`
               : "no changes";
-        // eslint-disable-next-line no-alert -- intentional, swap for toast later
-        alert(`Synced ${r.fetched} messages (${verb}) in ${r.durationMs} ms`);
+        await dialogs.alert({
+          title: "Sync complete",
+          description: `Synced ${r.fetched} messages (${verb}) in ${r.durationMs} ms`,
+        });
       } catch (err) {
-        alert(err instanceof Error ? err.message : String(err));
+        await dialogs.alert({
+          title: "Sync failed",
+          description: err instanceof Error ? err.message : String(err),
+          tone: "danger",
+        });
       } finally {
         setSyncingId(null);
       }
     },
-    [refresh],
+    [dialogs, refresh],
   );
 
   // Deeper pull than `Sync now`: walks the full folder set (inbox +
@@ -100,13 +115,13 @@ export default function AccountSettingsPage() {
   // endpoint with extra query params.
   const onBackfill = useCallback(
     async (id: string) => {
-      if (
-        !confirm(
-          "Backfill the last few thousand messages across Inbox, Sent, Drafts, Trash, Spam, and Archive? This may take a minute.",
-        )
-      ) {
-        return;
-      }
+      const ok = await dialogs.confirm({
+        title: "Backfill mail?",
+        description:
+          "We'll pull the last few thousand messages across Inbox, Sent, Drafts, Trash, Spam, and Archive. This may take a minute.",
+        confirmLabel: "Backfill",
+      });
+      if (!ok) return;
       setBackfillingId(id);
       try {
         const r = await syncAccount(id, {
@@ -118,19 +133,23 @@ export default function AccountSettingsPage() {
           .filter((p) => p.fetched > 0)
           .map((p) => `${p.folder} ${p.fetched}`)
           .join(", ");
-        // eslint-disable-next-line no-alert -- intentional, swap for toast later
-        alert(
-          `Backfill done in ${r.durationMs} ms — ${r.fetched} messages${
+        await dialogs.alert({
+          title: "Backfill complete",
+          description: `Done in ${r.durationMs} ms — ${r.fetched} messages${
             breakdown ? ` (${breakdown})` : ""
           }`,
-        );
+        });
       } catch (err) {
-        alert(err instanceof Error ? err.message : String(err));
+        await dialogs.alert({
+          title: "Backfill failed",
+          description: err instanceof Error ? err.message : String(err),
+          tone: "danger",
+        });
       } finally {
         setBackfillingId(null);
       }
     },
-    [refresh],
+    [dialogs, refresh],
   );
 
   const rows: AccountRow[] = accounts;

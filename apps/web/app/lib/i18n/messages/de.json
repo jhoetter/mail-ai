@@ -24,17 +24,15 @@
     "german": "Deutsch"
   },
   "nav": {
-    "workspace": "Arbeitsbereich",
+    "email": "E-Mail",
     "settings": "Einstellungen",
     "inbox": "Posteingang",
     "drafts": "Entwürfe",
-    "search": "Suche",
     "accounts": "Konten",
     "inboxes": "Postfächer",
     "auditLog": "Audit-Log",
     "calendar": "Kalender",
     "tags": "Tags",
-    "views": "Ansichten",
     "soon": "bald"
   },
   "inbox": {
@@ -113,6 +111,9 @@
     "replyPlaceholder": "An {name} antworten…",
     "replyHint": "⌘↵ zum Senden",
     "discard": "Verwerfen",
+    "replyingTo": "Antwort an {name}",
+    "replyingAll": "Antwort an alle",
+    "showCcBcc": "Cc / Bcc",
     "attach": "Anhängen",
     "attachments": "Anhänge",
     "downloadEml": ".eml herunterladen",
@@ -166,14 +167,31 @@
     "reconnectHint": "{email} neu verbinden, um Kontakt-Vorschläge für dieses Konto zu aktivieren.",
     "reconnect": "Neu verbinden"
   },
-  "search": {
-    "title": "Suche",
-    "subtitle": "Volltextsuche über synchronisierte Mails.",
-    "placeholder": "Mails durchsuchen…",
-    "submit": "Suchen",
-    "submitting": "Suche läuft…",
+  "topbar": {
+    "placeholder": "Nachrichten, Dateien, Personen, Postfächer, Tags und Termine suchen…",
+    "recentSearches": "Letzte Suchen",
     "empty": "Keine Treffer.",
-    "hint": "Tipp: Phrasensuche und tsquery-Operatoren werden unterstützt."
+    "error": "Suche fehlgeschlagen: {error}",
+    "hint": "Tipp: Filter mit in:, from:, to:, tag:, has:attachment, has:link kombinieren.",
+    "tabs": {
+      "all": "Alle",
+      "messages": "Nachrichten",
+      "files": "Dateien",
+      "people": "Personen",
+      "mailboxes": "Postfächer",
+      "tags": "Tags",
+      "calendar": "Kalender"
+    },
+    "chips": {
+      "hasAttachment": "Mit Anhang",
+      "hasLink": "Mit Link"
+    },
+    "footer": {
+      "navigate": "navigieren",
+      "open": "öffnen",
+      "close": "schließen",
+      "focus": "Suche fokussieren"
+    }
   },
   "accounts": {
     "title": "Konten",
@@ -230,7 +248,6 @@
   },
   "commands": {
     "go-inbox": { "label": "Zum Posteingang", "description": "Öffne den vereinten Posteingang." },
-    "go-search": { "label": "Zur Suche", "description": "Öffne die Volltextsuche." },
     "go-calendar": { "label": "Zum Kalender", "description": "Öffne den Kalender." },
     "go-accounts": { "label": "Zu den Konten", "description": "Öffne die verbundenen Konten." },
     "go-audit": { "label": "Zum Audit-Log", "description": "Öffne das Audit-Log." },
@@ -281,26 +298,69 @@
     "today": "Heute",
     "previous": "Zurück",
     "next": "Weiter",
-    "newEvent": "Neuer Termin",
-    "eventTitle": "Titel",
+    "newEvent": "Erstellen",
+    "eventTitle": "Titel hinzufügen",
     "eventDescription": "Beschreibung",
     "eventLocation": "Ort",
     "eventStart": "Start",
     "eventEnd": "Ende",
-    "eventAttendees": "Teilnehmende (durch Kommas getrennt)",
+    "eventAttendees": "Gäste hinzufügen",
     "noCalendars": "Keine Kalender verbunden. Synchronisiere, um sie zu importieren.",
-    "syncCalendars": "Kalender synchronisieren",
+    "noVisibleCalendars": "Keine Kalender ausgewählt. Wähle einen in der Seitenleiste aus.",
+    "syncCalendars": "Aktualisieren",
     "respond": "Antworten",
-    "accept": "Zusagen",
-    "decline": "Absagen",
-    "tentative": "Vorläufig",
+    "accept": "Ja",
+    "decline": "Nein",
+    "tentative": "Vielleicht",
     "meeting": "Besprechungslink",
     "meetingNone": "Kein Besprechungslink",
     "meetingGmeet": "Google Meet",
     "meetingTeams": "Microsoft Teams",
     "joinMeet": "Google Meet beitreten",
     "joinTeams": "Microsoft Teams beitreten",
-    "copyLink": "Link kopieren"
+    "copyLink": "Link kopieren",
+    "view": {
+      "day": "Tag",
+      "week": "Woche",
+      "month": "Monat"
+    },
+    "myCalendars": "Meine Kalender",
+    "allDay": "Ganztägig",
+    "timeZone": "Zeitzone",
+    "editEvent": "Termin bearbeiten",
+    "eventDetails": "Termindetails",
+    "moreOptions": "Weitere Optionen",
+    "saving": "Wird gespeichert…",
+    "guests": "Gäste",
+    "organizer": "Organisator",
+    "yourResponse": "Deine Antwort",
+    "recurrence": {
+      "label": "Wiederholen",
+      "none": "Wiederholt sich nicht",
+      "daily": "Täglich",
+      "weekly": "Wöchentlich",
+      "monthly": "Monatlich",
+      "yearly": "Jährlich",
+      "custom": "Benutzerdefiniert…"
+    },
+    "editScope": {
+      "title": "Wiederkehrenden Termin bearbeiten",
+      "single": "Nur dieser Termin",
+      "following": "Dieser und folgende Termine",
+      "series": "Alle Termine"
+    },
+    "deleteScope": {
+      "title": "Wiederkehrenden Termin löschen",
+      "single": "Nur dieser Termin",
+      "following": "Dieser und folgende Termine",
+      "series": "Alle Termine"
+    },
+    "quickCreate": {
+      "title": "Titel hinzufügen",
+      "create": "Speichern",
+      "moreOptions": "Weitere Optionen"
+    },
+    "moreEvents": "+{count} weitere"
   },
   "draftsClient": {
     "saving": "Wird gespeichert…",

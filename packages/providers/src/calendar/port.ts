@@ -14,6 +14,7 @@ import type {
   CreateEventArgs,
   CreatedEvent,
   DeleteEventArgs,
+  EventEditScope,
   EventMetadata,
   ListEventsArgs,
   NormalizedCalendar,
@@ -36,6 +37,21 @@ export interface CalendarProviderCapabilities {
   // Both implemented adapters return true; left here so a future
   // CalDAV adapter can flag the limitation.
   readonly respondTentative: boolean;
+  // Whether the adapter can create + edit recurring series via a
+  // RecurrenceRule on createEvent / patchEvent.
+  readonly recurrence: boolean;
+  // Edit scopes the adapter advertises. The web UI hides scopes
+  // missing from this list (eg. an adapter without "following"
+  // splits the radio group down to single + series).
+  readonly editScopes: ReadonlyArray<EventEditScope>;
+  // Whether patchEvent honors `attendeesAdd` / `attendeesRemove`.
+  // Adapters without this raise on a patch that touches attendees,
+  // so the UI keeps the chip input read-only.
+  readonly patchAttendees: boolean;
+  // Whether createEvent / patchEvent honor `timeZone`. When false,
+  // the UI omits the time-zone picker and adapters fall back to
+  // UTC instants.
+  readonly timeZones: boolean;
 }
 
 export interface CalendarProvider {

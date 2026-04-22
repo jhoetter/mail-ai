@@ -44,6 +44,23 @@ export const SearchSpecSchema = z.object({
   limit: z.number().int().min(1).max(200).default(50),
 });
 
+// RFC 5545 RRULE subset matching the CalendarProvider port. Kept
+// narrow on purpose: the recurrence affordances Google Calendar's UI
+// surfaces (daily/weekly/monthly/yearly + interval + until/count + on
+// specific weekdays / month days) all serialize through these
+// fields; custom RRULEs round-trip via the originating event's raw
+// payload.
+export const RecurrenceSchema = z.object({
+  freq: z.enum(["DAILY", "WEEKLY", "MONTHLY", "YEARLY"]),
+  interval: z.number().int().positive().optional(),
+  count: z.number().int().positive().optional(),
+  until: z.string().datetime().optional(),
+  byday: z
+    .array(z.enum(["MO", "TU", "WE", "TH", "FR", "SA", "SU"]))
+    .optional(),
+  bymonthday: z.array(z.number().int().min(1).max(31)).optional(),
+});
+
 export const CommandPayloadSchema = z.discriminatedUnion("type", [
   // Mark every message in the provider thread read/unread. ThreadView
   // dispatches this on open (debounced); the handler walks the local
@@ -85,6 +102,14 @@ export const CommandPayloadSchema = z.discriminatedUnion("type", [
       bodyHtml: z.string().optional(),
       accountId: z.string().optional(),
       attachments: z.array(AttachmentRefSchema).optional(),
+      // Optional recipient overrides. By default `mail:reply` derives
+      // To from the source message's From header (vanilla "Reply").
+      // The web client passes explicit lists when the user has edited
+      // the recipient row or chose "Reply all" — at that point the
+      // server must honour the user's intent rather than re-deriving.
+      to: z.array(z.string().email()).optional(),
+      cc: z.array(z.string().email()).optional(),
+      bcc: z.array(z.string().email()).optional(),
     }),
   }),
   // Forward semantics differ from reply: the original message is
@@ -277,6 +302,13 @@ export const CommandPayloadSchema = z.discriminatedUnion("type", [
       // google-mail accounts, `teams` only on outlook; the server
       // returns a `validation_error` otherwise.
       meeting: z.enum(["gmeet", "teams", "none"]).optional(),
+      // IANA zone id (eg. "Europe/Berlin"). Adapters that advertise
+      // capabilities.timeZones=true honor it; others ignore.
+      timeZone: z.string().optional(),
+      // RFC 5545-ish RRULE subset. Adapters that advertise
+      // capabilities.recurrence=true serialize it for the upstream
+      // API; the rest reject the call with a validation error.
+      recurrence: RecurrenceSchema.optional(),
     }),
   }),
   z.object({
@@ -288,11 +320,28 @@ export const CommandPayloadSchema = z.discriminatedUnion("type", [
       location: z.string().optional(),
       startsAt: z.string().optional(),
       endsAt: z.string().optional(),
+      allDay: z.boolean().optional(),
+      // Attendee deltas. The handler reads the existing list off the
+      // event and merges before passing the patch to the adapter.
+      attendeesAdd: z.array(z.string()).optional(),
+      attendeesRemove: z.array(z.string()).optional(),
+      meeting: z.enum(["gmeet", "teams", "none"]).optional(),
+      // null = clear recurrence (turns a series into a single event);
+      // an object = replace it.
+      recurrence: RecurrenceSchema.nullable().optional(),
+      timeZone: z.string().optional(),
+      // Only relevant for events that belong to a series. Adapters
+      // surface the supported subset via capabilities.editScopes; the
+      // handler validates against that before dispatching.
+      scope: z.enum(["single", "following", "series"]).optional(),
     }),
   }),
   z.object({
     type: z.literal("calendar:delete-event"),
-    payload: z.object({ eventId: z.string() }),
+    payload: z.object({
+      eventId: z.string(),
+      scope: z.enum(["single", "following", "series"]).optional(),
+    }),
   }),
 ]);
 

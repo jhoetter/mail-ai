@@ -12,6 +12,8 @@ import {
 // Vite's HMR push CSS updates without a full reload.
 import "../app/globals.css";
 
+import { DialogsProvider } from "@mailai/ui";
+
 import { I18nProvider } from "../app/lib/i18n";
 import { RealtimeProvider } from "../app/lib/realtime";
 import { AppShell } from "../app/lib/shell";
@@ -20,7 +22,6 @@ import { ThemeProvider } from "../app/lib/theme-provider";
 import InboxPage from "../app/inbox/page";
 import CalendarPage from "../app/calendar/page";
 import DraftsPage from "../app/drafts/page";
-import SearchPage from "../app/search/page";
 import SettingsAccountPage from "../app/settings/account/page";
 import SettingsInboxesPage from "../app/settings/inboxes/page";
 import SettingsAuditPage from "../app/settings/audit/page";
@@ -39,7 +40,6 @@ function AppRoutes() {
       <Route path="/inbox" element={<InboxPage />} />
       <Route path="/calendar" element={<CalendarPage />} />
       <Route path="/drafts" element={<DraftsPage />} />
-      <Route path="/search" element={<SearchPage />} />
       <Route path="/settings/account" element={<SettingsAccountPage />} />
       <Route path="/settings/inboxes" element={<SettingsInboxesPage />} />
       <Route path="/settings/audit" element={<SettingsAuditPage />} />
@@ -56,13 +56,15 @@ createRoot(rootEl).render(
   <StrictMode>
     <ThemeProvider>
       <I18nProvider>
-        <RealtimeProvider>
-          <BrowserRouter>
-            <AppShell>
-              <AppRoutes />
-            </AppShell>
-          </BrowserRouter>
-        </RealtimeProvider>
+        <DialogsProvider>
+          <RealtimeProvider>
+            <BrowserRouter>
+              <AppShell>
+                <AppRoutes />
+              </AppShell>
+            </BrowserRouter>
+          </RealtimeProvider>
+        </DialogsProvider>
       </I18nProvider>
     </ThemeProvider>
   </StrictMode>,

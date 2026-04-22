@@ -37,6 +37,11 @@ import {
   patchGraphMessage,
   type GraphMessageMetadata,
 } from "../graph.js";
+// Reuse Gmail's RFC822 address-list parser. The header strings we
+// store as `cc_addr` look the same regardless of the source provider
+// (Graph's joinRecipients() also returns "a@x, b@y, …"), so a single
+// parser keeps both adapters consistent.
+import { parseAddressList } from "../gmail.js";
 import { sendGraphRawMime } from "../send.js";
 
 // Graph's well-known folder names. The /me/mailFolders/{folderId}
@@ -298,8 +303,9 @@ function toNormalizedMessage(
       meta.fromEmail !== null
         ? { name: meta.fromName, email: meta.fromEmail }
         : null,
-    to: meta.to ? [{ name: null, email: meta.to }] : [],
-    cc: [],
+    to: parseAddressList(meta.to),
+    cc: parseAddressList(meta.cc),
+    bcc: parseAddressList(meta.bcc),
     snippet: meta.snippet,
     internalDate: meta.internalDate,
     flags,

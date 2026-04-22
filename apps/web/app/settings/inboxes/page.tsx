@@ -1,4 +1,4 @@
-import { Button, DataTable, Dialog, Input, PageBody, PageHeader, Shell } from "@mailai/ui";
+import { Button, DataTable, Dialog, Input, PageBody, PageHeader, Shell, useDialogs } from "@mailai/ui";
 import { useCallback, useEffect, useState } from "react";
 import { AppNav } from "../../components/AppNav";
 import {
@@ -181,6 +181,7 @@ function InboxDrawer({
   onClose: () => void;
   onDeleted: () => void;
 }) {
+  const dialogs = useDialogs();
   const [detail, setDetail] = useState<InboxDetail | null>(null);
   const [err, setErr] = useState<string | null>(null);
   const [memberId, setMemberId] = useState("");
@@ -313,7 +314,13 @@ function InboxDrawer({
               size="sm"
               variant="ghost"
               onClick={async () => {
-                if (!confirm(`Delete inbox "${detail.name}"? This can't be undone.`)) return;
+                const ok = await dialogs.confirm({
+                  title: `Delete inbox "${detail.name}"?`,
+                  description: "This can't be undone.",
+                  confirmLabel: "Delete",
+                  tone: "danger",
+                });
+                if (!ok) return;
                 await deleteInbox(id);
                 onDeleted();
               }}

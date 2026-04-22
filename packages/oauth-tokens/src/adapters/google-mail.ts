@@ -40,6 +40,7 @@ import {
   listGmailHistory,
   listGmailMessageIds,
   modifyGmailMessageLabels,
+  parseAddressList,
   type GmailMessageMetadata,
 } from "../gmail.js";
 import { sendGmail } from "../send.js";
@@ -412,8 +413,9 @@ function toNormalizedMessage(
       meta.fromEmail !== null
         ? { name: meta.fromName, email: meta.fromEmail }
         : null,
-    to: meta.to ? [{ name: null, email: meta.to }] : [],
-    cc: [],
+    to: parseAddressList(meta.to),
+    cc: parseAddressList(meta.cc),
+    bcc: parseAddressList(meta.bcc),
     snippet: meta.snippet,
     internalDate: meta.internalDate,
     flags,

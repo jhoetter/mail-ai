@@ -26,7 +26,6 @@ import {
   Mailbox,
   Moon,
   ScrollText,
-  Search,
   Send,
   Tag,
   Trash2,
@@ -58,10 +57,9 @@ interface NavSection {
 
 const SECTIONS: NavSection[] = [
   {
-    labelKey: "nav.workspace",
+    labelKey: "nav.calendar",
     items: [
       { href: "/calendar", labelKey: "nav.calendar", icon: Calendar },
-      { href: "/search", labelKey: "nav.search", icon: Search },
     ],
   },
   {
@@ -245,7 +243,7 @@ function MailViewsNav({ onNavigate }: { onNavigate: () => void }) {
   return (
     <div className="flex flex-col gap-0.5">
       <div className="px-2 pb-0.5 pt-1 text-[11px] font-semibold uppercase tracking-wider text-tertiary">
-        {t("nav.views")}
+        {t("nav.email")}
       </div>
       {sorted.map((view) => {
         const Icon = VIEW_ICONS[view.name] ?? InboxIcon;

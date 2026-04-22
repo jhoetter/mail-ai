@@ -1,492 +1,380 @@
-import { Button, Card, Dialog, Input, PageBody, PageHeader, Shell } from "@mailai/ui";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useState } from "react";
+import { Card, PageBody, PageHeader, Shell, useDialogs } from "@mailai/ui";
 import { AppNav } from "../components/AppNav";
 import { useTranslator } from "../lib/i18n/useTranslator";
 import {
   createEvent,
   deleteEvent,
-  listCalendars,
-  listEvents,
   respondEvent,
-  syncCalendars,
+  updateEvent,
+  type CalendarEditScope,
   type CalendarSummary,
-  type EventSummary,
-  type MeetingChoice,
 } from "../lib/calendar-client";
+import { CalendarToolbar } from "./_components/CalendarToolbar";
+import { Sidebar } from "./_components/Sidebar";
+import { TimeGrid } from "./_components/TimeGrid";
+import { MonthGrid } from "./_components/MonthGrid";
+import { QuickCreatePopover } from "./_components/QuickCreatePopover";
+import { EventDetailsPopover } from "./_components/EventDetailsPopover";
+import {
+  EventEditorDialog,
+  type EventEditorOutput,
+} from "./_components/EventEditorDialog";
+import { startOfDay } from "./_lib/calendar-time";
+import { useCalendarState, type CalendarEvent } from "./_lib/useCalendarState";
+
+interface QuickCreateState {
+  readonly anchor: HTMLElement | DOMRect;
+  readonly defaults: {
+    readonly calendarId: string;
+    readonly start: Date;
+    readonly end: Date;
+    readonly allDay: boolean;
+  };
+}
+
+interface DetailsState {
+  readonly anchor: HTMLElement;
+  readonly event: CalendarEvent;
+}
+
+interface EditorState {
+  readonly intent:
+    | {
+        readonly mode: "create";
+        readonly defaults: {
+          readonly calendarId: string;
+          readonly summary?: string;
+          readonly start: Date;
+          readonly end: Date;
+          readonly allDay: boolean;
+        };
+      }
+    | {
+        readonly mode: "edit";
+        readonly event: CalendarEvent;
+        readonly scope: CalendarEditScope;
+      };
+}
 
 export default function CalendarPage() {
   const { t } = useTranslator();
-  const [calendars, setCalendars] = useState<CalendarSummary[] | null>(null);
-  const [events, setEvents] = useState<EventSummary[]>([]);
-  const [error, setError] = useState<string | null>(null);
-  const [busy, setBusy] = useState(false);
-  const [weekStart, setWeekStart] = useState<Date>(() => startOfWeek(new Date()));
-  const [composeOpen, setComposeOpen] = useState(false);
-  const [composeDefaults, setComposeDefaults] = useState<{
-    start: Date;
-    end: Date;
-  } | null>(null);
-  const [composeCalendarId, setComposeCalendarId] = useState<string | null>(null);
+  const dialogs = useDialogs();
+  const state = useCalendarState();
 
-  const refreshCalendars = useCallback(() => {
-    listCalendars()
-      .then(setCalendars)
-      .catch((err) => setError(err instanceof Error ? err.message : String(err)));
-  }, []);
+  const [quickCreate, setQuickCreate] = useState<QuickCreateState | null>(null);
+  const [details, setDetails] = useState<DetailsState | null>(null);
+  const [editor, setEditor] = useState<EditorState | null>(null);
 
-  useEffect(() => {
-    refreshCalendars();
-  }, [refreshCalendars]);
+  // The first visible calendar is the "default" target for new
+  // events. We intentionally keep this dumb: the picker inside the
+  // popover/dialog lets the user change it before saving.
+  const defaultCalendarId = (state.visibleCalendars[0]?.id ?? state.calendars?.[0]?.id) ?? null;
 
-  const visibleCalendars = useMemo(
-    () => calendars?.filter((c) => c.isVisible) ?? [],
-    [calendars],
+  const openCreateAt = useCallback(
+    (start: Date, end: Date, allDay: boolean, anchor: HTMLElement | DOMRect) => {
+      if (!defaultCalendarId) return;
+      setQuickCreate({
+        anchor,
+        defaults: { calendarId: defaultCalendarId, start, end, allDay },
+      });
+    },
+    [defaultCalendarId],
   );
 
-  useEffect(() => {
-    if (visibleCalendars.length === 0) {
-      setEvents([]);
-      return;
-    }
-    let cancelled = false;
-    const from = weekStart;
-    const to = new Date(weekStart.getTime() + 7 * 24 * 60 * 60_000);
-    Promise.all(visibleCalendars.map((c) => listEvents(c.id, from, to)))
-      .then((lists) => {
-        if (cancelled) return;
-        setEvents(lists.flat());
-      })
-      .catch((err) => {
-        if (!cancelled) setError(err instanceof Error ? err.message : String(err));
+  const onCreateButton = useCallback(() => {
+    const now = new Date();
+    const start = new Date(now);
+    start.setMinutes(0, 0, 0);
+    const end = new Date(start.getTime() + 60 * 60_000);
+    openCreateAt(start, end, false, new DOMRect(window.innerWidth / 2, 80, 0, 0));
+  }, [openCreateAt]);
+
+  const calendarOf = useCallback(
+    (id: string): CalendarSummary | null =>
+      state.calendars?.find((c) => c.id === id) ?? null,
+    [state.calendars],
+  );
+
+  const onMoveEvent = useCallback(
+    async (event: CalendarEvent, args: { start: Date; end: Date }) => {
+      // Tolerate no-op drags so we don't fire a write when the user
+      // grabs and drops on the same slot.
+      if (
+        new Date(event.startsAt).getTime() === args.start.getTime() &&
+        new Date(event.endsAt).getTime() === args.end.getTime()
+      ) {
+        return;
+      }
+      try {
+        await updateEvent(event.id, {
+          startsAt: args.start.toISOString(),
+          endsAt: args.end.toISOString(),
+        });
+        state.bumpRevision();
+      } catch (err) {
+        state.setError(err instanceof Error ? err.message : String(err));
+      }
+    },
+    [state],
+  );
+
+  const onResizeEvent = useCallback(
+    async (event: CalendarEvent, args: { start: Date; end: Date }) => {
+      try {
+        await updateEvent(event.id, {
+          startsAt: args.start.toISOString(),
+          endsAt: args.end.toISOString(),
+        });
+        state.bumpRevision();
+      } catch (err) {
+        state.setError(err instanceof Error ? err.message : String(err));
+      }
+    },
+    [state],
+  );
+
+  const onMoveToDay = useCallback(
+    async (event: CalendarEvent, day: Date) => {
+      // Day-granularity move keeps the original time-of-day on the
+      // new day. For all-day events both endpoints land on the day
+      // boundary.
+      const oldStart = new Date(event.startsAt);
+      const oldEnd = new Date(event.endsAt);
+      const duration = oldEnd.getTime() - oldStart.getTime();
+      const newStart = new Date(day);
+      if (event.allDay) {
+        newStart.setHours(0, 0, 0, 0);
+      } else {
+        newStart.setHours(oldStart.getHours(), oldStart.getMinutes(), 0, 0);
+      }
+      const newEnd = new Date(newStart.getTime() + duration);
+      await onMoveEvent(event, { start: newStart, end: newEnd });
+    },
+    [onMoveEvent],
+  );
+
+  const onSubmitEditor = useCallback(
+    async (
+      intent: NonNullable<EditorState["intent"]>,
+      payload: EventEditorOutput,
+    ) => {
+      if (intent.mode === "create") {
+        await createEvent({
+          calendarId: payload.calendarId,
+          summary: payload.summary,
+          ...(payload.description ? { description: payload.description } : {}),
+          ...(payload.location ? { location: payload.location } : {}),
+          startsAt: payload.startsAt,
+          endsAt: payload.endsAt,
+          allDay: payload.allDay,
+          attendees: payload.attendees.map((a) => a.email),
+          meeting: payload.meeting,
+          timeZone: payload.timeZone,
+          ...(payload.recurrence ? { recurrence: payload.recurrence } : {}),
+        });
+      } else {
+        await updateEvent(intent.event.id, {
+          summary: payload.summary,
+          description: payload.description ?? "",
+          location: payload.location ?? "",
+          startsAt: payload.startsAt,
+          endsAt: payload.endsAt,
+          allDay: payload.allDay,
+          ...(payload.attendeesAdd.length > 0
+            ? { attendeesAdd: [...payload.attendeesAdd] }
+            : {}),
+          ...(payload.attendeesRemove.length > 0
+            ? { attendeesRemove: [...payload.attendeesRemove] }
+            : {}),
+          meeting: payload.meeting,
+          ...(payload.recurrence !== undefined
+            ? { recurrence: payload.recurrence }
+            : {}),
+          timeZone: payload.timeZone,
+          scope: intent.scope,
+        });
+      }
+      setEditor(null);
+      state.bumpRevision();
+    },
+    [state],
+  );
+
+  const onDeleteEvent = useCallback(
+    async (event: CalendarEvent, scope: CalendarEditScope) => {
+      const ok = await dialogs.confirm({
+        title: t("calendar.deleteScope.title"),
+        description: event.summary ? `"${event.summary}"` : undefined,
+        confirmLabel: t("common.delete"),
+        tone: "danger",
       });
-    return () => {
-      cancelled = true;
-    };
-  }, [visibleCalendars, weekStart]);
-
-  const onSync = async () => {
-    setBusy(true);
-    try {
-      await syncCalendars();
-      refreshCalendars();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : String(err));
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  const days = useMemo(() => {
-    const out: Date[] = [];
-    for (let i = 0; i < 7; i++) {
-      out.push(new Date(weekStart.getTime() + i * 24 * 60 * 60_000));
-    }
-    return out;
-  }, [weekStart]);
-
-  const openCompose = (start: Date, end: Date) => {
-    if (visibleCalendars.length === 0) return;
-    setComposeCalendarId(visibleCalendars[0]!.id);
-    setComposeDefaults({ start, end });
-    setComposeOpen(true);
-  };
+      if (!ok) return;
+      try {
+        await deleteEvent(event.id, scope);
+        state.bumpRevision();
+        setDetails(null);
+      } catch (err) {
+        state.setError(err instanceof Error ? err.message : String(err));
+      }
+    },
+    [dialogs, state, t],
+  );
 
   return (
     <Shell sidebar={<AppNav />}>
       <PageHeader
         title={t("calendar.title")}
         subtitle={t("calendar.subtitle")}
-        actions={
-          <div className="flex gap-2">
-            <Button
-              size="sm"
-              variant="ghost"
-              onClick={() =>
-                setWeekStart((w) => new Date(w.getTime() - 7 * 24 * 60 * 60_000))
-              }
-            >
-              {t("calendar.previous")}
-            </Button>
-            <Button
-              size="sm"
-              variant="ghost"
-              onClick={() => setWeekStart(startOfWeek(new Date()))}
-            >
-              {t("calendar.today")}
-            </Button>
-            <Button
-              size="sm"
-              variant="ghost"
-              onClick={() =>
-                setWeekStart((w) => new Date(w.getTime() + 7 * 24 * 60 * 60_000))
-              }
-            >
-              {t("calendar.next")}
-            </Button>
-            <Button size="sm" variant="secondary" disabled={busy} onClick={() => void onSync()}>
-              {t("calendar.syncCalendars")}
-            </Button>
-            <Button
-              size="sm"
-              variant="primary"
-              disabled={visibleCalendars.length === 0}
-              onClick={() => {
-                const now = new Date();
-                const start = new Date(now);
-                start.setMinutes(0, 0, 0);
-                const end = new Date(start.getTime() + 60 * 60_000);
-                openCompose(start, end);
-              }}
-            >
-              {t("calendar.newEvent")}
-            </Button>
-          </div>
-        }
+        actions={null}
       />
-      <PageBody width="wide">
-      {error ? <p className="text-sm text-error">{error}</p> : null}
-      {calendars === null ? (
-        <p className="text-sm text-secondary">{t("common.loading")}</p>
-      ) : calendars.length === 0 ? (
-        <Card>
-          <p className="text-sm text-secondary">{t("calendar.noCalendars")}</p>
-        </Card>
-      ) : (
-        <Card>
-          <WeekGrid
-            days={days}
-            events={events}
-            calendars={visibleCalendars}
-            onSlotClick={openCompose}
-            onRespond={async (event, response) => {
-              try {
-                await respondEvent({ eventId: event.id, response });
-              } catch (err) {
-                setError(err instanceof Error ? err.message : String(err));
-              }
-            }}
-            onDelete={async (event) => {
-              if (!confirm("Delete event?")) return;
-              try {
-                await deleteEvent(event.id);
-                setEvents((prev) => prev.filter((e) => e.id !== event.id));
-              } catch (err) {
-                setError(err instanceof Error ? err.message : String(err));
-              }
-            }}
-          />
-        </Card>
-      )}
-      </PageBody>
-      {composeOpen && composeDefaults && composeCalendarId ? (
-        <EventComposer
-          open={composeOpen}
-          calendars={visibleCalendars}
-          calendarId={composeCalendarId}
-          defaults={composeDefaults}
-          onClose={() => setComposeOpen(false)}
-          onCreated={() => {
-            setComposeOpen(false);
-            // Trigger event reload by nudging weekStart to a new Date instance.
-            setWeekStart((w) => new Date(w));
-          }}
-        />
-      ) : null}
-    </Shell>
-  );
-}
-
-function startOfWeek(date: Date): Date {
-  const d = new Date(date);
-  d.setHours(0, 0, 0, 0);
-  const day = d.getDay();
-  const offset = (day + 6) % 7;
-  d.setDate(d.getDate() - offset);
-  return d;
-}
-
-interface WeekGridProps {
-  days: Date[];
-  events: EventSummary[];
-  calendars: CalendarSummary[];
-  onSlotClick: (start: Date, end: Date) => void;
-  onRespond: (event: EventSummary, response: "accepted" | "declined" | "tentative") => Promise<void>;
-  onDelete: (event: EventSummary) => Promise<void>;
-}
-
-function WeekGrid({ days, events, onSlotClick, onRespond, onDelete }: WeekGridProps) {
-  const { t } = useTranslator();
-  return (
-    <div className="grid grid-cols-7 gap-2 overflow-x-auto">
-      {days.map((day) => {
-        const dayEvents = events
-          .filter((e) => sameDay(new Date(e.startsAt), day))
-          .sort((a, b) => new Date(a.startsAt).getTime() - new Date(b.startsAt).getTime());
-        return (
-          <div key={day.toISOString()} className="flex min-w-[8rem] flex-col gap-1">
-            <button
-              type="button"
-              onClick={() => {
-                const start = new Date(day);
-                start.setHours(9, 0, 0, 0);
-                const end = new Date(start.getTime() + 60 * 60_000);
-                onSlotClick(start, end);
-              }}
-              className="rounded-md border border-divider bg-background/40 px-2 py-1 text-left text-xs text-secondary hover:bg-background/60"
-            >
-              <div className="font-semibold text-foreground">
-                {day.toLocaleDateString(undefined, { weekday: "short" })}
-              </div>
-              <div>{day.toLocaleDateString(undefined, { day: "numeric", month: "short" })}</div>
-            </button>
-            <div className="flex flex-col gap-1">
-              {dayEvents.map((event) => (
-                <div
-                  key={event.id}
-                  className="rounded-md border border-divider bg-surface p-2 text-xs"
-                >
-                  <div className="font-medium">{event.summary || t("common.untitled")}</div>
-                  <div className="text-[10px] text-secondary">
-                    {formatTime(event.startsAt)} – {formatTime(event.endsAt)}
-                  </div>
-                  {event.location ? (
-                    <div className="text-[10px] text-secondary">{event.location}</div>
-                  ) : null}
-                  {event.meetingJoinUrl ? (
-                    <div className="mt-1 flex items-center gap-1 text-[10px]">
-                      <a
-                        href={event.meetingJoinUrl}
-                        target="_blank"
-                        rel="noreferrer noopener"
-                        className="truncate text-accent underline"
-                        title={event.meetingJoinUrl}
-                      >
-                        {event.meetingProvider === "ms-teams"
-                          ? t("calendar.joinTeams")
-                          : t("calendar.joinMeet")}
-                      </a>
-                      <button
-                        type="button"
-                        className="rounded bg-background/60 px-1.5 py-0.5 hover:bg-background"
-                        onClick={() => {
-                          if (event.meetingJoinUrl) {
-                            void navigator.clipboard.writeText(event.meetingJoinUrl);
-                          }
-                        }}
-                      >
-                        {t("calendar.copyLink")}
-                      </button>
-                    </div>
-                  ) : null}
-                  <div className="mt-1 flex flex-wrap gap-1">
-                    <button
-                      type="button"
-                      className="rounded bg-background/60 px-1.5 py-0.5 text-[10px] hover:bg-background"
-                      onClick={() => void onRespond(event, "accepted")}
-                    >
-                      {t("calendar.accept")}
-                    </button>
-                    <button
-                      type="button"
-                      className="rounded bg-background/60 px-1.5 py-0.5 text-[10px] hover:bg-background"
-                      onClick={() => void onRespond(event, "tentative")}
-                    >
-                      {t("calendar.tentative")}
-                    </button>
-                    <button
-                      type="button"
-                      className="rounded bg-background/60 px-1.5 py-0.5 text-[10px] hover:bg-background"
-                      onClick={() => void onRespond(event, "declined")}
-                    >
-                      {t("calendar.decline")}
-                    </button>
-                    <button
-                      type="button"
-                      className="rounded bg-background/60 px-1.5 py-0.5 text-[10px] text-error hover:bg-background"
-                      onClick={() => void onDelete(event)}
-                    >
-                      {t("common.delete")}
-                    </button>
-                  </div>
-                </div>
-              ))}
+      <PageBody width="none">
+        {state.error && (
+          <p className="px-4 text-sm text-error">{state.error}</p>
+        )}
+        {state.calendars === null ? (
+          <p className="px-4 text-sm text-secondary">{t("common.loading")}</p>
+        ) : state.calendars.length === 0 ? (
+          <Card>
+            <p className="text-sm text-secondary">{t("calendar.noCalendars")}</p>
+          </Card>
+        ) : (
+          <div className="flex h-[calc(100vh-12rem)] min-h-[40rem] gap-3">
+            <Sidebar
+              cursor={state.cursor}
+              onCursorChange={state.setCursor}
+              calendars={state.calendars}
+              onToggleCalendar={state.onToggleCalendar}
+              onCreate={onCreateButton}
+            />
+            <div className="flex flex-1 flex-col gap-2">
+              <CalendarToolbar
+                view={state.view}
+                cursor={state.cursor}
+                busy={state.busy}
+                canCreate={Boolean(defaultCalendarId)}
+                onPrev={state.onPrev}
+                onNext={state.onNext}
+                onToday={state.onToday}
+                onChangeView={state.setView}
+                onSync={() => void state.onSync()}
+                onCreate={onCreateButton}
+              />
+              {state.visibleCalendars.length === 0 ? (
+                <Card>
+                  <p className="text-sm text-secondary">
+                    {t("calendar.noVisibleCalendars")}
+                  </p>
+                </Card>
+              ) : state.view === "month" ? (
+                <MonthGrid
+                  cursor={state.cursor}
+                  events={state.events}
+                  colorForCalendar={state.colorForCalendar}
+                  onCreateOnDay={(day, anchor) => {
+                    const start = startOfDay(day);
+                    start.setHours(9, 0, 0, 0);
+                    const end = new Date(start.getTime() + 60 * 60_000);
+                    openCreateAt(start, end, false, anchor);
+                  }}
+                  onSelectEvent={(event, anchor) =>
+                    setDetails({ event, anchor })
+                  }
+                  onMoveEventToDay={onMoveToDay}
+                />
+              ) : (
+                <TimeGrid
+                  view={state.view}
+                  cursor={state.cursor}
+                  events={state.events}
+                  colorForCalendar={state.colorForCalendar}
+                  onCreateRange={(args, anchor) =>
+                    openCreateAt(args.start, args.end, args.allDay, anchor)
+                  }
+                  onSelectEvent={(event, anchor) =>
+                    setDetails({ event, anchor })
+                  }
+                  onMoveEvent={onMoveEvent}
+                  onResizeEvent={onResizeEvent}
+                />
+              )}
             </div>
           </div>
-        );
-      })}
-    </div>
+        )}
+      </PageBody>
+
+      {/* Quick-create popover anchored to the drag selection. */}
+      {quickCreate && state.calendars && (
+        <QuickCreatePopover
+          open={true}
+          anchor={quickCreate.anchor}
+          calendars={state.visibleCalendars}
+          defaults={quickCreate.defaults}
+          onClose={() => setQuickCreate(null)}
+          onCreate={async (input) => {
+            await createEvent({
+              calendarId: input.calendarId,
+              summary: input.summary,
+              startsAt: input.startsAt,
+              endsAt: input.endsAt,
+              allDay: input.allDay,
+              timeZone: input.timeZone,
+            });
+            setQuickCreate(null);
+            state.bumpRevision();
+          }}
+          onMore={(input) => {
+            setQuickCreate(null);
+            setEditor({
+              intent: {
+                mode: "create",
+                defaults: {
+                  calendarId: input.calendarId,
+                  summary: input.summary,
+                  start: new Date(input.startsAt),
+                  end: new Date(input.endsAt),
+                  allDay: input.allDay,
+                },
+              },
+            });
+          }}
+        />
+      )}
+
+      {/* Read-only details popover with RSVP / edit / delete. */}
+      {details && state.calendars && (
+        <EventDetailsPopover
+          open={true}
+          anchor={details.anchor}
+          event={details.event}
+          calendar={calendarOf(details.event.calendarId)}
+          onClose={() => setDetails(null)}
+          onRespond={async (event, response) => {
+            try {
+              await respondEvent({ eventId: event.id, response });
+              state.bumpRevision();
+            } catch (err) {
+              state.setError(err instanceof Error ? err.message : String(err));
+            }
+          }}
+          onEdit={(event, scope) => {
+            setDetails(null);
+            setEditor({ intent: { mode: "edit", event, scope } });
+          }}
+          onDelete={(event, scope) => void onDeleteEvent(event, scope)}
+        />
+      )}
+
+      {/* Full editor dialog. */}
+      {editor && state.calendars && (
+        <EventEditorDialog
+          open={true}
+          intent={editor.intent}
+          calendars={state.visibleCalendars}
+          onClose={() => setEditor(null)}
+          onSubmit={onSubmitEditor}
+        />
+      )}
+    </Shell>
   );
-}
-
-function sameDay(a: Date, b: Date): boolean {
-  return (
-    a.getFullYear() === b.getFullYear() &&
-    a.getMonth() === b.getMonth() &&
-    a.getDate() === b.getDate()
-  );
-}
-
-function formatTime(iso: string): string {
-  return new Date(iso).toLocaleTimeString(undefined, {
-    hour: "2-digit",
-    minute: "2-digit",
-  });
-}
-
-interface EventComposerProps {
-  open: boolean;
-  calendars: CalendarSummary[];
-  calendarId: string;
-  defaults: { start: Date; end: Date };
-  onClose: () => void;
-  onCreated: () => void;
-}
-
-function EventComposer({
-  open,
-  calendars,
-  calendarId: initialCalendarId,
-  defaults,
-  onClose,
-  onCreated,
-}: EventComposerProps) {
-  const { t } = useTranslator();
-  const [calendarId, setCalendarId] = useState(initialCalendarId);
-  const [summary, setSummary] = useState("");
-  const [description, setDescription] = useState("");
-  const [location, setLocation] = useState("");
-  const [startsAt, setStartsAt] = useState(toLocalInput(defaults.start));
-  const [endsAt, setEndsAt] = useState(toLocalInput(defaults.end));
-  const [attendees, setAttendees] = useState("");
-  const [meeting, setMeeting] = useState<MeetingChoice>("none");
-  const [busy, setBusy] = useState(false);
-  const [err, setErr] = useState<string | null>(null);
-
-  // Switching calendars can move us between providers; if the new
-  // calendar's adapter doesn't advertise the currently-selected
-  // conference capability, fall back to "none" instead of letting the
-  // server reject the create. Capability set comes from the
-  // CalendarProvider port — we never check provider strings here.
-  const selectedCalendar = calendars.find((c) => c.id === calendarId);
-  const supportsGmeet =
-    selectedCalendar?.capabilities.conferences.includes("google") ?? false;
-  const supportsTeams =
-    selectedCalendar?.capabilities.conferences.includes("microsoft") ?? false;
-  useEffect(() => {
-    if (!selectedCalendar) return;
-    if (meeting === "gmeet" && !supportsGmeet) setMeeting("none");
-    else if (meeting === "teams" && !supportsTeams) setMeeting("none");
-  }, [selectedCalendar, meeting, supportsGmeet, supportsTeams]);
-
-  const submit = async () => {
-    setBusy(true);
-    setErr(null);
-    try {
-      await createEvent({
-        calendarId,
-        summary,
-        ...(description ? { description } : {}),
-        ...(location ? { location } : {}),
-        startsAt: new Date(startsAt).toISOString(),
-        endsAt: new Date(endsAt).toISOString(),
-        attendees: attendees
-          .split(",")
-          .map((s) => s.trim())
-          .filter(Boolean),
-        meeting,
-      });
-      onCreated();
-    } catch (e) {
-      setErr(e instanceof Error ? e.message : String(e));
-      setBusy(false);
-    }
-  };
-
-  return (
-    <Dialog open={open} onClose={onClose}>
-      <h3 className="text-base font-semibold">{t("calendar.newEvent")}</h3>
-      <div className="mt-3 flex flex-col gap-2">
-        <select
-          value={calendarId}
-          onChange={(e) => setCalendarId(e.target.value)}
-          className="h-9 rounded-md border border-divider bg-background px-2 text-sm"
-        >
-          {calendars.map((c) => (
-            <option key={c.id} value={c.id}>
-              {c.name}
-            </option>
-          ))}
-        </select>
-        <Input
-          placeholder={t("calendar.eventTitle")}
-          value={summary}
-          onChange={(e) => setSummary(e.target.value)}
-        />
-        <textarea
-          className="min-h-20 w-full rounded-md border border-divider bg-background p-2 text-sm"
-          placeholder={t("calendar.eventDescription")}
-          value={description}
-          onChange={(e) => setDescription(e.target.value)}
-        />
-        <Input
-          placeholder={t("calendar.eventLocation")}
-          value={location}
-          onChange={(e) => setLocation(e.target.value)}
-        />
-        <label className="text-xs text-secondary">{t("calendar.meeting")}</label>
-        <select
-          value={meeting}
-          onChange={(e) => setMeeting(e.target.value as MeetingChoice)}
-          className="h-9 rounded-md border border-divider bg-background px-2 text-sm"
-        >
-          <option value="none">{t("calendar.meetingNone")}</option>
-          <option value="gmeet" disabled={!supportsGmeet}>
-            {t("calendar.meetingGmeet")}
-          </option>
-          <option value="teams" disabled={!supportsTeams}>
-            {t("calendar.meetingTeams")}
-          </option>
-        </select>
-        <label className="text-xs text-secondary">{t("calendar.eventStart")}</label>
-        <input
-          type="datetime-local"
-          value={startsAt}
-          onChange={(e) => setStartsAt(e.target.value)}
-          className="h-9 rounded-md border border-divider bg-background px-2 text-sm"
-        />
-        <label className="text-xs text-secondary">{t("calendar.eventEnd")}</label>
-        <input
-          type="datetime-local"
-          value={endsAt}
-          onChange={(e) => setEndsAt(e.target.value)}
-          className="h-9 rounded-md border border-divider bg-background px-2 text-sm"
-        />
-        <Input
-          placeholder={t("calendar.eventAttendees")}
-          value={attendees}
-          onChange={(e) => setAttendees(e.target.value)}
-        />
-        {err ? <p className="text-xs text-error">{err}</p> : null}
-        <div className="mt-2 flex justify-end gap-2">
-          <Button variant="ghost" onClick={onClose} disabled={busy}>
-            {t("common.cancel")}
-          </Button>
-          <Button
-            variant="primary"
-            disabled={busy || summary.trim().length === 0}
-            onClick={() => void submit()}
-          >
-            {busy ? t("composer.sending") : t("common.save")}
-          </Button>
-        </div>
-      </div>
-    </Dialog>
-  );
-}
-
-function toLocalInput(d: Date): string {
-  const pad = (n: number) => String(n).padStart(2, "0");
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(
-    d.getHours(),
-  )}:${pad(d.getMinutes())}`;
 }

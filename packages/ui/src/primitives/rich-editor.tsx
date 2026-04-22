@@ -38,6 +38,7 @@ import {
   type CSSProperties,
 } from "react";
 import { cn } from "../lib/cn";
+import { useDialogs } from "../composites/dialogs";
 
 export interface RichEditorChange {
   readonly html: string;
@@ -82,6 +83,7 @@ export const RichEditor = forwardRef<RichEditorHandle, RichEditorProps>(
     ref,
   ) {
     const editorRef = useRef<HTMLDivElement | null>(null);
+    const dialogs = useDialogs();
     const [empty, setEmpty] = useState(!defaultValue || defaultValue.trim().length === 0);
 
     const emit = useCallback(() => {
@@ -139,6 +141,39 @@ export const RichEditor = forwardRef<RichEditorHandle, RichEditorProps>(
       [emit],
     );
 
+    const promptForLink = useCallback(async () => {
+      if (typeof window === "undefined") return;
+      // The link prompt opens a dialog, which steals focus from the
+      // contenteditable and wipes the user's selection. We capture the
+      // active range up front and restore it before calling
+      // `createLink`, otherwise the link gets inserted at the
+      // start of the document (or nowhere at all).
+      const selection = window.getSelection();
+      const savedRange =
+        selection && selection.rangeCount > 0 ? selection.getRangeAt(0).cloneRange() : null;
+      const url = await dialogs.prompt({
+        title: "Insert link",
+        description: "Enter a URL — we'll prepend https:// if you skip the scheme.",
+        placeholder: "https://example.com",
+        inputType: "url",
+        okLabel: "Insert",
+      });
+      if (!url) return;
+      const trimmed = url.trim();
+      if (trimmed.length === 0) return;
+      const safe =
+        /^https?:\/\//i.test(trimmed) || trimmed.startsWith("mailto:")
+          ? trimmed
+          : `https://${trimmed}`;
+      editorRef.current?.focus();
+      if (savedRange) {
+        const sel = window.getSelection();
+        sel?.removeAllRanges();
+        sel?.addRange(savedRange);
+      }
+      exec("createLink", safe);
+    }, [dialogs, exec]);
+
     const onKeyDown = useCallback(
       (e: React.KeyboardEvent<HTMLDivElement>) => {
         if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "enter" && onSubmit) {
@@ -165,12 +200,12 @@ export const RichEditor = forwardRef<RichEditorHandle, RichEditorProps>(
           }
           if (k === "k") {
             e.preventDefault();
-            promptForLink(exec);
+            void promptForLink();
             return;
           }
         }
       },
-      [exec, onSubmit],
+      [exec, onSubmit, promptForLink],
     );
 
     // Paste cleanup: keep the formatted clipboard if it's a sensible
@@ -199,7 +234,7 @@ export const RichEditor = forwardRef<RichEditorHandle, RichEditorProps>(
 
     return (
       <div className={cn("flex w-full flex-col", className)}>
-        {hideToolbar ? null : <Toolbar exec={exec} />}
+        {hideToolbar ? null : <Toolbar exec={exec} onLinkClick={() => void promptForLink()} />}
         <div className="relative flex-1">
           <div
             ref={editorRef}
@@ -229,9 +264,10 @@ export const RichEditor = forwardRef<RichEditorHandle, RichEditorProps>(
 
 interface ToolbarProps {
   readonly exec: (command: string, arg?: string) => void;
+  readonly onLinkClick: () => void;
 }
 
-function Toolbar({ exec }: ToolbarProps) {
+function Toolbar({ exec, onLinkClick }: ToolbarProps) {
   return (
     <div
       role="toolbar"
@@ -262,7 +298,7 @@ function Toolbar({ exec }: ToolbarProps) {
         <CodeIcon size={14} aria-hidden />
       </ToolBtn>
       <Sep />
-      <ToolBtn label="Link" shortcut="⌘K" onClick={() => promptForLink(exec)}>
+      <ToolBtn label="Link" shortcut="⌘K" onClick={onLinkClick}>
         <LinkIcon size={14} aria-hidden />
       </ToolBtn>
       <ToolBtn label="Clear formatting" onClick={() => exec("removeFormat")}>
@@ -296,14 +332,6 @@ function ToolBtn({ label, shortcut, onClick, children }: ToolBtnProps) {
 
 function Sep() {
   return <span className="mx-1 inline-block h-4 w-px bg-divider" aria-hidden />;
-}
-
-function promptForLink(exec: (cmd: string, arg?: string) => void): void {
-  if (typeof window === "undefined") return;
-  const url = window.prompt("Link URL");
-  if (!url) return;
-  const safe = /^https?:\/\//i.test(url) || url.startsWith("mailto:") ? url : `https://${url}`;
-  exec("createLink", safe);
 }
 
 // Convert the editor's HTML into a faithful plain-text fallback —

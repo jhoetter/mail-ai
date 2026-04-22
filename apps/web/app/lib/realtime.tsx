@@ -34,9 +34,26 @@ export interface SyncEvent {
   readonly at: string;
 }
 
+// Mirrors `MutationSubjectKind` from packages/server/src/events.ts.
+// Lets calendar/thread/comment listeners narrow without parsing the
+// embedded command type.
+export type RealtimeMutationSubjectKind =
+  | "thread"
+  | "message"
+  | "comment"
+  | "event"
+  | "calendar"
+  | "other";
+
+export interface MutationEvent {
+  readonly kind: "mutation";
+  readonly subjectKind: RealtimeMutationSubjectKind;
+  readonly mutation: unknown;
+}
+
 export type RealtimeEvent =
   | SyncEvent
-  | { readonly kind: "mutation"; readonly mutation: unknown }
+  | MutationEvent
   | {
       readonly kind: "presence";
       readonly userId: string;
@@ -226,4 +243,25 @@ export function useSyncEvents(handler: (event: SyncEvent) => void): void {
     });
     return unsubscribe;
   }, [ctx, handler]);
+}
+
+// Subscribe to `kind: "mutation"` events filtered by subject kind.
+// The calendar page wires this up as
+//   useMutationEvents("event", () => bumpRevision());
+// so a successful create/update/delete from another tab (or another
+// device) reloads the visible window without polling.
+export function useMutationEvents(
+  subjectKind: RealtimeMutationSubjectKind,
+  handler: (event: MutationEvent) => void,
+): void {
+  const ctx = useRealtime();
+  useEffect(() => {
+    if (!ctx) return;
+    const unsubscribe = ctx.subscribe((event) => {
+      if (event.kind !== "mutation") return;
+      if (event.subjectKind !== subjectKind) return;
+      handler(event);
+    });
+    return unsubscribe;
+  }, [ctx, subjectKind, handler]);
 }

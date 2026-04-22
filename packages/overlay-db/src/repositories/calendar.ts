@@ -122,6 +122,22 @@ export class CalendarRepository {
     `);
   }
 
+  // Toggle the per-calendar visibility flag the calendar sidebar
+  // drives. Returns the row when the update affected something so the
+  // route can return 404 when the calendar id is bogus.
+  async setVisibility(
+    tenantId: string,
+    id: string,
+    isVisible: boolean,
+  ): Promise<CalendarRow | null> {
+    const res = await this.db
+      .update(calendars)
+      .set({ isVisible })
+      .where(and(eq(calendars.tenantId, tenantId), eq(calendars.id, id)))
+      .returning();
+    return (res[0] as CalendarRow | undefined) ?? null;
+  }
+
   async listCalendars(tenantId: string): Promise<CalendarRow[]> {
     const rows = await this.db
       .select()

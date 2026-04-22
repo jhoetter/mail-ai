@@ -29,10 +29,19 @@ import {
   respondGraphEvent,
 } from "../calendar.js";
 
+// Outlook (Microsoft Graph) is intentionally conservative for the
+// Phase 8 calendar refactor: the recurrence + attendee-delta + edit-
+// scope surface lands on the port but Graph's instance-vs-master
+// split semantics aren't implemented yet. Keeping the flags `false`
+// makes the web UI hide the affordances rather than crash on call.
 const CAPABILITIES: CalendarProviderCapabilities = {
   mutate: true,
   conferences: ["microsoft"],
   respondTentative: true,
+  recurrence: false,
+  editScopes: ["single"],
+  patchAttendees: false,
+  timeZones: false,
 };
 
 export class OutlookCalendarAdapter implements CalendarProvider {
@@ -85,6 +94,11 @@ export class OutlookCalendarAdapter implements CalendarProvider {
         "outlook calendar adapter cannot provision a Google Meet meeting",
       );
     }
+    if (args.recurrence) {
+      throw new Error(
+        "outlook calendar adapter does not yet support recurrence on create",
+      );
+    }
     return createGraphEvent({
       accessToken: args.accessToken,
       calendarId: args.calendarId,
@@ -100,7 +114,25 @@ export class OutlookCalendarAdapter implements CalendarProvider {
 
   async patchEvent(args: AccessTokenArgs & PatchEventArgs): Promise<void> {
     void args.calendarId;
+    if (args.scope && args.scope !== "single") {
+      throw new Error(
+        `outlook calendar adapter only supports the "single" edit scope`,
+      );
+    }
     const p = args.patch;
+    if (
+      (p.attendeesAdd && p.attendeesAdd.length > 0) ||
+      (p.attendeesRemove && p.attendeesRemove.length > 0)
+    ) {
+      throw new Error(
+        "outlook calendar adapter does not yet support attendee delta patches",
+      );
+    }
+    if (p.recurrence !== undefined) {
+      throw new Error(
+        "outlook calendar adapter does not yet support recurrence patches",
+      );
+    }
     const body: Record<string, unknown> = {};
     if (p.summary !== undefined) body["subject"] = p.summary;
     if (p.description !== undefined) {
@@ -124,6 +156,11 @@ export class OutlookCalendarAdapter implements CalendarProvider {
 
   async deleteEvent(args: AccessTokenArgs & DeleteEventArgs): Promise<void> {
     void args.calendarId;
+    if (args.scope && args.scope !== "single") {
+      throw new Error(
+        `outlook calendar adapter only supports the "single" delete scope`,
+      );
+    }
     await deleteGraphEvent({
       accessToken: args.accessToken,
       providerEventId: args.providerEventId,
@@ -133,6 +170,11 @@ export class OutlookCalendarAdapter implements CalendarProvider {
   async respondEvent(args: AccessTokenArgs & RespondEventArgs): Promise<void> {
     void args.calendarId;
     void args.attendeeEmail; // Graph addresses the response to the authenticated user
+    if (args.scope && args.scope !== "single") {
+      throw new Error(
+        `outlook calendar adapter only supports the "single" respond scope`,
+      );
+    }
     await respondGraphEvent({
       accessToken: args.accessToken,
       providerEventId: args.providerEventId,

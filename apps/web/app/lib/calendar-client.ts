@@ -8,8 +8,24 @@ import { dispatchCommand } from "./commands-client";
 // doesn't have to map provider strings to features.
 export type CalendarConferenceCapability = "google" | "microsoft";
 
+export type CalendarEditScope = "single" | "following" | "series";
+
 export interface CalendarCapabilities {
   conferences: CalendarConferenceCapability[];
+  recurrence: boolean;
+  editScopes: CalendarEditScope[];
+  patchAttendees: boolean;
+  timeZones: boolean;
+}
+
+// RFC 5545 RRULE subset matched to the agent schema.
+export interface RecurrenceRule {
+  freq: "DAILY" | "WEEKLY" | "MONTHLY" | "YEARLY";
+  interval?: number;
+  count?: number;
+  until?: string;
+  byday?: ReadonlyArray<"MO" | "TU" | "WE" | "TH" | "FR" | "SA" | "SU">;
+  bymonthday?: ReadonlyArray<number>;
 }
 
 export interface CalendarSummary {
@@ -63,16 +79,34 @@ export async function listCalendars(): Promise<CalendarSummary[]> {
       capabilities?: Partial<CalendarCapabilities>;
     }>;
   };
-  // Normalize any older server response that hasn't shipped
-  // capabilities yet so the rest of the UI can treat it as required.
+  // Normalize any older server response that hasn't shipped the full
+  // capability set yet so the rest of the UI can treat it as required.
   return data.calendars.map((c) => ({
     ...c,
-    capabilities: { conferences: c.capabilities?.conferences ?? [] },
+    capabilities: {
+      conferences: c.capabilities?.conferences ?? [],
+      recurrence: c.capabilities?.recurrence ?? false,
+      editScopes: c.capabilities?.editScopes ?? ["single"],
+      patchAttendees: c.capabilities?.patchAttendees ?? false,
+      timeZones: c.capabilities?.timeZones ?? false,
+    },
   }));
 }
 
 export async function syncCalendars(): Promise<void> {
   await fetch(`${baseUrl()}/api/calendars/sync`, { method: "POST" });
+}
+
+export async function setCalendarVisibility(
+  id: string,
+  isVisible: boolean,
+): Promise<void> {
+  const res = await fetch(`${baseUrl()}/api/calendars/${encodeURIComponent(id)}`, {
+    method: "PATCH",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ isVisible }),
+  });
+  if (!res.ok) throw new Error(`/api/calendars PATCH ${res.status}`);
 }
 
 export async function listEvents(
@@ -92,6 +126,33 @@ export async function listEvents(
   return data.events;
 }
 
+// Fan-out version: every visible calendar in one round-trip. Returns
+// events grouped by calendar id so the UI can colour them per
+// calendar without a second join.
+export interface EventsRangeResponse {
+  from: string;
+  to: string;
+  groups: ReadonlyArray<{
+    calendarId: string;
+    events: EventSummary[];
+  }>;
+}
+
+export async function listEventsRange(
+  from: Date,
+  to: Date,
+): Promise<EventsRangeResponse> {
+  const u = new URL(
+    `${baseUrl()}/api/calendars/events`,
+    typeof window === "undefined" ? "http://localhost" : window.location.href,
+  );
+  u.searchParams.set("from", from.toISOString());
+  u.searchParams.set("to", to.toISOString());
+  const res = await fetch(u.pathname + u.search);
+  if (!res.ok) throw new Error(`/api/calendars/events ${res.status}`);
+  return (await res.json()) as EventsRangeResponse;
+}
+
 export interface CreateEventInput {
   calendarId: string;
   summary: string;
@@ -102,15 +163,32 @@ export interface CreateEventInput {
   allDay?: boolean;
   attendees?: string[];
   meeting?: MeetingChoice;
+  timeZone?: string;
+  recurrence?: RecurrenceRule;
 }
 
 export async function createEvent(input: CreateEventInput): Promise<void> {
   await dispatchCommand({ type: "calendar:create-event", payload: input });
 }
 
+export interface UpdateEventInput {
+  summary?: string;
+  description?: string;
+  location?: string;
+  startsAt?: string;
+  endsAt?: string;
+  allDay?: boolean;
+  attendeesAdd?: string[];
+  attendeesRemove?: string[];
+  meeting?: MeetingChoice;
+  recurrence?: RecurrenceRule | null;
+  timeZone?: string;
+  scope?: CalendarEditScope;
+}
+
 export async function updateEvent(
   eventId: string,
-  patch: Partial<Omit<CreateEventInput, "calendarId">>,
+  patch: UpdateEventInput,
 ): Promise<void> {
   await dispatchCommand({
     type: "calendar:update-event",
@@ -118,8 +196,14 @@ export async function updateEvent(
   });
 }
 
-export async function deleteEvent(eventId: string): Promise<void> {
-  await dispatchCommand({ type: "calendar:delete-event", payload: { eventId } });
+export async function deleteEvent(
+  eventId: string,
+  scope?: CalendarEditScope,
+): Promise<void> {
+  await dispatchCommand({
+    type: "calendar:delete-event",
+    payload: { eventId, ...(scope ? { scope } : {}) },
+  });
 }
 
 export async function respondEvent(input: {
@@ -129,4 +213,29 @@ export async function respondEvent(input: {
   comment?: string;
 }): Promise<void> {
   await dispatchCommand({ type: "calendar:respond", payload: input });
+}
+
+// Wrapper for /api/contacts/suggest used by ContactPicker. Returns
+// the normalized item shape the picker expects.
+export interface ContactsSuggestItem {
+  id: string;
+  email: string;
+  name?: string;
+  source?: string;
+}
+
+export async function suggestContacts(q: string): Promise<ContactsSuggestItem[]> {
+  if (q.trim().length === 0) return [];
+  const u = new URL(
+    `${baseUrl()}/api/contacts/suggest`,
+    typeof window === "undefined" ? "http://localhost" : window.location.href,
+  );
+  u.searchParams.set("q", q.trim());
+  u.searchParams.set("limit", "8");
+  const res = await fetch(u.pathname + u.search);
+  if (!res.ok) return [];
+  const data = (await res.json()) as {
+    items: ReadonlyArray<{ id: string; email: string; name?: string; source?: string }>;
+  };
+  return [...data.items];
 }

@@ -125,6 +125,8 @@ export const oauthMessages = pgTable(
     fromName: text("from_name"),
     fromEmail: text("from_email"),
     toAddr: text("to_addr"),
+    ccAddr: text("cc_addr"),
+    bccAddr: text("bcc_addr"),
     snippet: text("snippet").notNull().default(""),
     internalDate: timestamp("internal_date", { withTimezone: true }).notNull(),
     labelsJson: jsonb("labels_json").notNull(),

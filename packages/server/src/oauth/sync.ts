@@ -329,6 +329,14 @@ export function toInsertRow(
       m.to.length > 0
         ? m.to.map((a) => a.email).join(", ")
         : null,
+    ccAddr:
+      m.cc.length > 0
+        ? m.cc.map((a) => a.email).join(", ")
+        : null,
+    bccAddr:
+      m.bcc.length > 0
+        ? m.bcc.map((a) => a.email).join(", ")
+        : null,
     snippet: m.snippet,
     internalDate: m.internalDate,
     labelsJson: [...m.userLabels],

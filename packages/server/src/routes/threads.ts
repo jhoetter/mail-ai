@@ -281,6 +281,8 @@ function toMessage(m: OauthMessageRow, attachments: OauthAttachmentRow[]) {
     fromName: m.fromName,
     fromEmail: m.fromEmail,
     to: m.toAddr,
+    cc: m.ccAddr,
+    bcc: m.bccAddr,
     date: m.internalDate.toISOString(),
     snippet: m.snippet,
     unread: m.unread,

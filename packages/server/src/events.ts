@@ -13,8 +13,20 @@ export interface SyncCounts {
   readonly deleted: number;
 }
 
+// Coarse discriminant for the subject of a mutation so realtime
+// listeners can narrow without parsing the command type. The
+// calendar UI subscribes to `event` specifically; thread/message
+// listeners ignore `event`-kind mutations.
+export type MutationSubjectKind =
+  | "thread"
+  | "message"
+  | "comment"
+  | "event"
+  | "calendar"
+  | "other";
+
 export type MailaiEvent =
-  | { kind: "mutation"; mutation: Mutation }
+  | { kind: "mutation"; subjectKind: MutationSubjectKind; mutation: Mutation }
   | {
       kind: "presence";
       userId: string;

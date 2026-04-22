@@ -27,6 +27,15 @@ export interface NormalizedAttendee {
   readonly organizer?: boolean;
 }
 
+export interface RecurrenceRule {
+  readonly freq: "DAILY" | "WEEKLY" | "MONTHLY" | "YEARLY";
+  readonly interval?: number;
+  readonly count?: number;
+  readonly until?: Date;
+  readonly byday?: ReadonlyArray<"MO" | "TU" | "WE" | "TH" | "FR" | "SA" | "SU">;
+  readonly bymonthday?: ReadonlyArray<number>;
+}
+
 export interface NormalizedEvent {
   readonly providerEventId: string;
   readonly icalUid: string | null;
@@ -40,7 +49,109 @@ export interface NormalizedEvent {
   readonly organizerEmail: string | null;
   readonly responseStatus: string | null;
   readonly status: string | null;
+  readonly recurringEventId: string | null;
+  readonly recurrenceRule: string | null;
   readonly raw: unknown;
+}
+
+// Serialize a RecurrenceRule into the literal RFC 5545 text Google
+// stores in `event.recurrence` (without the `RRULE:` prefix; the
+// caller adds it). Exported so adapter tests can pin the wire format.
+export function serializeRRule(rule: RecurrenceRule): string {
+  const parts: string[] = [`FREQ=${rule.freq}`];
+  if (rule.interval && rule.interval > 1) {
+    parts.push(`INTERVAL=${rule.interval}`);
+  }
+  if (rule.count !== undefined) parts.push(`COUNT=${rule.count}`);
+  if (rule.until) {
+    // RFC 5545 UNTIL: UTC Z-form basic ISO (YYYYMMDDTHHMMSSZ).
+    const u = rule.until;
+    const yyyy = u.getUTCFullYear().toString().padStart(4, "0");
+    const mm = (u.getUTCMonth() + 1).toString().padStart(2, "0");
+    const dd = u.getUTCDate().toString().padStart(2, "0");
+    const hh = u.getUTCHours().toString().padStart(2, "0");
+    const mi = u.getUTCMinutes().toString().padStart(2, "0");
+    const ss = u.getUTCSeconds().toString().padStart(2, "0");
+    parts.push(`UNTIL=${yyyy}${mm}${dd}T${hh}${mi}${ss}Z`);
+  }
+  if (rule.byday && rule.byday.length > 0) {
+    parts.push(`BYDAY=${rule.byday.join(",")}`);
+  }
+  if (rule.bymonthday && rule.bymonthday.length > 0) {
+    parts.push(`BYMONTHDAY=${rule.bymonthday.join(",")}`);
+  }
+  return parts.join(";");
+}
+
+// Best-effort parse of the RRULE text Google returns. Anything we
+// don't understand round-trips as null on the structured field while
+// the literal text is still surfaced via NormalizedEvent.recurrenceRule.
+export function parseRRule(text: string): RecurrenceRule | null {
+  const trimmed = text.replace(/^RRULE:/, "");
+  const map = new Map<string, string>();
+  for (const kv of trimmed.split(";")) {
+    const [k, v] = kv.split("=");
+    if (k && v) map.set(k.toUpperCase(), v);
+  }
+  const freq = map.get("FREQ");
+  if (
+    freq !== "DAILY" &&
+    freq !== "WEEKLY" &&
+    freq !== "MONTHLY" &&
+    freq !== "YEARLY"
+  ) {
+    return null;
+  }
+  const out: {
+    freq: "DAILY" | "WEEKLY" | "MONTHLY" | "YEARLY";
+    interval?: number;
+    count?: number;
+    until?: Date;
+    byday?: Array<"MO" | "TU" | "WE" | "TH" | "FR" | "SA" | "SU">;
+    bymonthday?: number[];
+  } = { freq };
+  const interval = map.get("INTERVAL");
+  if (interval) out.interval = Number.parseInt(interval, 10);
+  const count = map.get("COUNT");
+  if (count) out.count = Number.parseInt(count, 10);
+  const until = map.get("UNTIL");
+  if (until) {
+    // Accept basic-format UTC: YYYYMMDDTHHMMSSZ or YYYYMMDD.
+    const m = until.match(/^(\d{4})(\d{2})(\d{2})(?:T(\d{2})(\d{2})(\d{2})Z?)?$/);
+    if (m) {
+      const [, y, mo, d, hh = "0", mm = "0", ss = "0"] = m;
+      out.until = new Date(
+        Date.UTC(
+          Number(y),
+          Number(mo) - 1,
+          Number(d),
+          Number(hh),
+          Number(mm),
+          Number(ss),
+        ),
+      );
+    }
+  }
+  const byday = map.get("BYDAY");
+  if (byday) {
+    const days = byday
+      .split(",")
+      .map((s) => s.trim().toUpperCase())
+      .filter((s): s is "MO" | "TU" | "WE" | "TH" | "FR" | "SA" | "SU" =>
+        s === "MO" || s === "TU" || s === "WE" || s === "TH" ||
+        s === "FR" || s === "SA" || s === "SU",
+      );
+    if (days.length > 0) out.byday = days;
+  }
+  const bymonthday = map.get("BYMONTHDAY");
+  if (bymonthday) {
+    const days = bymonthday
+      .split(",")
+      .map((s) => Number.parseInt(s.trim(), 10))
+      .filter((n) => Number.isFinite(n));
+    if (days.length > 0) out.bymonthday = days;
+  }
+  return out;
 }
 
 // ----- Google Calendar ------------------------------------------------
@@ -87,6 +198,9 @@ interface GoogleEvent {
     entryPoints?: { entryPointType?: string; uri?: string }[];
     conferenceId?: string;
   };
+  recurrence?: string[];
+  recurringEventId?: string;
+  originalStartTime?: { dateTime?: string; date?: string; timeZone?: string };
 }
 
 // Shared shape for the "we just created/updated an event upstream" path.
@@ -131,6 +245,10 @@ function normaliseGoogleEvent(e: GoogleEvent): NormalizedEvent {
   const endsAt = e.end.dateTime
     ? new Date(e.end.dateTime)
     : new Date(`${e.end.date}T00:00:00Z`);
+  // Google emits an array of recurrence lines, only one of which is
+  // typically RRULE. Surface the first RRULE row verbatim; drops
+  // EXDATE/RDATE which we don't model yet.
+  const rruleLine = (e.recurrence ?? []).find((l) => l.startsWith("RRULE:")) ?? null;
   return {
     providerEventId: e.id,
     icalUid: e.iCalUID ?? null,
@@ -157,6 +275,8 @@ function normaliseGoogleEvent(e: GoogleEvent): NormalizedEvent {
     organizerEmail: e.organizer?.email ?? null,
     responseStatus: null,
     status: e.status ?? null,
+    recurringEventId: e.recurringEventId ?? null,
+    recurrenceRule: rruleLine,
     raw: e,
   };
 }
@@ -178,22 +298,37 @@ export async function createGoogleEvent(args: {
   // Defaults to "none" because we send our own RFC 5546 invite; Google
   // would otherwise email attendees as well, producing a duplicate.
   sendUpdates?: "all" | "externalOnly" | "none";
+  // Optional RRULE — when set, Google treats the new event as the
+  // master of a recurring series.
+  recurrence?: RecurrenceRule;
+  // IANA time-zone id; sent on start.timeZone / end.timeZone for
+  // timed events. Ignored for all-day events (Google is implicit).
+  timeZone?: string;
   fetchImpl?: typeof fetch;
 }): Promise<CreatedEvent> {
   const f = args.fetchImpl ?? fetch;
+  const start: Record<string, unknown> = args.allDay
+    ? { date: args.startsAt.toISOString().slice(0, 10) }
+    : { dateTime: args.startsAt.toISOString() };
+  const end: Record<string, unknown> = args.allDay
+    ? { date: args.endsAt.toISOString().slice(0, 10) }
+    : { dateTime: args.endsAt.toISOString() };
+  if (!args.allDay && args.timeZone) {
+    start["timeZone"] = args.timeZone;
+    end["timeZone"] = args.timeZone;
+  }
   const body: Record<string, unknown> = {
     summary: args.summary,
     description: args.description,
     location: args.location,
-    start: args.allDay
-      ? { date: args.startsAt.toISOString().slice(0, 10) }
-      : { dateTime: args.startsAt.toISOString() },
-    end: args.allDay
-      ? { date: args.endsAt.toISOString().slice(0, 10) }
-      : { dateTime: args.endsAt.toISOString() },
+    start,
+    end,
   };
   if (args.attendees && args.attendees.length > 0) {
     body["attendees"] = args.attendees.map((e) => ({ email: e }));
+  }
+  if (args.recurrence) {
+    body["recurrence"] = [`RRULE:${serializeRRule(args.recurrence)}`];
   }
   if (args.withGoogleMeet) {
     body["conferenceData"] = {
@@ -256,7 +391,16 @@ export async function getGoogleEvent(args: {
   calendarId: string;
   providerEventId: string;
   fetchImpl?: typeof fetch;
-}): Promise<{ icalUid: string; sequence: number; joinUrl: string | null }> {
+}): Promise<{
+  icalUid: string;
+  sequence: number;
+  joinUrl: string | null;
+  attendees: { email: string; responseStatus?: string; displayName?: string; organizer?: boolean }[];
+  recurringEventId: string | null;
+  recurrence: string[] | null;
+  start: { dateTime?: string; date?: string; timeZone?: string };
+  end: { dateTime?: string; date?: string; timeZone?: string };
+}> {
   const f = args.fetchImpl ?? fetch;
   const res = await f(
     `${GOOGLE_CAL_BASE}/calendars/${encodeURIComponent(args.calendarId)}/events/${encodeURIComponent(args.providerEventId)}`,
@@ -268,6 +412,11 @@ export async function getGoogleEvent(args: {
     icalUid: json.iCalUID ?? args.providerEventId,
     sequence: json.sequence ?? 0,
     joinUrl: pickGoogleJoinUrl(json),
+    attendees: json.attendees ?? [],
+    recurringEventId: json.recurringEventId ?? null,
+    recurrence: json.recurrence ?? null,
+    start: json.start,
+    end: json.end,
   };
 }
 
@@ -438,6 +587,11 @@ function normaliseGraphEvent(e: GraphEvent): NormalizedEvent {
     organizerEmail: e.organizer?.emailAddress?.address ?? null,
     responseStatus: e.responseStatus?.response ?? null,
     status: e.showAs ?? null,
+    // Graph models recurrence via `seriesMasterId` + `pattern/range`;
+    // we'll surface those via `raw` until the Outlook adapter
+    // implements the full recurrence semantics.
+    recurringEventId: null,
+    recurrenceRule: null,
     raw: e,
   };
 }

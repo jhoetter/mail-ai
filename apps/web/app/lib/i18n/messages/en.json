@@ -24,17 +24,15 @@
     "german": "German"
   },
   "nav": {
-    "workspace": "Workspace",
+    "email": "Email",
     "settings": "Settings",
     "inbox": "Inbox",
     "drafts": "Drafts",
-    "search": "Search",
     "accounts": "Accounts",
     "inboxes": "Inboxes",
     "auditLog": "Audit log",
     "calendar": "Calendar",
     "tags": "Tags",
-    "views": "Views",
     "soon": "soon"
   },
   "inbox": {
@@ -113,6 +111,9 @@
     "replyPlaceholder": "Reply to {name}…",
     "replyHint": "⌘↵ to send",
     "discard": "Discard",
+    "replyingTo": "Replying to {name}",
+    "replyingAll": "Replying to all",
+    "showCcBcc": "Cc / Bcc",
     "attach": "Attach",
     "attachments": "Attachments",
     "downloadEml": "Download .eml",
@@ -166,14 +167,31 @@
     "reconnectHint": "Reconnect {email} to enable contact suggestions for this account.",
     "reconnect": "Reconnect"
   },
-  "search": {
-    "title": "Search",
-    "subtitle": "Full-text search across synced mail.",
-    "placeholder": "Search mail…",
-    "submit": "Search",
-    "submitting": "Searching…",
+  "topbar": {
+    "placeholder": "Search messages, files, people, mailboxes, tags and events…",
+    "recentSearches": "Recent searches",
     "empty": "No matches.",
-    "hint": "Tip: search supports phrases and standard tsquery operators."
+    "error": "Search failed: {error}",
+    "hint": "Tip: combine filters with in:, from:, to:, tag:, has:attachment, has:link.",
+    "tabs": {
+      "all": "All",
+      "messages": "Messages",
+      "files": "Files",
+      "people": "People",
+      "mailboxes": "Mailboxes",
+      "tags": "Tags",
+      "calendar": "Calendar"
+    },
+    "chips": {
+      "hasAttachment": "Has attachment",
+      "hasLink": "Has link"
+    },
+    "footer": {
+      "navigate": "navigate",
+      "open": "open",
+      "close": "close",
+      "focus": "focus search"
+    }
   },
   "accounts": {
     "title": "Accounts",
@@ -230,7 +248,6 @@
   },
   "commands": {
     "go-inbox": { "label": "Go to inbox", "description": "Open the unified inbox." },
-    "go-search": { "label": "Go to search", "description": "Open full-text search." },
     "go-calendar": { "label": "Go to calendar", "description": "Open the calendar." },
     "go-accounts": { "label": "Go to accounts", "description": "Open connected accounts." },
     "go-audit": { "label": "Go to audit log", "description": "Open the durable audit log." },
@@ -281,26 +298,69 @@
     "today": "Today",
     "previous": "Previous",
     "next": "Next",
-    "newEvent": "New event",
-    "eventTitle": "Title",
+    "newEvent": "Create",
+    "eventTitle": "Add title",
     "eventDescription": "Description",
     "eventLocation": "Location",
     "eventStart": "Start",
     "eventEnd": "End",
-    "eventAttendees": "Attendees (comma-separated)",
+    "eventAttendees": "Add guests",
     "noCalendars": "No calendars connected. Sync to import them.",
-    "syncCalendars": "Sync calendars",
+    "noVisibleCalendars": "No calendars selected. Pick one from the sidebar.",
+    "syncCalendars": "Refresh",
     "respond": "Respond",
-    "accept": "Accept",
-    "decline": "Decline",
-    "tentative": "Tentative",
+    "accept": "Yes",
+    "decline": "No",
+    "tentative": "Maybe",
     "meeting": "Meeting link",
     "meetingNone": "No meeting link",
     "meetingGmeet": "Google Meet",
     "meetingTeams": "Microsoft Teams",
     "joinMeet": "Join Google Meet",
     "joinTeams": "Join Microsoft Teams",
-    "copyLink": "Copy link"
+    "copyLink": "Copy link",
+    "view": {
+      "day": "Day",
+      "week": "Week",
+      "month": "Month"
+    },
+    "myCalendars": "My calendars",
+    "allDay": "All day",
+    "timeZone": "Time zone",
+    "editEvent": "Edit event",
+    "eventDetails": "Event details",
+    "moreOptions": "More options",
+    "saving": "Saving…",
+    "guests": "Guests",
+    "organizer": "Organizer",
+    "yourResponse": "Your response",
+    "recurrence": {
+      "label": "Repeat",
+      "none": "Does not repeat",
+      "daily": "Daily",
+      "weekly": "Weekly",
+      "monthly": "Monthly",
+      "yearly": "Yearly",
+      "custom": "Custom…"
+    },
+    "editScope": {
+      "title": "Edit recurring event",
+      "single": "This event",
+      "following": "This and following events",
+      "series": "All events"
+    },
+    "deleteScope": {
+      "title": "Delete recurring event",
+      "single": "This event",
+      "following": "This and following events",
+      "series": "All events"
+    },
+    "quickCreate": {
+      "title": "Add title",
+      "create": "Save",
+      "moreOptions": "More options"
+    },
+    "moreEvents": "+{count} more"
   },
   "draftsClient": {
     "saving": "Saving…",

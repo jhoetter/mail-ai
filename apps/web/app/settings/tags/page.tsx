@@ -1,4 +1,4 @@
-import { Button, Card, Input, PageBody, PageHeader, Shell } from "@mailai/ui";
+import { Button, Card, Input, PageBody, PageHeader, Shell, useDialogs } from "@mailai/ui";
 import { useCallback, useEffect, useState } from "react";
 import { AppNav } from "../../components/AppNav";
 import { useTranslator } from "../../lib/i18n/useTranslator";
@@ -11,6 +11,7 @@ import {
 
 export default function TagsSettingsPage() {
   const { t } = useTranslator();
+  const dialogs = useDialogs();
   const [rows, setRows] = useState<TagDefinition[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [name, setName] = useState("");
@@ -44,7 +45,12 @@ export default function TagsSettingsPage() {
   };
 
   const onDelete = async (tag: TagDefinition) => {
-    if (!confirm(`Delete tag "${tag.name}"?`)) return;
+    const ok = await dialogs.confirm({
+      title: `Delete tag "${tag.name}"?`,
+      confirmLabel: "Delete",
+      tone: "danger",
+    });
+    if (!ok) return;
     try {
       await deleteTag(tag.id);
       refresh();

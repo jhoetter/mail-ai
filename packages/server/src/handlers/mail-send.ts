@@ -72,6 +72,13 @@ interface ReplyPayload {
   bodyHtml?: string;
   accountId?: string;
   attachments?: AttachmentRef[];
+  // Optional caller-supplied recipient overrides. Vanilla "Reply"
+  // omits these and the handler derives To from the source's From
+  // header. The web client supplies them when the user has edited
+  // the recipient row, picked "Reply all", or added Cc/Bcc.
+  to?: string[];
+  cc?: string[];
+  bcc?: string[];
 }
 
 interface ForwardPayload {
@@ -133,19 +140,33 @@ export function buildMailReplyHandler(
       throw new MailaiError("not_found", `thread ${payload.threadId} not found`);
     }
     const account = await pickAccount(deps, payload.accountId ?? root.oauthAccountId);
-    const replyTo = root.fromEmail;
-    if (!replyTo) {
+
+    // Recipient resolution. Caller-supplied lists take precedence — the
+    // user might have removed the original sender, added a CC, etc. We
+    // fall back to "reply to From" only when the caller supplied
+    // nothing, preserving the original simple-reply contract used by
+    // CLI / agent callers.
+    const to =
+      payload.to && payload.to.length > 0
+        ? payload.to
+        : root.fromEmail
+          ? [root.fromEmail]
+          : [];
+    if (to.length === 0) {
       throw new MailaiError(
         "validation_error",
         "source message has no from address to reply to",
       );
     }
+
     const subject = root.subject ? prefixRe(root.subject) : "(no subject)";
     const ref = root.providerMessageId;
 
     return sendAndSnapshot(deps, account, ctx, {
       kind: "reply",
-      to: [replyTo],
+      to,
+      ...(payload.cc && payload.cc.length > 0 ? { cc: payload.cc } : {}),
+      ...(payload.bcc && payload.bcc.length > 0 ? { bcc: payload.bcc } : {}),
       subject,
       body: payload.body,
       ...(payload.bodyHtml ? { bodyHtml: payload.bodyHtml } : {}),
@@ -445,6 +466,8 @@ async function mirrorSentMessage(
     providerThreadId: args.providerThreadId,
     subject: args.intent.subject,
     to: args.intent.to,
+    ...(args.intent.cc ? { cc: args.intent.cc } : {}),
+    ...(args.intent.bcc ? { bcc: args.intent.bcc } : {}),
     snippet: args.snippet,
     sentAt: new Date(),
   });
@@ -463,6 +486,8 @@ export interface SentMirrorInput {
   readonly providerThreadId: string;
   readonly subject: string;
   readonly to: readonly string[];
+  readonly cc?: readonly string[];
+  readonly bcc?: readonly string[];
   readonly snippet: string;
   readonly sentAt: Date;
 }
@@ -485,6 +510,8 @@ export function buildSentMirrorRow(input: SentMirrorInput) {
     fromName: null as string | null,
     fromEmail: input.accountEmail,
     toAddr: input.to.join(", "),
+    ccAddr: input.cc && input.cc.length > 0 ? input.cc.join(", ") : null,
+    bccAddr: input.bcc && input.bcc.length > 0 ? input.bcc.join(", ") : null,
     snippet: input.snippet,
     internalDate: input.sentAt,
     labelsJson: [] as string[],

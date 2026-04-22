@@ -60,6 +60,10 @@ export interface GmailMessageMetadata {
   readonly fromName: string | null;
   readonly fromEmail: string | null;
   readonly to: string | null;
+  // Raw header values, comma-separated (RFC822 syntax). The adapter
+  // splits these into NormalizedAddress arrays via parseAddressList.
+  readonly cc: string | null;
+  readonly bcc: string | null;
   readonly labelIds: readonly string[];
   readonly unread: boolean;
 }
@@ -149,7 +153,8 @@ export async function getGmailMessageMetadata(args: {
   const url =
     `${GMAIL_BASE}/users/me/messages/${encodeURIComponent(args.messageId)}` +
     `?format=metadata` +
-    `&metadataHeaders=From&metadataHeaders=Subject&metadataHeaders=To&metadataHeaders=Date`;
+    `&metadataHeaders=From&metadataHeaders=Subject&metadataHeaders=To` +
+    `&metadataHeaders=Cc&metadataHeaders=Bcc&metadataHeaders=Date`;
   const res = await f(url, {
     headers: { authorization: `Bearer ${args.accessToken}` },
   });
@@ -174,6 +179,8 @@ export async function getGmailMessageMetadata(args: {
     fromName,
     fromEmail,
     to: headers.get("to") ?? null,
+    cc: headers.get("cc") ?? null,
+    bcc: headers.get("bcc") ?? null,
     labelIds: labels,
     unread: labels.includes("UNREAD"),
   };
@@ -192,6 +199,47 @@ function parseAddress(raw: string | null): { name: string | null; email: string 
     return { name: null, email: raw.trim() };
   }
   return { name: raw.trim(), email: null };
+}
+
+// Comma-separated address-list parser tolerant of quoted display
+// names that themselves contain commas (e.g. `"Doe, John"
+// <john@example.com>, jane@example.com`). We walk the string and
+// only treat a comma as a delimiter when we are NOT inside double
+// quotes or angle brackets — anything else is a string-split bug
+// waiting to happen on real-world senders. Adapters call this on
+// the raw `to`/`cc`/`bcc` headers we kept around for Reply All.
+export function splitAddressList(raw: string | null): string[] {
+  if (!raw) return [];
+  const out: string[] = [];
+  let buf = "";
+  let inQuotes = false;
+  let inAngle = false;
+  for (const ch of raw) {
+    if (ch === '"' && !inAngle) inQuotes = !inQuotes;
+    else if (ch === "<" && !inQuotes) inAngle = true;
+    else if (ch === ">" && !inQuotes) inAngle = false;
+    if (ch === "," && !inQuotes && !inAngle) {
+      const t = buf.trim();
+      if (t) out.push(t);
+      buf = "";
+      continue;
+    }
+    buf += ch;
+  }
+  const tail = buf.trim();
+  if (tail) out.push(tail);
+  return out;
+}
+
+export function parseAddressList(
+  raw: string | null,
+): Array<{ name: string | null; email: string }> {
+  const out: Array<{ name: string | null; email: string }> = [];
+  for (const part of splitAddressList(raw)) {
+    const { name, email } = parseAddress(part);
+    if (email) out.push({ name, email });
+  }
+  return out;
 }
 
 // Gmail snippets come HTML-escaped (&amp;, &#39;, …). Normalise the
