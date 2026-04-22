@@ -1,5 +1,3 @@
-"use client";
-
 // Inline tag chips with an "add tag" combobox. Used in the thread
 // header and as a hoverable inline editor in the inbox row.
 //

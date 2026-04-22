@@ -1,6 +1,4 @@
-"use client";
-
-import { Button, DataTable, Dialog, Input, PageHeader, Shell } from "@mailai/ui";
+import { Button, DataTable, Dialog, Input, PageBody, PageHeader, Shell } from "@mailai/ui";
 import { useCallback, useEffect, useState } from "react";
 import { AppNav } from "../../components/AppNav";
 import {
@@ -39,6 +37,7 @@ export default function InboxesSettingsPage() {
         title="Inboxes"
         subtitle="Shared queues that route mail from one or more accounts to a team."
       />
+      <PageBody>
       <div className="flex justify-end mb-3">
         <Button size="sm" variant="primary" onClick={() => setCreating(true)}>
           New inbox
@@ -69,6 +68,7 @@ export default function InboxesSettingsPage() {
           onRowClick={(r) => setDrawerId(r.id)}
         />
       )}
+      </PageBody>
 
       <CreateDialog
         open={creating}

@@ -49,6 +49,11 @@ export interface EventAttendee {
   readonly organizer?: boolean;
 }
 
+// Allowed values for `events.meeting_provider`. The empty type comes
+// from "user did not attach a conference link"; we treat NULL and
+// 'none' as equivalent on the wire so callers can be sloppy.
+export type EventMeetingProvider = "google-meet" | "ms-teams";
+
 export interface EventRow {
   readonly id: string;
   readonly tenantId: string;
@@ -67,6 +72,9 @@ export interface EventRow {
   readonly status: string | null;
   readonly recurrenceJson: unknown;
   readonly rawJson: unknown;
+  readonly sequence: number;
+  readonly meetingProvider: EventMeetingProvider | null;
+  readonly meetingJoinUrl: string | null;
   readonly fetchedAt: Date;
 }
 
@@ -87,6 +95,9 @@ export interface EventInsert {
   readonly responseStatus?: string | null;
   readonly status?: string | null;
   readonly rawJson?: unknown;
+  readonly sequence?: number;
+  readonly meetingProvider?: EventMeetingProvider | null;
+  readonly meetingJoinUrl?: string | null;
 }
 
 export class CalendarRepository {
@@ -126,7 +137,8 @@ export class CalendarRepository {
         id, tenant_id, calendar_id, provider_event_id, ical_uid,
         summary, description, location,
         starts_at, ends_at, all_day,
-        attendees_json, organizer_email, response_status, status, raw_json
+        attendees_json, organizer_email, response_status, status, raw_json,
+        sequence, meeting_provider, meeting_join_url
       ) VALUES (
         ${row.id}, ${row.tenantId}, ${row.calendarId}, ${row.providerEventId},
         ${row.icalUid ?? null},
@@ -137,7 +149,10 @@ export class CalendarRepository {
         ${JSON.stringify(row.attendees ?? [])}::jsonb,
         ${row.organizerEmail ?? null}, ${row.responseStatus ?? null},
         ${row.status ?? null},
-        ${row.rawJson === undefined ? null : JSON.stringify(row.rawJson)}::jsonb
+        ${row.rawJson === undefined ? null : JSON.stringify(row.rawJson)}::jsonb,
+        ${row.sequence ?? 0},
+        ${row.meetingProvider ?? null},
+        ${row.meetingJoinUrl ?? null}
       )
       ON CONFLICT (calendar_id, provider_event_id) DO UPDATE SET
         ical_uid = EXCLUDED.ical_uid,
@@ -152,8 +167,23 @@ export class CalendarRepository {
         response_status = EXCLUDED.response_status,
         status = EXCLUDED.status,
         raw_json = EXCLUDED.raw_json,
+        sequence = GREATEST(events.sequence, EXCLUDED.sequence),
+        meeting_provider = COALESCE(EXCLUDED.meeting_provider, events.meeting_provider),
+        meeting_join_url = COALESCE(EXCLUDED.meeting_join_url, events.meeting_join_url),
         fetched_at = now()
     `);
+  }
+
+  // Bump the SEQUENCE counter atomically and return the new value.
+  // Used by the calendar handler before emitting an iTIP REQUEST/CANCEL
+  // so the recipient sees a strictly monotonic sequence per UID.
+  async bumpSequence(tenantId: string, id: string): Promise<number> {
+    const res = await this.db.execute<{ sequence: number }>(sql`
+      UPDATE events SET sequence = sequence + 1
+      WHERE tenant_id = ${tenantId} AND id = ${id}
+      RETURNING sequence
+    `);
+    return (res.rows?.[0]?.sequence as number | undefined) ?? 0;
   }
 
   async listEventsInRange(

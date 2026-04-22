@@ -30,6 +30,8 @@ export interface OauthMessageRow {
   readonly bodyText: string | null;
   readonly bodyHtml: string | null;
   readonly bodyFetchedAt: Date | null;
+  readonly hasAttachments: boolean;
+  readonly starred: boolean;
 }
 
 export interface OauthMessageInsert {
@@ -159,6 +161,49 @@ export class OauthMessagesRepository {
           body_html = ${body.html},
           body_fetched_at = now()
       WHERE tenant_id = ${tenantId} AND id = ${id}
+    `);
+  }
+
+  async setStarred(
+    tenantId: string,
+    oauthAccountId: string,
+    providerMessageId: string,
+    starred: boolean,
+  ): Promise<void> {
+    await this.db.execute(sql`
+      UPDATE oauth_messages
+      SET starred = ${starred}
+      WHERE tenant_id = ${tenantId}
+        AND oauth_account_id = ${oauthAccountId}
+        AND provider_message_id = ${providerMessageId}
+    `);
+  }
+
+  async setUnreadByThread(
+    tenantId: string,
+    providerThreadId: string,
+    unread: boolean,
+  ): Promise<void> {
+    await this.db.execute(sql`
+      UPDATE oauth_messages
+      SET unread = ${unread}
+      WHERE tenant_id = ${tenantId}
+        AND provider_thread_id = ${providerThreadId}
+    `);
+  }
+
+  async setHasAttachments(
+    tenantId: string,
+    oauthAccountId: string,
+    providerMessageId: string,
+    hasAttachments: boolean,
+  ): Promise<void> {
+    await this.db.execute(sql`
+      UPDATE oauth_messages
+      SET has_attachments = ${hasAttachments}
+      WHERE tenant_id = ${tenantId}
+        AND oauth_account_id = ${oauthAccountId}
+        AND provider_message_id = ${providerMessageId}
     `);
   }
 

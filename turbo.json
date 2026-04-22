@@ -10,7 +10,7 @@
     "MAILAI_API_ORIGIN",
     "MAILAI_API_URL",
     "MAILAI_TOKEN",
-    "NEXT_PUBLIC_MAILAI_API_URL",
+    "VITE_MAILAI_API_URL",
     "DATABASE_URL",
     "NANGO_SECRET_KEY",
     "NANGO_HOST",
@@ -36,7 +36,7 @@
   "tasks": {
     "build": {
       "dependsOn": ["^build"],
-      "outputs": ["dist/**", ".next/**", "!.next/cache/**"]
+      "outputs": ["dist/**"]
     },
     "dev": {
       "cache": false,

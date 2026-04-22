@@ -19,6 +19,8 @@ export interface ThreadSummary {
   date: string;
   tags?: TagSummary[];
   status?: "open" | "snoozed" | "done" | "draft";
+  starred?: boolean;
+  hasAttachments?: boolean;
 }
 
 export interface TagSummary {
@@ -40,9 +42,19 @@ export async function listThreads(opts: { limit?: number } = {}): Promise<Thread
   return data.threads;
 }
 
+export interface ThreadAttachment {
+  id: string;
+  filename: string;
+  mime: string;
+  sizeBytes: number;
+  contentId: string | null;
+  isInline: boolean;
+}
+
 export interface ThreadMessage {
   id: string;
   providerMessageId: string;
+  subject: string | null;
   from: string;
   fromName: string | null;
   fromEmail: string | null;
@@ -50,9 +62,12 @@ export interface ThreadMessage {
   date: string;
   snippet: string;
   unread: boolean;
+  starred: boolean;
+  hasAttachments: boolean;
   bodyText: string | null;
   bodyHtml: string | null;
   bodyFetchedAt: string | null;
+  attachments: ThreadAttachment[];
 }
 
 export interface ThreadDetail {

@@ -10,10 +10,25 @@ export interface MicrosoftOAuthConfig {
   readonly redirectUri: string;
 }
 
+// Default OAuth scopes for the Microsoft connect flow.
+//
+// IMAP / SMTP scopes power the mail sync; the two delegated Graph
+// scopes (`Contacts.Read`, `People.Read`) power the recipient
+// autocomplete dropdown in the composer:
+//   - Contacts.Read → `/me/contacts` ("My contacts")
+//   - People.Read   → `/me/people` (Graph's intelligent ranked
+//                     suggestions; the Outlook analogue of Gmail's
+//                     "Other Contacts" auto-collection)
+//
+// Existing accounts keep working without the new scopes; the suggest
+// endpoint surfaces a "Reconnect for contacts" hint when they're
+// missing rather than failing silently.
 const SCOPES = [
   "offline_access",
   "https://outlook.office.com/IMAP.AccessAsUser.All",
   "https://outlook.office.com/SMTP.Send",
+  "https://graph.microsoft.com/Contacts.Read",
+  "https://graph.microsoft.com/People.Read",
 ];
 
 export class MicrosoftOAuth {

@@ -10,6 +10,18 @@ export const AddressSchema = z.object({
   address: z.string().email(),
 });
 
+// References staged uploads in `draft_attachments`. The browser is
+// responsible for `attachment:upload-init` → presigned PUT →
+// `attachment:upload-finalise` before sending; `mail:send` /
+// `mail:reply` only carry the `fileId` and the server hydrates the
+// bytes from S3 at compose time. Base64 inlining was removed in the
+// full-feature email overhaul because (a) it exceeds Postgres row
+// size on multi-megabyte files and (b) it doesn't compose cleanly
+// with the Graph `sendMail` raw-MIME path.
+export const AttachmentRefSchema = z.object({
+  fileId: z.string(),
+});
+
 export const DraftSchema = z.object({
   to: z.array(z.string().email()).min(1),
   cc: z.array(z.string().email()).optional(),
@@ -17,15 +29,7 @@ export const DraftSchema = z.object({
   subject: z.string(),
   body: z.string(),
   inReplyTo: z.string().optional(),
-  attachments: z
-    .array(
-      z.object({
-        filename: z.string(),
-        contentType: z.string(),
-        contentBase64: z.string(),
-      }),
-    )
-    .optional(),
+  attachments: z.array(AttachmentRefSchema).optional(),
 });
 
 export const ThreadQuerySchema = z.object({
@@ -41,8 +45,34 @@ export const SearchSpecSchema = z.object({
 });
 
 export const CommandPayloadSchema = z.discriminatedUnion("type", [
-  z.object({ type: z.literal("mail:mark-read"), payload: z.object({ threadId: z.string() }) }),
-  z.object({ type: z.literal("mail:mark-unread"), payload: z.object({ threadId: z.string() }) }),
+  // Mark every message in the provider thread read/unread. ThreadView
+  // dispatches this on open (debounced); the handler walks the local
+  // `oauth_messages` rows and applies provider-specific labels.
+  z.object({
+    type: z.literal("mail:mark-read"),
+    payload: z.object({
+      providerThreadId: z.string(),
+      accountId: z.string().optional(),
+    }),
+  }),
+  z.object({
+    type: z.literal("mail:mark-unread"),
+    payload: z.object({
+      providerThreadId: z.string(),
+      accountId: z.string().optional(),
+    }),
+  }),
+  // Star toggle for a single message (Gmail STARRED label / Graph
+  // single-value extended property). We star messages, not threads,
+  // because that's the wire-level granularity providers expose.
+  z.object({
+    type: z.literal("mail:star"),
+    payload: z.object({
+      providerMessageId: z.string(),
+      starred: z.boolean(),
+      accountId: z.string().optional(),
+    }),
+  }),
   z.object({ type: z.literal("mail:archive"), payload: z.object({ threadId: z.string() }) }),
   z.object({
     type: z.literal("mail:reply"),
@@ -54,6 +84,27 @@ export const CommandPayloadSchema = z.discriminatedUnion("type", [
       // version while text/plain stays as the fallback.
       bodyHtml: z.string().optional(),
       accountId: z.string().optional(),
+      attachments: z.array(AttachmentRefSchema).optional(),
+    }),
+  }),
+  // Forward semantics differ from reply: the original message is
+  // attached as a `message/rfc822` part inside the multipart/mixed
+  // envelope when `includeOriginalAsEml` is true (the default). The
+  // composer pre-fills body with a quoted preview but the EML carries
+  // the canonical bytes for downstream clients.
+  z.object({
+    type: z.literal("mail:forward"),
+    payload: z.object({
+      providerMessageId: z.string(),
+      to: z.array(z.string().email()).min(1),
+      cc: z.array(z.string().email()).optional(),
+      bcc: z.array(z.string().email()).optional(),
+      subject: z.string().optional(),
+      body: z.string(),
+      bodyHtml: z.string().optional(),
+      attachments: z.array(AttachmentRefSchema).optional(),
+      includeOriginalAsEml: z.boolean().optional(),
+      accountId: z.string().optional(),
     }),
   }),
   z.object({
@@ -61,6 +112,58 @@ export const CommandPayloadSchema = z.discriminatedUnion("type", [
     payload: DraftSchema.extend({
       bodyHtml: z.string().optional(),
       accountId: z.string().optional(),
+      // Source draft. When present, `draft_attachments` rows bound to
+      // this draft are mirrored into `oauth_attachments` and the
+      // staging tree is cleaned up after a successful send.
+      draftId: z.string().optional(),
+    }),
+  }),
+  // Per-thread "show external images" toggle. Stored as a sender
+  // allow-list so reopening a thread keeps the choice without
+  // re-prompting (cookie-only for v1; promotes to DB later).
+  z.object({
+    type: z.literal("mail:allow-images"),
+    payload: z.object({
+      providerThreadId: z.string(),
+      sender: z.string(),
+    }),
+  }),
+  // Attachment lifecycle. Three commands mirror collaboration-ai's
+  // "init → PUT → finalise" pattern. The browser owns the byte
+  // transfer; the server only sees metadata + a presigned URL.
+  z.object({
+    type: z.literal("attachment:upload-init"),
+    payload: z.object({
+      filename: z.string().min(1),
+      mime: z.string().min(1),
+      sizeBytes: z.number().int().nonnegative().optional(),
+      draftId: z.string().optional(),
+    }),
+  }),
+  z.object({
+    type: z.literal("attachment:upload-finalise"),
+    payload: z.object({
+      fileId: z.string(),
+      objectKey: z.string(),
+      filename: z.string(),
+      mime: z.string(),
+      sizeBytes: z.number().int().nonnegative(),
+      draftId: z.string().optional(),
+    }),
+  }),
+  z.object({
+    type: z.literal("attachment:remove"),
+    payload: z.object({ fileId: z.string() }),
+  }),
+  // Per-account email signature. HTML is the canonical representation
+  // (edited with RichEditor in Settings); the plain-text mirror is
+  // used for the text/plain part of multipart/alternative envelopes.
+  z.object({
+    type: z.literal("account:set-signature"),
+    payload: z.object({
+      accountId: z.string(),
+      signatureHtml: z.string().nullable(),
+      signatureText: z.string().nullable(),
     }),
   }),
   z.object({ type: z.literal("thread:assign"), payload: z.object({ threadId: z.string(), assigneeId: z.string() }) }),
@@ -169,6 +272,11 @@ export const CommandPayloadSchema = z.discriminatedUnion("type", [
       endsAt: z.string(),
       allDay: z.boolean().optional(),
       attendees: z.array(z.string()).optional(),
+      // Optional conferencing link to mint on the provider side and
+      // embed in the outgoing iTIP invite. `gmeet` only validates on
+      // google-mail accounts, `teams` only on outlook; the server
+      // returns a `validation_error` otherwise.
+      meeting: z.enum(["gmeet", "teams", "none"]).optional(),
     }),
   }),
   z.object({

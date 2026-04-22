@@ -30,6 +30,8 @@ function fakeAccount(over: Partial<OauthAccountRow> = {}): OauthAccountRow {
     lastRefreshedAt: null,
     lastSyncedAt: null,
     lastSyncError: null,
+    signatureHtml: null,
+    signatureText: null,
     ...over,
   };
 }

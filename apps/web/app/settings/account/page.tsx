@@ -1,9 +1,8 @@
-"use client";
-
 import { useCallback, useEffect, useState } from "react";
-import { Button, Card, DataTable, PageHeader, Shell } from "@mailai/ui";
+import { Button, Card, DataTable, PageBody, PageHeader, Shell } from "@mailai/ui";
 import { ConnectAccountDialog } from "../../components/connect-account-dialog";
 import { AppNav } from "../../components/AppNav";
+import { SignatureCard } from "../../components/SignatureCard";
 import {
   type AccountSummary,
   deleteAccount,
@@ -96,6 +95,7 @@ export default function AccountSettingsPage() {
           </Button>
         }
       />
+      <PageBody>
       <Card>
         <div className="flex items-center justify-between gap-4 py-1">
           <div>
@@ -183,6 +183,9 @@ export default function AccountSettingsPage() {
           />
         )}
       </Card>
+
+      <SignatureCard />
+      </PageBody>
 
       <ConnectAccountDialog
         open={open}

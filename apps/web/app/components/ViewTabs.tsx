@@ -1,5 +1,3 @@
-"use client";
-
 // Notion-style view tabs above the inbox list. Each tab is a saved
 // (filter, sort, group) tuple stored server-side in the `views` table,
 // so the same tabs follow the user across browsers.
@@ -50,11 +48,11 @@ export function ViewTabs({ activeId, onChange }: Props) {
   }, []);
 
   if (!views) {
-    return <div className="h-8" />;
+    return <div className="h-9 shrink-0 border-b border-divider bg-surface" />;
   }
 
   return (
-    <div className="flex items-center gap-1 overflow-x-auto border-b border-divider pb-2">
+    <div className="flex shrink-0 items-center gap-0.5 overflow-x-auto border-b border-divider bg-surface px-2 py-1">
       <Tab
         label={t("views.all")}
         active={activeId === null}
@@ -86,10 +84,10 @@ function Tab({
       type="button"
       onClick={onClick}
       className={
-        "rounded-md px-3 py-1 text-sm transition " +
+        "rounded-md px-2 py-1 text-xs font-medium transition-colors " +
         (active
-          ? "bg-surface text-foreground shadow-sm"
-          : "text-secondary hover:bg-background/60 hover:text-foreground")
+          ? "bg-accent-light text-accent"
+          : "text-secondary hover:bg-hover hover:text-foreground")
       }
     >
       {label}

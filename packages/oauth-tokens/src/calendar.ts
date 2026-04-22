@@ -81,6 +81,23 @@ interface GoogleEvent {
   attendees?: { email: string; displayName?: string; responseStatus?: string; organizer?: boolean }[];
   organizer?: { email?: string };
   status?: string;
+  sequence?: number;
+  hangoutLink?: string;
+  conferenceData?: {
+    entryPoints?: { entryPointType?: string; uri?: string }[];
+    conferenceId?: string;
+  };
+}
+
+// Shared shape for the "we just created/updated an event upstream" path.
+// We always need the iCalUID (for our outgoing iMIP envelope) and the
+// provider's SEQUENCE counter; conference URL is null when the caller
+// didn't ask for a meeting.
+export interface CreatedEvent {
+  readonly providerEventId: string;
+  readonly icalUid: string;
+  readonly joinUrl: string | null;
+  readonly sequence: number;
 }
 
 export async function listGoogleEvents(args: {
@@ -154,8 +171,15 @@ export async function createGoogleEvent(args: {
   endsAt: Date;
   allDay?: boolean;
   attendees?: string[];
+  // When set, ask Google to mint a Meet conference and embed it in the
+  // returned event. Requires the calendar.events scope plus the
+  // `conferenceDataVersion=1` query param we send below.
+  withGoogleMeet?: boolean;
+  // Defaults to "none" because we send our own RFC 5546 invite; Google
+  // would otherwise email attendees as well, producing a duplicate.
+  sendUpdates?: "all" | "externalOnly" | "none";
   fetchImpl?: typeof fetch;
-}): Promise<{ providerEventId: string }> {
+}): Promise<CreatedEvent> {
   const f = args.fetchImpl ?? fetch;
   const body: Record<string, unknown> = {
     summary: args.summary,
@@ -171,20 +195,80 @@ export async function createGoogleEvent(args: {
   if (args.attendees && args.attendees.length > 0) {
     body["attendees"] = args.attendees.map((e) => ({ email: e }));
   }
-  const res = await f(
-    `${GOOGLE_CAL_BASE}/calendars/${encodeURIComponent(args.calendarId)}/events`,
-    {
-      method: "POST",
-      headers: {
-        authorization: `Bearer ${args.accessToken}`,
-        "content-type": "application/json",
+  if (args.withGoogleMeet) {
+    body["conferenceData"] = {
+      createRequest: {
+        requestId: `mailai-${cryptoRandomId()}`,
+        conferenceSolutionKey: { type: "hangoutsMeet" },
       },
-      body: JSON.stringify(body),
-    },
+    };
+  }
+  const url = new URL(
+    `${GOOGLE_CAL_BASE}/calendars/${encodeURIComponent(args.calendarId)}/events`,
   );
+  if (args.withGoogleMeet) {
+    url.searchParams.set("conferenceDataVersion", "1");
+  }
+  url.searchParams.set("sendUpdates", args.sendUpdates ?? "none");
+  const res = await f(url.toString(), {
+    method: "POST",
+    headers: {
+      authorization: `Bearer ${args.accessToken}`,
+      "content-type": "application/json",
+    },
+    body: JSON.stringify(body),
+  });
   if (!res.ok) throw new Error(`gcal create event failed: ${res.status}`);
-  const json = (await res.json()) as { id: string };
-  return { providerEventId: json.id };
+  const json = (await res.json()) as GoogleEvent;
+  return {
+    providerEventId: json.id,
+    icalUid: json.iCalUID ?? json.id,
+    joinUrl: pickGoogleJoinUrl(json),
+    sequence: json.sequence ?? 0,
+  };
+}
+
+function pickGoogleJoinUrl(e: GoogleEvent): string | null {
+  if (e.hangoutLink) return e.hangoutLink;
+  const ep = e.conferenceData?.entryPoints?.find(
+    (p) => p.entryPointType === "video",
+  );
+  return ep?.uri ?? null;
+}
+
+// Tiny URL-safe random id for Google's `requestId`. Crypto-safe and
+// short; we don't want to pull in another dep just for this one call.
+function cryptoRandomId(): string {
+  // Node's webcrypto is always present on the supported runtimes; the
+  // type isn't always picked up from lib.dom though, so we route via
+  // the `unknown` -> typed call without naming `Crypto`.
+  const c = (globalThis as unknown as { crypto: { getRandomValues(b: Uint8Array): Uint8Array } }).crypto;
+  const bytes = new Uint8Array(8);
+  c.getRandomValues(bytes);
+  return Array.from(bytes, (b) => b.toString(16).padStart(2, "0")).join("");
+}
+
+// Fetch a Google event so callers can read the current SEQUENCE
+// counter before issuing an update/cancel — RFC 5546 requires the
+// outgoing iTIP message's SEQUENCE to monotonically increase.
+export async function getGoogleEvent(args: {
+  accessToken: string;
+  calendarId: string;
+  providerEventId: string;
+  fetchImpl?: typeof fetch;
+}): Promise<{ icalUid: string; sequence: number; joinUrl: string | null }> {
+  const f = args.fetchImpl ?? fetch;
+  const res = await f(
+    `${GOOGLE_CAL_BASE}/calendars/${encodeURIComponent(args.calendarId)}/events/${encodeURIComponent(args.providerEventId)}`,
+    { headers: { authorization: `Bearer ${args.accessToken}` } },
+  );
+  if (!res.ok) throw new Error(`gcal get event failed: ${res.status}`);
+  const json = (await res.json()) as GoogleEvent;
+  return {
+    icalUid: json.iCalUID ?? args.providerEventId,
+    sequence: json.sequence ?? 0,
+    joinUrl: pickGoogleJoinUrl(json),
+  };
 }
 
 export async function patchGoogleEvent(args: {
@@ -303,6 +387,10 @@ interface GraphEvent {
   organizer?: { emailAddress?: { address?: string } };
   responseStatus?: { response?: string };
   showAs?: string;
+  isOnlineMeeting?: boolean;
+  onlineMeetingProvider?: string;
+  onlineMeeting?: { joinUrl?: string };
+  onlineMeetingUrl?: string;
 }
 
 export async function listGraphEvents(args: {
@@ -379,8 +467,15 @@ export async function createGraphEvent(args: {
   startsAt: Date;
   endsAt: Date;
   attendees?: string[];
+  // When set, ask Graph to provision a Teams meeting for the event.
+  // Requires the OnlineMeetings.ReadWrite delegated scope.
+  withMicrosoftTeams?: boolean;
+  // Graph's create endpoint doesn't take an explicit "don't email
+  // attendees" flag — its model is that the create itself never sends
+  // a meeting invite; only `forward` and `cancel` do. We document the
+  // option here for symmetry with the Google path.
   fetchImpl?: typeof fetch;
-}): Promise<{ providerEventId: string }> {
+}): Promise<CreatedEvent> {
   const f = args.fetchImpl ?? fetch;
   const body: Record<string, unknown> = {
     subject: args.summary,
@@ -395,6 +490,10 @@ export async function createGraphEvent(args: {
       type: "required",
     }));
   }
+  if (args.withMicrosoftTeams) {
+    body["isOnlineMeeting"] = true;
+    body["onlineMeetingProvider"] = "teamsForBusiness";
+  }
   const res = await f(
     `${GRAPH_BASE}/me/calendars/${encodeURIComponent(args.calendarId)}/events`,
     {
@@ -407,8 +506,34 @@ export async function createGraphEvent(args: {
     },
   );
   if (!res.ok) throw new Error(`graph create event failed: ${res.status}`);
-  const json = (await res.json()) as { id: string };
-  return { providerEventId: json.id };
+  const json = (await res.json()) as GraphEvent;
+  return {
+    providerEventId: json.id,
+    icalUid: json.iCalUId ?? json.id,
+    joinUrl: json.onlineMeeting?.joinUrl ?? json.onlineMeetingUrl ?? null,
+    sequence: 0,
+  };
+}
+
+// Like getGoogleEvent: fetch the current SEQUENCE counter (Graph doesn't
+// expose it directly, so we keep our own — see CalendarRepository) plus
+// the canonical iCalUId so updates and cancels stay UID-stable.
+export async function getGraphEvent(args: {
+  accessToken: string;
+  providerEventId: string;
+  fetchImpl?: typeof fetch;
+}): Promise<{ icalUid: string; joinUrl: string | null }> {
+  const f = args.fetchImpl ?? fetch;
+  const res = await f(
+    `${GRAPH_BASE}/me/events/${encodeURIComponent(args.providerEventId)}`,
+    { headers: { authorization: `Bearer ${args.accessToken}` } },
+  );
+  if (!res.ok) throw new Error(`graph get event failed: ${res.status}`);
+  const json = (await res.json()) as GraphEvent;
+  return {
+    icalUid: json.iCalUId ?? args.providerEventId,
+    joinUrl: json.onlineMeeting?.joinUrl ?? json.onlineMeetingUrl ?? null,
+  };
 }
 
 export async function patchGraphEvent(args: {

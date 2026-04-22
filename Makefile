@@ -17,7 +17,7 @@
 # `set -a; . ./.env; set +a` first. The `-` means "don't fail if the
 # file is missing" (CI, fresh clones). `export` then re-exports every
 # variable defined above this line to all child processes (pnpm, turbo,
-# tsx, next), which is what the API server and Next runtime read from.
+# tsx, vite), which is what the API server and Vite runtime read from.
 -include .env
 export
 
@@ -76,15 +76,15 @@ stack-reset:
 
 # Frees the ports we own before spinning back up.
 #
-# A naive `lsof | kill` loses to tsx --watch and `next dev` because:
+# A naive `lsof | kill` loses to tsx --watch and `vite` because:
 #   - tsx --watch forks a child node that holds the port; killing the
 #     parent leaves the child orphaned and still listening.
-#   - next dev spawns a Turbopack worker the same way.
+#   - vite spawns a worker process the same way.
 #   - between kill and the next bind there's a tiny window in which the
 #     supervisor can respawn.
 #
 # So we (1) kill every PID listening on each port, (2) ALSO pkill any
-# tsx/next/turbo dev process whose argv mentions this workspace path,
+# tsx/vite/turbo dev process whose argv mentions this workspace path,
 # and (3) poll until the ports really are free (max ~3s). This makes
 # `make dev` idempotent — re-running it from any state Just Works.
 kill-ports:
@@ -96,8 +96,7 @@ kill-ports:
 	    [ -n "$$pids" ] && kill -9 $$pids 2>/dev/null || true; \
 	  done; \
 	  pkill -9 -f "tsx.*$$WS_TAG"          2>/dev/null || true; \
-	  pkill -9 -f "next-server.*$$WS_TAG"  2>/dev/null || true; \
-	  pkill -9 -f "next dev.*$$WS_TAG"     2>/dev/null || true; \
+	  pkill -9 -f "vite.*$$WS_TAG"         2>/dev/null || true; \
 	  pkill -9 -f "turbo run dev"          2>/dev/null || true; \
 	  busy=""; \
 	  for p in $$PORTS; do \

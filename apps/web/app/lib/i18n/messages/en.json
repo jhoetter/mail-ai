@@ -48,7 +48,10 @@
     "goToAccounts": "Go to Accounts →",
     "columnSubject": "Subject",
     "columnFrom": "From",
-    "columnDate": "Date"
+    "columnDate": "Date",
+    "star": "Star",
+    "unstar": "Remove star",
+    "hasAttachment": "Has attachment"
   },
   "thread": {
     "loading": "Loading thread…",
@@ -56,6 +59,8 @@
     "reply": "Reply",
     "replyAll": "Reply all",
     "forward": "Forward",
+    "forwardingFrom": "Forwarding message from {name}",
+    "forwardPlaceholder": "Add a note for the recipient…",
     "assign": "Assign",
     "messageCount": "{count} messages",
     "messageCountOne": "{count} message",
@@ -74,6 +79,12 @@
     "replyHint": "⌘↵ to send",
     "discard": "Discard",
     "attach": "Attach",
+    "attachments": "Attachments",
+    "downloadEml": "Download .eml",
+    "showOriginal": "Show original",
+    "displayImages": "Display images",
+    "imagesBlocked": "Images in this email have been blocked.",
+    "msgUnsupported": ".msg files cannot be previewed inline; download to open.",
     "tags": {
       "addPlaceholder": "Add tag…",
       "snooze": "Snooze",
@@ -100,7 +111,25 @@
     "expand": "Expand",
     "collapse": "Collapse",
     "discard": "Discard",
-    "showCcBcc": "Cc / Bcc"
+    "showCcBcc": "Cc / Bcc",
+    "attach": "Attach files",
+    "attachmentRemove": "Remove attachment",
+    "uploading": "Uploading…",
+    "uploadFailed": "Upload failed",
+    "attachmentTooLarge": "Attachment exceeds size limit (25 MB).",
+    "dropFilesHere": "Drop files to attach",
+    "toRequired": "Add at least one recipient."
+  },
+  "contacts": {
+    "suggestionsLabel": "Recipient suggestions",
+    "noResults": "No matching contacts.",
+    "loading": "Looking up contacts…",
+    "removeRecipient": "Remove {email}",
+    "sourceMy": "Contact",
+    "sourceOther": "Frequent",
+    "sourcePeople": "Frequent",
+    "reconnectHint": "Reconnect {email} to enable contact suggestions for this account.",
+    "reconnect": "Reconnect"
   },
   "search": {
     "title": "Search",
@@ -229,10 +258,31 @@
     "respond": "Respond",
     "accept": "Accept",
     "decline": "Decline",
-    "tentative": "Tentative"
+    "tentative": "Tentative",
+    "meeting": "Meeting link",
+    "meetingNone": "No meeting link",
+    "meetingGmeet": "Google Meet",
+    "meetingTeams": "Microsoft Teams",
+    "joinMeet": "Join Google Meet",
+    "joinTeams": "Join Microsoft Teams",
+    "copyLink": "Copy link"
   },
   "draftsClient": {
     "saving": "Saving…",
     "saved": "Saved"
+  },
+  "toast": {
+    "commandFailed": "Couldn't save {command}"
+  },
+  "settings": {
+    "signature": {
+      "title": "Signature",
+      "subtitle": "Appended to every new message, reply, and forward sent from this account.",
+      "placeholder": "Your signature…",
+      "save": "Save signature",
+      "saved": "Saved",
+      "saveError": "Couldn't save: {error}",
+      "noAccounts": "Connect an account first."
+    }
   }
 }

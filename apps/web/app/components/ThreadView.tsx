@@ -1,5 +1,3 @@
-"use client";
-
 // Reader for one thread. Renders a Gmail/Outlook-style conversation:
 // the latest message is expanded by default, every previous message
 // collapses to a one-line summary you can click to open. Each message
@@ -18,8 +16,25 @@
 // same-origin) as a defence-in-depth.
 
 import DOMPurify from "dompurify";
-import { useEffect, useMemo, useRef, useState } from "react";
-import { getThread, type ThreadDetail, type ThreadMessage } from "../lib/threads-client";
+import {
+  ArrowLeft,
+  Download,
+  File,
+  FileImage,
+  FileText,
+  ImageOff,
+  Paperclip,
+  ScrollText,
+  Star,
+} from "lucide-react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { baseUrl } from "../lib/api";
+import {
+  getThread,
+  type ThreadAttachment,
+  type ThreadDetail,
+  type ThreadMessage,
+} from "../lib/threads-client";
 import { InlineReply } from "./InlineReply";
 import { TagChips } from "./TagChips";
 import { ThreadActions } from "./ThreadActions";
@@ -33,19 +48,30 @@ interface Props {
   // Bumped by the parent to force a re-fetch (e.g. after a reply
   // lands so the user sees their own message in the conversation).
   refreshKey?: number;
+  // Mobile-only "back to list" handler. The Inbox passes this so the
+  // detail pane (which is full-screen on phones) can hand control
+  // back to the list. On desktop the back button is hidden via
+  // Tailwind, so passing or omitting this changes nothing visually.
+  onBack?: () => void;
 }
 
-export function ThreadView({ threadId, subject, refreshKey }: Props) {
+export function ThreadView({ threadId, subject, refreshKey, onBack }: Props) {
   const { t } = useTranslator();
   const [detail, setDetail] = useState<ThreadDetail | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [localRefresh, setLocalRefresh] = useState(0);
   const [replyTick, setReplyTick] = useState(0);
+  const [forwardMessage, setForwardMessage] = useState<ThreadMessage | null>(null);
+  const [forwardTick, setForwardTick] = useState(0);
+  const [showOriginal, setShowOriginal] = useState<ThreadMessage | null>(null);
+  // Per-thread session decision to allow remote (non-cid) images.
+  const [allowRemoteImages, setAllowRemoteImages] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
     setDetail(null);
     setError(null);
+    setAllowRemoteImages(false);
     getThread(threadId)
       .then((d) => {
         if (!cancelled) setDetail(d);
@@ -57,6 +83,29 @@ export function ThreadView({ threadId, subject, refreshKey }: Props) {
       cancelled = true;
     };
   }, [threadId, refreshKey, localRefresh]);
+
+  // Mark-read on open (debounced). We dispatch once per open of an
+  // unread thread; the debounce prevents marking-read on accidental
+  // keyboard navigation through the inbox.
+  useEffect(() => {
+    if (!detail) return;
+    if (detail.unreadCount === 0) return;
+    const handle = setTimeout(() => {
+      void dispatchCommand({
+        type: "mail:mark-read",
+        payload: { providerThreadId: detail.providerThreadId },
+      }).catch(() => undefined);
+    }, 600);
+    return () => clearTimeout(handle);
+  }, [detail]);
+
+  const onForward = useCallback((m: ThreadMessage) => {
+    setForwardMessage(m);
+    setForwardTick((n) => n + 1);
+  }, []);
+  const onShowOriginal = useCallback((m: ThreadMessage) => {
+    setShowOriginal(m);
+  }, []);
 
   const headerCount = detail
     ? t(detail.messages.length === 1 ? "thread.messageCountOne" : "thread.messageCount", {
@@ -117,14 +166,26 @@ export function ThreadView({ threadId, subject, refreshKey }: Props) {
 
   return (
     <div className="flex h-full min-h-0 flex-col">
-      <header className="flex items-start justify-between gap-3 border-b border-divider pb-3">
-        <div className="min-w-0">
-          <h2 className="truncate text-lg font-semibold text-foreground">
-            {detail?.subject ?? subject}
-          </h2>
-          <p className="mt-1 text-xs text-secondary">{headerCount}</p>
+      <header className="flex shrink-0 items-center justify-between gap-2 border-b border-divider bg-surface px-3 py-2 sm:px-4 sm:py-2.5">
+        <div className="flex min-w-0 items-center gap-2">
+          {onBack ? (
+            <button
+              type="button"
+              onClick={onBack}
+              aria-label={t("common.back")}
+              className="-ml-1 inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-secondary transition-colors hover:bg-hover hover:text-foreground md:hidden"
+            >
+              <ArrowLeft size={16} aria-hidden />
+            </button>
+          ) : null}
+          <div className="min-w-0">
+            <h2 className="truncate text-sm font-semibold text-foreground">
+              {detail?.subject ?? subject}
+            </h2>
+            <p className="mt-0.5 truncate text-xs text-tertiary">{headerCount}</p>
+          </div>
         </div>
-        <div className="flex shrink-0 items-center gap-2">
+        <div className="flex shrink-0 flex-wrap items-center justify-end gap-1.5">
           {detail ? (
             <ThreadActions
               providerThreadId={detail.providerThreadId}
@@ -134,11 +195,11 @@ export function ThreadView({ threadId, subject, refreshKey }: Props) {
         </div>
       </header>
 
-      <div className="pt-3">
+      <div className="shrink-0 border-b border-divider bg-surface px-3 py-1.5 sm:px-4">
         <TagChips threadId={threadId} />
       </div>
 
-      <div className="-mx-1 mt-3 flex-1 min-h-0 overflow-y-auto px-1">
+      <div className="min-h-0 flex-1 overflow-y-auto px-3 py-3 sm:px-4 sm:py-4">
         {error ? (
           <p className="text-sm text-error">{t("thread.loadError", { error })}</p>
         ) : detail === null ? (
@@ -149,10 +210,12 @@ export function ThreadView({ threadId, subject, refreshKey }: Props) {
               <li key={m.id}>
                 <MessageCard
                   message={m}
-                  // Latest message expanded by default; older messages
-                  // collapse to a single-line preview the user can click
-                  // to expand — same shape Gmail/Outlook use.
                   defaultExpanded={i === detail.messages.length - 1}
+                  allowRemoteImages={allowRemoteImages}
+                  onAllowImages={() => setAllowRemoteImages(true)}
+                  onForward={() => onForward(m)}
+                  onShowOriginal={() => onShowOriginal(m)}
+                  onChanged={() => setLocalRefresh((n) => n + 1)}
                 />
               </li>
             ))}
@@ -163,17 +226,22 @@ export function ThreadView({ threadId, subject, refreshKey }: Props) {
           <InlineReply
             thread={detail}
             autoExpandKey={replyTick}
+            {...(forwardMessage ? { forwardMessage } : {})}
+            forwardKey={forwardTick}
             onSent={() => {
-              // Re-fetch so the new message lands in the thread
-              // without a page reload; the next sync pass will turn
-              // it into a real oauth_messages row, but until then the
-              // user at least sees the thread refresh trigger and any
-              // concurrent updates.
+              setForwardMessage(null);
               setLocalRefresh((n) => n + 1);
             }}
           />
         ) : null}
       </div>
+
+      {showOriginal ? (
+        <ShowOriginalModal
+          message={showOriginal}
+          onClose={() => setShowOriginal(null)}
+        />
+      ) : null}
     </div>
   );
 }
@@ -181,14 +249,43 @@ export function ThreadView({ threadId, subject, refreshKey }: Props) {
 interface MessageCardProps {
   message: ThreadMessage;
   defaultExpanded: boolean;
+  allowRemoteImages: boolean;
+  onAllowImages: () => void;
+  onForward: () => void;
+  onShowOriginal: () => void;
+  onChanged: () => void;
 }
 
-function MessageCard({ message, defaultExpanded }: MessageCardProps) {
+function MessageCard({
+  message,
+  defaultExpanded,
+  allowRemoteImages,
+  onAllowImages,
+  onForward,
+  onShowOriginal,
+  onChanged,
+}: MessageCardProps) {
   const { t } = useTranslator();
   const [expanded, setExpanded] = useState(defaultExpanded);
   const [showDetails, setShowDetails] = useState(false);
+  const [starred, setStarred] = useState(message.starred);
+
+  useEffect(() => {
+    setStarred(message.starred);
+  }, [message.starred]);
 
   const senderName = message.fromName ?? message.fromEmail ?? message.from;
+
+  const toggleStar = useCallback(() => {
+    const next = !starred;
+    setStarred(next);
+    void dispatchCommand({
+      type: "mail:star",
+      payload: { providerMessageId: message.providerMessageId, starred: next },
+    })
+      .then(() => onChanged())
+      .catch(() => setStarred(!next));
+  }, [message.providerMessageId, onChanged, starred]);
 
   return (
     <article
@@ -198,7 +295,7 @@ function MessageCard({ message, defaultExpanded }: MessageCardProps) {
       }
     >
       <header
-        className="flex items-start gap-3 px-4 py-3"
+        className="flex items-start gap-3 px-3 py-3 sm:px-4"
         onClick={() => setExpanded((v) => !v)}
         role="button"
         aria-expanded={expanded}
@@ -216,13 +313,37 @@ function MessageCard({ message, defaultExpanded }: MessageCardProps) {
                 </span>
               ) : null}
             </div>
-            <time
-              dateTime={message.date}
-              title={formatExact(message.date)}
-              className="shrink-0 text-xs text-secondary"
-            >
-              {formatRelativeOrShort(message.date)}
-            </time>
+            <div className="flex shrink-0 items-center gap-1">
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  toggleStar();
+                }}
+                title={starred ? t("inbox.unstar") : t("inbox.star")}
+                aria-label={starred ? t("inbox.unstar") : t("inbox.star")}
+                className={
+                  "inline-flex h-6 w-6 items-center justify-center rounded text-tertiary hover:text-foreground " +
+                  (starred ? "text-amber-500 hover:text-amber-600" : "")
+                }
+              >
+                <Star
+                  size={14}
+                  aria-hidden
+                  fill={starred ? "currentColor" : "none"}
+                />
+              </button>
+              {message.hasAttachments ? (
+                <Paperclip size={12} aria-hidden className="text-tertiary" />
+              ) : null}
+              <time
+                dateTime={message.date}
+                title={formatExact(message.date)}
+                className="shrink-0 text-xs text-secondary"
+              >
+                {formatRelativeOrShort(message.date)}
+              </time>
+            </div>
           </div>
           {expanded ? (
             <button
@@ -264,22 +385,124 @@ function MessageCard({ message, defaultExpanded }: MessageCardProps) {
         </div>
       </header>
       {expanded ? (
-        <div className="border-t border-divider px-4 py-4">
-          <MessageBody message={message} />
+        <div className="border-t border-divider px-3 py-3 sm:px-4 sm:py-4">
+          <MessageBody
+            message={message}
+            allowRemoteImages={allowRemoteImages}
+            onAllowImages={onAllowImages}
+          />
+          {message.attachments.length > 0 ? (
+            <AttachmentsList attachments={message.attachments} />
+          ) : null}
+          <MessageFooterActions
+            message={message}
+            onForward={onForward}
+            onShowOriginal={onShowOriginal}
+          />
         </div>
       ) : null}
     </article>
   );
 }
 
-function MessageBody({ message }: { message: ThreadMessage }) {
+function AttachmentsList({ attachments }: { attachments: readonly ThreadAttachment[] }) {
+  const visible = attachments.filter((a) => !a.isInline);
+  if (visible.length === 0) return null;
+  return (
+    <div className="mt-4 flex flex-wrap gap-2 border-t border-divider pt-3">
+      {visible.map((a) => (
+        <a
+          key={a.id}
+          href={`${baseUrl()}/api/attachments/${encodeURIComponent(a.id)}`}
+          target="_blank"
+          rel="noreferrer noopener"
+          className="inline-flex max-w-[18rem] items-center gap-2 rounded border border-divider bg-foreground/5 px-2 py-1 text-xs text-foreground hover:bg-foreground/10"
+          title={a.filename}
+        >
+          <AttachmentIcon mime={a.mime} />
+          <span className="truncate">{a.filename}</span>
+          <span className="shrink-0 text-[10px] text-tertiary">
+            {formatSize(a.sizeBytes)}
+          </span>
+          <Download size={12} aria-hidden className="shrink-0 text-tertiary" />
+        </a>
+      ))}
+    </div>
+  );
+}
+
+function AttachmentIcon({ mime }: { mime: string }) {
+  if (mime.startsWith("image/"))
+    return <FileImage size={14} aria-hidden className="shrink-0" />;
+  if (mime.startsWith("text/") || mime === "application/pdf")
+    return <FileText size={14} aria-hidden className="shrink-0" />;
+  return <File size={14} aria-hidden className="shrink-0" />;
+}
+
+function formatSize(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} kB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+interface FooterProps {
+  message: ThreadMessage;
+  onForward: () => void;
+  onShowOriginal: () => void;
+}
+
+function MessageFooterActions({ message, onForward, onShowOriginal }: FooterProps) {
   const { t } = useTranslator();
-  // Prefer HTML when the provider gave us one — that's what the
-  // sender saw. Fall back to text/plain (rendered as pre-wrap so
-  // hard wraps and indentation survive) and finally to the snippet
-  // when the body fetch hasn't completed yet.
+  return (
+    <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-divider pt-2 text-xs text-secondary">
+      <button
+        type="button"
+        onClick={onForward}
+        className="inline-flex items-center gap-1 rounded border border-divider px-2 py-1 hover:bg-foreground/5 hover:text-foreground"
+        title={t("thread.forward")}
+      >
+        {t("thread.forward")}
+      </button>
+      <a
+        href={`${baseUrl()}/api/messages/${encodeURIComponent(message.id)}/raw.eml`}
+        target="_blank"
+        rel="noreferrer noopener"
+        className="inline-flex items-center gap-1 rounded border border-divider px-2 py-1 hover:bg-foreground/5 hover:text-foreground"
+        title={t("thread.downloadEml")}
+      >
+        <Download size={12} aria-hidden />
+        {t("thread.downloadEml")}
+      </a>
+      <button
+        type="button"
+        onClick={onShowOriginal}
+        className="inline-flex items-center gap-1 rounded border border-divider px-2 py-1 hover:bg-foreground/5 hover:text-foreground"
+        title={t("thread.showOriginal")}
+      >
+        <ScrollText size={12} aria-hidden />
+        {t("thread.showOriginal")}
+      </button>
+    </div>
+  );
+}
+
+interface MessageBodyProps {
+  message: ThreadMessage;
+  allowRemoteImages: boolean;
+  onAllowImages: () => void;
+}
+
+function MessageBody({ message, allowRemoteImages, onAllowImages }: MessageBodyProps) {
+  const { t } = useTranslator();
   if (message.bodyHtml && message.bodyHtml.trim().length > 0) {
-    return <HtmlBody html={message.bodyHtml} />;
+    return (
+      <HtmlBody
+        html={message.bodyHtml}
+        attachments={message.attachments}
+        allowRemoteImages={allowRemoteImages}
+        onAllowImages={onAllowImages}
+      />
+    );
   }
   if (message.bodyText && message.bodyText.trim().length > 0) {
     return <TextBody text={message.bodyText} />;
@@ -361,18 +584,42 @@ function splitQuoted(text: string): { head: string; quoted: string | null } {
 // auto-grown height. Doing it through srcdoc means the iframe gets a
 // blank origin, so even if our DOMPurify sweep misses something, the
 // untrusted markup can't reach our cookies, our window, or our CSS.
-function HtmlBody({ html }: { html: string }) {
+interface HtmlBodyProps {
+  html: string;
+  attachments: readonly ThreadAttachment[];
+  allowRemoteImages: boolean;
+  onAllowImages: () => void;
+}
+
+function HtmlBody({ html, attachments, allowRemoteImages, onAllowImages }: HtmlBodyProps) {
+  const { t } = useTranslator();
   const iframeRef = useRef<HTMLIFrameElement | null>(null);
   const [height, setHeight] = useState<number>(120);
-  // DOMPurify reaches for `window` so we only sanitize after mount.
-  // Rendering nothing on the server is fine: the iframe is a leaf
-  // component and its parent already shows the message header.
   const [mounted, setMounted] = useState(false);
   useEffect(() => {
     setMounted(true);
   }, []);
 
-  const safe = useMemo(() => (mounted ? sanitizeEmailHtml(html) : ""), [html, mounted]);
+  const cidMap = useMemo(() => {
+    const m = new Map<string, string>();
+    for (const a of attachments) {
+      if (a.contentId) m.set(stripAngles(a.contentId), a.id);
+    }
+    return m;
+  }, [attachments]);
+
+  const { html: rewritten, blockedRemote } = useMemo(
+    () =>
+      mounted
+        ? rewriteEmailHtml(html, cidMap, allowRemoteImages)
+        : { html: "", blockedRemote: false },
+    [html, mounted, cidMap, allowRemoteImages],
+  );
+
+  const safe = useMemo(() => (mounted ? sanitizeEmailHtml(rewritten) : ""), [
+    rewritten,
+    mounted,
+  ]);
   const doc = useMemo(() => buildIframeDoc(safe), [safe]);
 
   useEffect(() => {
@@ -399,18 +646,80 @@ function HtmlBody({ html }: { html: string }) {
   }, [doc]);
 
   return (
-    <iframe
-      ref={iframeRef}
-      title="message body"
-      // sandbox without `allow-scripts` blocks every script, every
-      // form submit, and every plugin. We allow `allow-popups` only
-      // so target=_blank links can open in a new tab when the user
-      // clicks them.
-      sandbox="allow-popups allow-popups-to-escape-sandbox"
-      srcDoc={doc}
-      style={{ width: "100%", height, border: "0" }}
-    />
+    <div className="space-y-2">
+      {blockedRemote && !allowRemoteImages ? (
+        <div className="flex items-center gap-2 rounded border border-divider bg-foreground/5 px-2 py-1 text-xs text-secondary">
+          <ImageOff size={14} aria-hidden />
+          <span className="flex-1">{t("thread.imagesBlocked")}</span>
+          <button
+            type="button"
+            onClick={onAllowImages}
+            className="rounded border border-divider px-2 py-0.5 text-xs font-medium text-foreground hover:bg-foreground/10"
+          >
+            {t("thread.displayImages")}
+          </button>
+        </div>
+      ) : null}
+      <iframe
+        ref={iframeRef}
+        title="message body"
+        sandbox="allow-popups allow-popups-to-escape-sandbox"
+        srcDoc={doc}
+        style={{ width: "100%", height, border: "0" }}
+      />
+    </div>
   );
+}
+
+function stripAngles(s: string): string {
+  return s.replace(/^<|>$/g, "");
+}
+
+// Rewrite `cid:` references to /api/attachments/:id/inline so the
+// iframe can load them directly from the API. Block all remote
+// (http/https) images by default; the parent can opt in.
+function rewriteEmailHtml(
+  html: string,
+  cidMap: Map<string, string>,
+  allowRemoteImages: boolean,
+): { html: string; blockedRemote: boolean } {
+  if (typeof DOMParser === "undefined") {
+    return { html, blockedRemote: false };
+  }
+  const parser = new DOMParser();
+  const doc = parser.parseFromString(html, "text/html");
+  let blockedRemote = false;
+
+  doc.querySelectorAll("img").forEach((img) => {
+    const src = img.getAttribute("src") ?? "";
+    if (src.startsWith("cid:")) {
+      const cid = stripAngles(src.slice(4));
+      const attId = cidMap.get(cid);
+      if (attId) {
+        img.setAttribute(
+          "src",
+          `${baseUrl()}/api/attachments/${encodeURIComponent(attId)}/inline`,
+        );
+      } else {
+        img.removeAttribute("src");
+        img.setAttribute("alt", img.getAttribute("alt") ?? "(missing inline image)");
+      }
+      return;
+    }
+    if (/^https?:/i.test(src)) {
+      if (!allowRemoteImages) {
+        blockedRemote = true;
+        img.setAttribute("data-mailai-remote-src", src);
+        img.removeAttribute("src");
+      }
+      return;
+    }
+    if (src.startsWith("data:")) return;
+    if (src.startsWith("/")) return;
+    img.removeAttribute("src");
+  });
+
+  return { html: doc.body.innerHTML, blockedRemote };
 }
 
 function buildIframeDoc(sanitizedBody: string): string {
@@ -506,4 +815,89 @@ function formatExact(iso: string): string {
     hour: "2-digit",
     minute: "2-digit",
   });
+}
+
+interface OriginalDoc {
+  headers: Record<string, string>;
+  raw: string;
+}
+
+function ShowOriginalModal({
+  message,
+  onClose,
+}: {
+  message: ThreadMessage;
+  onClose: () => void;
+}) {
+  const { t } = useTranslator();
+  const [data, setData] = useState<OriginalDoc | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    fetch(`${baseUrl()}/api/messages/${encodeURIComponent(message.id)}/headers`)
+      .then((r) => {
+        if (!r.ok) throw new Error(`${r.status}`);
+        return r.json() as Promise<OriginalDoc>;
+      })
+      .then((d) => {
+        if (!cancelled) setData(d);
+      })
+      .catch((err) => {
+        if (!cancelled) setError(err instanceof Error ? err.message : String(err));
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [message.id]);
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-foreground/40 p-4"
+      onClick={onClose}
+    >
+      <div
+        className="flex max-h-[90vh] w-full max-w-3xl flex-col overflow-hidden rounded-lg border border-divider bg-background shadow-2xl"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <header className="flex items-center justify-between border-b border-divider px-4 py-2">
+          <h3 className="text-sm font-medium">{t("thread.showOriginal")}</h3>
+          <button
+            type="button"
+            onClick={onClose}
+            className="rounded px-2 py-1 text-xs text-secondary hover:bg-foreground/5 hover:text-foreground"
+          >
+            {t("common.close")}
+          </button>
+        </header>
+        <div className="flex-1 overflow-auto px-4 py-3 text-xs">
+          {error ? (
+            <p className="text-error">{error}</p>
+          ) : !data ? (
+            <p className="text-secondary">{t("thread.loading")}</p>
+          ) : (
+            <>
+              <dl className="mb-3 grid grid-cols-[max-content_1fr] gap-x-3 gap-y-0.5">
+                {Object.entries(data.headers).map(([k, v]) => (
+                  <FragmentRow key={k} k={k} v={v} />
+                ))}
+              </dl>
+              <pre className="whitespace-pre-wrap break-words rounded border border-divider bg-foreground/5 p-3 font-mono text-[11px] leading-snug">
+                {data.raw}
+              </pre>
+            </>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function FragmentRow({ k, v }: { k: string; v: string }) {
+  return (
+    <>
+      <dt className="text-tertiary">{k}</dt>
+      <dd className="break-words font-mono">{v}</dd>
+    </>
+  );
 }

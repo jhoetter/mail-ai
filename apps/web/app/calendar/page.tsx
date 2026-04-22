@@ -1,6 +1,4 @@
-"use client";
-
-import { Button, Card, Dialog, Input, PageHeader, Shell } from "@mailai/ui";
+import { Button, Card, Dialog, Input, PageBody, PageHeader, Shell } from "@mailai/ui";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { AppNav } from "../components/AppNav";
 import { useTranslator } from "../lib/i18n/useTranslator";
@@ -13,6 +11,7 @@ import {
   syncCalendars,
   type CalendarSummary,
   type EventSummary,
+  type MeetingChoice,
 } from "../lib/calendar-client";
 
 export default function CalendarPage() {
@@ -144,6 +143,7 @@ export default function CalendarPage() {
           </div>
         }
       />
+      <PageBody width="wide">
       {error ? <p className="text-sm text-error">{error}</p> : null}
       {calendars === null ? (
         <p className="text-sm text-secondary">{t("common.loading")}</p>
@@ -177,6 +177,7 @@ export default function CalendarPage() {
           />
         </Card>
       )}
+      </PageBody>
       {composeOpen && composeDefaults && composeCalendarId ? (
         <EventComposer
           open={composeOpen}
@@ -250,6 +251,32 @@ function WeekGrid({ days, events, onSlotClick, onRespond, onDelete }: WeekGridPr
                   </div>
                   {event.location ? (
                     <div className="text-[10px] text-secondary">{event.location}</div>
+                  ) : null}
+                  {event.meetingJoinUrl ? (
+                    <div className="mt-1 flex items-center gap-1 text-[10px]">
+                      <a
+                        href={event.meetingJoinUrl}
+                        target="_blank"
+                        rel="noreferrer noopener"
+                        className="truncate text-accent underline"
+                        title={event.meetingJoinUrl}
+                      >
+                        {event.meetingProvider === "ms-teams"
+                          ? t("calendar.joinTeams")
+                          : t("calendar.joinMeet")}
+                      </a>
+                      <button
+                        type="button"
+                        className="rounded bg-background/60 px-1.5 py-0.5 hover:bg-background"
+                        onClick={() => {
+                          if (event.meetingJoinUrl) {
+                            void navigator.clipboard.writeText(event.meetingJoinUrl);
+                          }
+                        }}
+                      >
+                        {t("calendar.copyLink")}
+                      </button>
+                    </div>
                   ) : null}
                   <div className="mt-1 flex flex-wrap gap-1">
                     <button
@@ -331,8 +358,22 @@ function EventComposer({
   const [startsAt, setStartsAt] = useState(toLocalInput(defaults.start));
   const [endsAt, setEndsAt] = useState(toLocalInput(defaults.end));
   const [attendees, setAttendees] = useState("");
+  const [meeting, setMeeting] = useState<MeetingChoice>("none");
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
+
+  // Switching calendars can move us between providers; if the new
+  // calendar can't host the currently-selected meeting type, fall back
+  // to "none" instead of letting the server reject the create.
+  const selectedCalendar = calendars.find((c) => c.id === calendarId);
+  useEffect(() => {
+    if (!selectedCalendar) return;
+    if (meeting === "gmeet" && selectedCalendar.provider !== "google-mail") {
+      setMeeting("none");
+    } else if (meeting === "teams" && selectedCalendar.provider !== "outlook") {
+      setMeeting("none");
+    }
+  }, [selectedCalendar, meeting]);
 
   const submit = async () => {
     setBusy(true);
@@ -349,6 +390,7 @@ function EventComposer({
           .split(",")
           .map((s) => s.trim())
           .filter(Boolean),
+        meeting,
       });
       onCreated();
     } catch (e) {
@@ -388,6 +430,26 @@ function EventComposer({
           value={location}
           onChange={(e) => setLocation(e.target.value)}
         />
+        <label className="text-xs text-secondary">{t("calendar.meeting")}</label>
+        <select
+          value={meeting}
+          onChange={(e) => setMeeting(e.target.value as MeetingChoice)}
+          className="h-9 rounded-md border border-divider bg-background px-2 text-sm"
+        >
+          <option value="none">{t("calendar.meetingNone")}</option>
+          <option
+            value="gmeet"
+            disabled={selectedCalendar?.provider !== "google-mail"}
+          >
+            {t("calendar.meetingGmeet")}
+          </option>
+          <option
+            value="teams"
+            disabled={selectedCalendar?.provider !== "outlook"}
+          >
+            {t("calendar.meetingTeams")}
+          </option>
+        </select>
         <label className="text-xs text-secondary">{t("calendar.eventStart")}</label>
         <input
           type="datetime-local"

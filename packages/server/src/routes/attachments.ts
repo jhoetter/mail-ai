@@ -1,0 +1,139 @@
+// Attachment download endpoints.
+//
+//   GET /api/attachments/:id           → JSON { url, expiresAt } presigned GET
+//   GET /api/attachments/:id/inline    → 302 to presigned GET; used as a
+//                                        stable URL we can rewrite cid:
+//                                        links to without re-presigning
+//                                        on every render.
+//
+// Lazy-fetch policy: if the byte stream isn't already in S3, we refresh
+// the access token, pull the bytes from the provider, PutObject, then
+// presign. Subsequent calls hit S3 directly (cachedAt is bumped so we
+// can prune unused rows later).
+
+import type { FastifyInstance } from "fastify";
+import {
+  OauthAccountsRepository,
+  OauthAttachmentsRepository,
+  withTenant,
+  type ObjectStore,
+  type OauthAttachmentRow,
+  type Pool,
+} from "@mailai/overlay-db";
+import {
+  fetchGmailAttachmentBytes,
+  fetchGraphAttachmentBytes,
+  getValidAccessToken,
+  type ProviderCredentials,
+} from "@mailai/oauth-tokens";
+
+export interface AttachmentRoutesDeps {
+  readonly pool: Pool;
+  readonly objectStore: ObjectStore;
+  readonly credentials: ProviderCredentials;
+  readonly identity: (req: { headers: Record<string, unknown> }) => Promise<{
+    userId: string;
+    tenantId: string;
+  }>;
+}
+
+export function registerAttachmentRoutes(
+  app: FastifyInstance,
+  deps: AttachmentRoutesDeps,
+): void {
+  app.get("/api/attachments/:id", async (req, reply) => {
+    const ident = await deps.identity({ headers: req.headers as Record<string, unknown> });
+    const { id } = req.params as { id: string };
+    const row = await loadAttachment(deps, ident.tenantId, id);
+    if (!row) {
+      return reply.code(404).send({ error: "not_found", message: `attachment ${id} not found` });
+    }
+    await ensureCached(deps, ident.tenantId, row);
+    const filename = row.filename ?? "attachment.bin";
+    const presigned = await deps.objectStore.presignGet(row.objectKey, {
+      expiresInSeconds: 600,
+      responseContentDisposition: `attachment; filename="${escapeFilename(filename)}"`,
+      responseContentType: row.mime,
+    });
+    return { url: presigned.url, expiresAt: presigned.expiresAt };
+  });
+
+  app.get("/api/attachments/:id/inline", async (req, reply) => {
+    const ident = await deps.identity({ headers: req.headers as Record<string, unknown> });
+    const { id } = req.params as { id: string };
+    const row = await loadAttachment(deps, ident.tenantId, id);
+    if (!row) {
+      return reply.code(404).send({ error: "not_found", message: `attachment ${id} not found` });
+    }
+    await ensureCached(deps, ident.tenantId, row);
+    const filename = row.filename ?? "inline.bin";
+    const presigned = await deps.objectStore.presignGet(row.objectKey, {
+      expiresInSeconds: 600,
+      responseContentDisposition: `inline; filename="${escapeFilename(filename)}"`,
+      responseContentType: row.mime,
+    });
+    return reply
+      .header("cache-control", "private, max-age=600")
+      .redirect(presigned.url, 302);
+  });
+}
+
+async function loadAttachment(
+  deps: AttachmentRoutesDeps,
+  tenantId: string,
+  id: string,
+): Promise<OauthAttachmentRow | null> {
+  return withTenant(deps.pool, tenantId, async (tx) => {
+    const repo = new OauthAttachmentsRepository(tx);
+    return repo.byId(tenantId, id);
+  });
+}
+
+async function ensureCached(
+  deps: AttachmentRoutesDeps,
+  tenantId: string,
+  row: OauthAttachmentRow,
+): Promise<void> {
+  if (await deps.objectStore.exists(row.objectKey)) return;
+  // Need to fetch from the provider. Look up the account so we know
+  // which API to talk to and to refresh the access token.
+  await withTenant(deps.pool, tenantId, async (tx) => {
+    const accounts = new OauthAccountsRepository(tx);
+    const attRepo = new OauthAttachmentsRepository(tx);
+    const account = await accounts.byId(tenantId, row.oauthAccountId);
+    if (!account) throw new Error(`account ${row.oauthAccountId} missing for attachment ${row.id}`);
+    const accessToken = await getValidAccessToken(account, {
+      tenantId,
+      accounts,
+      credentials: deps.credentials,
+    });
+    let bytes: Buffer;
+    if (account.provider === "google-mail") {
+      if (!row.providerAttachmentId) {
+        throw new Error(`gmail attachment ${row.id} has no providerAttachmentId`);
+      }
+      bytes = await fetchGmailAttachmentBytes({
+        accessToken,
+        messageId: row.providerMessageId,
+        attachmentId: row.providerAttachmentId,
+      });
+    } else if (account.provider === "outlook") {
+      if (!row.providerAttachmentId) {
+        throw new Error(`graph attachment ${row.id} has no providerAttachmentId`);
+      }
+      bytes = await fetchGraphAttachmentBytes({
+        accessToken,
+        messageId: row.providerMessageId,
+        attachmentId: row.providerAttachmentId,
+      });
+    } else {
+      throw new Error(`unknown provider for attachment ${row.id}`);
+    }
+    await deps.objectStore.put(row.objectKey, bytes, row.mime);
+    await attRepo.markCached(tenantId, row.id);
+  });
+}
+
+function escapeFilename(name: string): string {
+  return name.replace(/"/g, "'");
+}

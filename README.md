@@ -19,7 +19,7 @@ make dev           # http://localhost:3200
 
 ```
 apps/
-  web/                      Next.js 15 reference UI shell
+  web/                      Vite + React Router reference UI shell
   realtime-server/          Dev-only ws server (presence + collision indicator)
 packages/
   core/                     Command bus, mutations, snapshots, plugin registry

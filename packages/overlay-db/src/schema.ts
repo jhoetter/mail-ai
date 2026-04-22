@@ -82,6 +82,13 @@ export const oauthAccounts = pgTable(
     lastRefreshedAt: timestamp("last_refreshed_at", { withTimezone: true }),
     lastSyncedAt: timestamp("last_synced_at", { withTimezone: true }),
     lastSyncError: text("last_sync_error"),
+    // Per-account email signature. We store both an HTML rendition
+    // (the canonical version edited via RichEditor) and a plain-text
+    // mirror so the multipart/alternative envelope keeps a faithful
+    // text fallback. Either column may be NULL if the user hasn't
+    // configured one.
+    signatureHtml: text("signature_html"),
+    signatureText: text("signature_text"),
   },
   (t) => ({
     emailIdx: uniqueIndex("oauth_accounts_tenant_email_idx").on(
@@ -118,6 +125,11 @@ export const oauthMessages = pgTable(
     bodyText: text("body_text"),
     bodyHtml: text("body_html"),
     bodyFetchedAt: timestamp("body_fetched_at", { withTimezone: true }),
+    // Cheap flags so list views can render attachment / star
+    // indicators without joining `oauth_attachments` or parsing
+    // `labels_json`. Kept in sync by the sync worker.
+    hasAttachments: boolean("has_attachments").notNull().default(false),
+    starred: boolean("starred").notNull().default(false),
   },
   (t) => ({
     msgIdx: uniqueIndex("oauth_messages_account_msg_idx").on(
@@ -128,6 +140,45 @@ export const oauthMessages = pgTable(
     threadIdx: index("oauth_messages_thread_idx").on(t.tenantId, t.providerThreadId),
   }),
 );
+
+// Real (sent or received) attachments. Keyed by mail-ai's own `id` so
+// the API can reference a stable URL (`/api/attachments/:id`) without
+// leaking provider ids. The byte stream lives in S3 at `objectKey`;
+// the row is created when sync sees the part metadata, and the bytes
+// are lazily fetched on first download.
+//
+// `providerAttachmentId` is the provider-side handle we need to ask
+// Gmail / Graph for the bytes when we don't have them cached yet.
+// `contentId` (without angle brackets) lets the HTML renderer rewrite
+// `<img src="cid:…">` to our /inline route.
+export const oauthAttachments = pgTable(
+  "oauth_attachments",
+  {
+    id: text("id").primaryKey(),
+    tenantId: text("tenant_id").notNull(),
+    oauthAccountId: text("oauth_account_id")
+      .references(() => oauthAccounts.id, { onDelete: "cascade" })
+      .notNull(),
+    providerMessageId: text("provider_message_id").notNull(),
+    providerAttachmentId: text("provider_attachment_id"),
+    objectKey: text("object_key").notNull(),
+    filename: text("filename"),
+    mime: text("mime").notNull().default("application/octet-stream"),
+    sizeBytes: bigint("size_bytes", { mode: "number" }).notNull().default(0),
+    contentId: text("content_id"),
+    isInline: boolean("is_inline").notNull().default(false),
+    cachedAt: timestamp("cached_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => ({
+    msgIdx: index("oauth_attachments_account_msg_idx").on(
+      t.oauthAccountId,
+      t.providerMessageId,
+    ),
+    cidIdx: index("oauth_attachments_cid_idx").on(t.tenantId, t.contentId),
+  }),
+);
+
 
 export const mailboxes = pgTable("mailboxes", {
   id: text("id").primaryKey(),
@@ -374,6 +425,34 @@ export const drafts = pgTable("drafts", {
   updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
 });
 
+// In-flight composer uploads. Lives apart from oauth_attachments
+// because (a) the row is created by the browser before any real
+// message exists, and (b) the byte tree gets a different S3 prefix
+// (`drafts/<draft_id>/att/<file_id>`) so we can wipe a draft tree on
+// discard without touching landed messages.
+//
+// On send we copy/rename the bytes into the message namespace and
+// insert mirror rows into `oauth_attachments` keyed by the new
+// providerMessageId.
+export const draftAttachments = pgTable(
+  "draft_attachments",
+  {
+    id: text("id").primaryKey(),
+    tenantId: text("tenant_id").notNull(),
+    userId: text("user_id").references(() => users.id).notNull(),
+    draftId: text("draft_id").references(() => drafts.id, { onDelete: "cascade" }),
+    objectKey: text("object_key").notNull(),
+    filename: text("filename").notNull(),
+    mime: text("mime").notNull().default("application/octet-stream"),
+    sizeBytes: bigint("size_bytes", { mode: "number" }).notNull().default(0),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => ({
+    draftIdx: index("draft_attachments_draft_idx").on(t.tenantId, t.draftId),
+    userIdx: index("draft_attachments_user_idx").on(t.tenantId, t.userId),
+  }),
+);
+
 export const calendars = pgTable(
   "calendars",
   {
@@ -394,6 +473,57 @@ export const calendars = pgTable(
     providerIdx: uniqueIndex("calendars_account_provider_idx").on(
       t.oauthAccountId,
       t.providerCalendarId,
+    ),
+  }),
+);
+
+// Per-account address book cache. Mirrors `oauth_messages` /
+// `events`: provider data is the source of truth, we cache locally so
+// recipient autocomplete in the composer is sub-50ms and survives
+// provider rate limits.
+//
+// `source` distinguishes the three populations Gmail-style clients
+// surface separately:
+//   - 'my'     → explicit contacts (Google `people/me/connections`,
+//                Graph `/me/contacts`)
+//   - 'other'  → auto-collected from anyone the user has emailed
+//                (Google `otherContacts`)
+//   - 'people' → MS Graph's intelligent ranked suggestions
+//                (`/me/people`); the closest analogue to Gmail's
+//                'Other Contacts' for Outlook accounts.
+//
+// `primary_email` is stored lower-cased so the `ILIKE` prefix match
+// in `searchContacts` can hit the per-tenant index without lowering
+// every row at query time.
+export const oauthContacts = pgTable(
+  "oauth_contacts",
+  {
+    id: text("id").primaryKey(),
+    tenantId: text("tenant_id").notNull(),
+    oauthAccountId: text("oauth_account_id")
+      .references(() => oauthAccounts.id, { onDelete: "cascade" })
+      .notNull(),
+    provider: text("provider").notNull(), // 'google-mail' | 'outlook'
+    providerContactId: text("provider_contact_id").notNull(),
+    source: text("source").notNull(), // 'my' | 'other' | 'people'
+    displayName: text("display_name"),
+    primaryEmail: text("primary_email").notNull(),
+    emailsJson: jsonb("emails_json").notNull(),
+    lastInteractionAt: timestamp("last_interaction_at", { withTimezone: true }),
+    fetchedAt: timestamp("fetched_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => ({
+    contactIdx: uniqueIndex("oauth_contacts_account_contact_idx").on(
+      t.oauthAccountId,
+      t.providerContactId,
+    ),
+    emailIdx: index("oauth_contacts_tenant_email_idx").on(
+      t.tenantId,
+      t.primaryEmail,
+    ),
+    nameIdx: index("oauth_contacts_tenant_name_idx").on(
+      t.tenantId,
+      t.displayName,
     ),
   }),
 );
@@ -420,6 +550,16 @@ export const events = pgTable(
     status: text("status"),
     recurrenceJson: jsonb("recurrence_json"),
     rawJson: jsonb("raw_json"),
+    // RFC 5546 SEQUENCE counter. We persist what we've sent / received
+    // so update + cancel iTIP messages monotonically increase. Starts
+    // at 0 on create and is bumped by the calendar handler before each
+    // outgoing REQUEST/CANCEL.
+    sequence: integer("sequence").notNull().default(0),
+    // Conferencing wired to the event. NULL when the user picked "no
+    // meeting link" or the row was synced from upstream where we
+    // haven't (yet) parsed the conference data.
+    meetingProvider: text("meeting_provider"), // 'google-meet' | 'ms-teams'
+    meetingJoinUrl: text("meeting_join_url"),
     fetchedAt: timestamp("fetched_at", { withTimezone: true }).defaultNow().notNull(),
   },
   (t) => ({

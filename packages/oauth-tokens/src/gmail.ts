@@ -181,11 +181,22 @@ function decodeEntities(s: string): string {
 //
 // Gmail returns each part body as URL-safe base64 in `data`. We
 // decode here so the API layer just hands strings to the UI.
+export interface GmailAttachmentMeta {
+  readonly partId: string | null;
+  readonly attachmentId: string | null;
+  readonly filename: string | null;
+  readonly mime: string;
+  readonly sizeBytes: number;
+  readonly contentId: string | null;
+  readonly isInline: boolean;
+}
+
 export interface GmailMessageBody {
   readonly id: string;
   readonly threadId: string;
   readonly text: string | null;
   readonly html: string | null;
+  readonly attachments: readonly GmailAttachmentMeta[];
 }
 
 interface GmailPart {
@@ -220,29 +231,136 @@ export async function getGmailMessageBody(args: {
     throw new Error(`gmail get-full ${args.messageId} failed: ${res.status} ${body.slice(0, 200)}`);
   }
   const json = (await res.json()) as GmailGetFullResponse;
-  const collected = { text: null as string | null, html: null as string | null };
+  const collected = {
+    text: null as string | null,
+    html: null as string | null,
+    attachments: [] as GmailAttachmentMeta[],
+  };
   if (json.payload) walkParts(json.payload, collected);
   return {
     id: json.id,
     threadId: json.threadId,
     text: collected.text,
     html: collected.html,
+    attachments: collected.attachments,
   };
 }
 
-function walkParts(part: GmailPart, out: { text: string | null; html: string | null }): void {
+function walkParts(
+  part: GmailPart,
+  out: { text: string | null; html: string | null; attachments: GmailAttachmentMeta[] },
+): void {
   const mt = (part.mimeType ?? "").toLowerCase();
-  // Skip explicit attachment parts — those have a filename and either
-  // an attachmentId or no inline body data we'd want as the message
-  // body. (Inline images come through with no filename and we just
-  // ignore them; the reader degrades gracefully to text.)
+  const headerMap = new Map<string, string>();
+  for (const h of part.headers ?? []) headerMap.set(h.name.toLowerCase(), h.value);
+  const disposition = (headerMap.get("content-disposition") ?? "").toLowerCase();
+  const isInline = disposition.startsWith("inline");
   const isAttachment = !!part.filename && part.filename.length > 0;
-  if (!isAttachment && part.body?.data) {
+  // Treat anything with an attachmentId or a filename as an
+  // attachment-shaped part: real attachments have a filename, inline
+  // images use Content-ID + no filename. Both are surfaced so the UI
+  // can render the tray and the cid: rewriter can find the bytes.
+  const hasAttachmentId = !!part.body?.attachmentId;
+  const cidHeader = headerMap.get("content-id") ?? null;
+  const cid = cidHeader ? cidHeader.replace(/^<|>$/g, "") : null;
+  const looksLikeAttachment = isAttachment || (hasAttachmentId && (isInline || !!cid));
+
+  if (looksLikeAttachment) {
+    out.attachments.push({
+      partId: part.partId ?? null,
+      attachmentId: part.body?.attachmentId ?? null,
+      filename: part.filename && part.filename.length ? part.filename : null,
+      mime: mt || "application/octet-stream",
+      sizeBytes: part.body?.size ?? 0,
+      contentId: cid,
+      isInline,
+    });
+  } else if (part.body?.data) {
     const decoded = decodeBase64Url(part.body.data);
     if (mt === "text/plain" && out.text === null) out.text = decoded;
     else if (mt === "text/html" && out.html === null) out.html = decoded;
   }
   for (const child of part.parts ?? []) walkParts(child, out);
+}
+
+// Fetch the actual bytes for one attachment. Gmail returns base64url.
+export async function fetchGmailAttachmentBytes(args: {
+  accessToken: string;
+  messageId: string;
+  attachmentId: string;
+  fetchImpl?: typeof fetch;
+}): Promise<Buffer> {
+  const f = args.fetchImpl ?? fetch;
+  const url =
+    `${GMAIL_BASE}/users/me/messages/${encodeURIComponent(args.messageId)}` +
+    `/attachments/${encodeURIComponent(args.attachmentId)}`;
+  const res = await f(url, {
+    headers: { authorization: `Bearer ${args.accessToken}` },
+  });
+  if (!res.ok) {
+    const body = await safeText(res);
+    throw new Error(`gmail attachment fetch failed: ${res.status} ${body.slice(0, 200)}`);
+  }
+  const json = (await res.json()) as { data?: string };
+  if (!json.data) throw new Error("gmail attachment fetch missing data");
+  const std = json.data.replace(/-/g, "+").replace(/_/g, "/");
+  const pad = std.length % 4 === 0 ? "" : "=".repeat(4 - (std.length % 4));
+  return Buffer.from(std + pad, "base64");
+}
+
+// Fetch the raw RFC 822 bytes for a message. Used for "Show original"
+// + EML download + forward. Counts as ~1 quota unit (vs ~5 for full),
+// and we cache the result in S3 so each message is fetched at most
+// once over its lifetime.
+export async function fetchGmailRawMessage(args: {
+  accessToken: string;
+  messageId: string;
+  fetchImpl?: typeof fetch;
+}): Promise<Buffer> {
+  const f = args.fetchImpl ?? fetch;
+  const url =
+    `${GMAIL_BASE}/users/me/messages/${encodeURIComponent(args.messageId)}?format=raw`;
+  const res = await f(url, {
+    headers: { authorization: `Bearer ${args.accessToken}` },
+  });
+  if (!res.ok) {
+    const body = await safeText(res);
+    throw new Error(`gmail raw fetch failed: ${res.status} ${body.slice(0, 200)}`);
+  }
+  const json = (await res.json()) as { raw?: string };
+  if (!json.raw) throw new Error("gmail raw fetch missing raw");
+  const std = json.raw.replace(/-/g, "+").replace(/_/g, "/");
+  const pad = std.length % 4 === 0 ? "" : "=".repeat(4 - (std.length % 4));
+  return Buffer.from(std + pad, "base64");
+}
+
+// Modify Gmail labels on a single message. Used by mark-read and star.
+export async function modifyGmailMessageLabels(args: {
+  accessToken: string;
+  messageId: string;
+  addLabelIds?: readonly string[];
+  removeLabelIds?: readonly string[];
+  fetchImpl?: typeof fetch;
+}): Promise<void> {
+  const f = args.fetchImpl ?? fetch;
+  const url =
+    `${GMAIL_BASE}/users/me/messages/${encodeURIComponent(args.messageId)}/modify`;
+  const body: Record<string, unknown> = {};
+  if (args.addLabelIds && args.addLabelIds.length > 0) body["addLabelIds"] = args.addLabelIds;
+  if (args.removeLabelIds && args.removeLabelIds.length > 0)
+    body["removeLabelIds"] = args.removeLabelIds;
+  const res = await f(url, {
+    method: "POST",
+    headers: {
+      authorization: `Bearer ${args.accessToken}`,
+      "content-type": "application/json",
+    },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) {
+    const text = await safeText(res);
+    throw new Error(`gmail modify failed: ${res.status} ${text.slice(0, 200)}`);
+  }
 }
 
 function decodeBase64Url(s: string): string {

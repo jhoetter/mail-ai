@@ -1,5 +1,3 @@
-"use client";
-
 // Connect-account dialog. Two big provider buttons (Gmail, Outlook),
 // a state-machine driven body that explains every stage of the flow,
 // and a graceful demo-mode panel that points at docs/oauth-setup.md

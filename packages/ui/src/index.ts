@@ -13,6 +13,7 @@ export {
 } from "./primitives/rich-editor";
 export { DataTable } from "./composites/data-table";
 export { PageHeader } from "./composites/page-header";
-export { Shell } from "./composites/shell";
+export { PageBody } from "./composites/page-body";
+export { Shell, useSidebar } from "./composites/shell";
 export { ThemeToggle, type ThemeToggleProps } from "./composites/theme-toggle";
 export { cn } from "./lib/cn";

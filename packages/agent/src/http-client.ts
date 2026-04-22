@@ -149,11 +149,31 @@ export interface CreateInboxInput {
 export class HttpAgentClient {
   constructor(private readonly opts: HttpClientOptions) {}
 
+  // Native `fetch` from the browser/Node requires its `this` to be the
+  // global object — calling `this.fetchImpl(url, init)` would otherwise
+  // throw "Illegal invocation" because the property-access call loses
+  // the binding. We rebind once per access; tests can still inject a
+  // detached fake via `opts.fetchImpl`.
   private get fetchImpl(): typeof fetch {
-    return this.opts.fetchImpl ?? globalThis.fetch;
+    if (this.opts.fetchImpl) return this.opts.fetchImpl;
+    const f = globalThis.fetch;
+    return f.bind(globalThis);
   }
 
   private url(path: string): string {
+    // The browser composer constructs the client with an empty
+    // baseUrl so requests stay relative and Next.js' /api/* rewrite
+    // forwards them to the API origin. `new URL(path, "")` throws
+    // "Invalid base URL", so we fall back to the document origin in
+    // the browser and to the path as-is on the server (where any
+    // caller would always have configured an absolute baseUrl).
+    if (!this.opts.baseUrl) {
+      const win = (globalThis as { location?: { origin?: string } }).location;
+      if (win?.origin) {
+        return new URL(path, win.origin).toString();
+      }
+      return path;
+    }
     return new URL(path, this.opts.baseUrl).toString();
   }
 

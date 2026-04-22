@@ -186,6 +186,8 @@ export function registerCalendarRoutes(
           organizerEmail: e.organizerEmail,
           responseStatus: e.responseStatus,
           status: e.status,
+          meetingProvider: e.meetingProvider,
+          meetingJoinUrl: e.meetingJoinUrl,
         })),
       };
     });

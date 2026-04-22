@@ -1,5 +1,3 @@
-"use client";
-
 // Snooze / Mark done / Reopen quick actions, used inside the thread
 // header. Calls the per-user thread-state command surface so two
 // people in a shared inbox don't trip over each other's "done".

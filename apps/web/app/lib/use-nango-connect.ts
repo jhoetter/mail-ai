@@ -5,7 +5,6 @@
 // Exposes a state machine the dialog can render (`idle` | `starting`
 // | `awaiting-user` | `finalizing` | `success` | `error`).
 
-"use client";
 
 import { useCallback, useRef, useState } from "react";
 import Nango from "@nangohq/frontend";

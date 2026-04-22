@@ -1,5 +1,3 @@
-"use client";
-
 // Centralized keyboard-shortcut hook. Auto-disables inside text
 // inputs, contenteditable, and when meta-modifiers are held (so
 // Cmd+R still reloads instead of triggering "reply"). Per

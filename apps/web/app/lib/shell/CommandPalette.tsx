@@ -1,5 +1,3 @@
-"use client";
-
 // Cmd+K palette. Custom-built (no `cmdk` dep) so we can keep it
 // trivial and predictable: substring + per-character matching with
 // a tiny scoring function, recents in localStorage, and Esc / Enter

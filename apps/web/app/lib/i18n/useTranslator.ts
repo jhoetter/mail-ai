@@ -1,5 +1,3 @@
-"use client";
-
 import { useCallback } from "react";
 import { useI18n } from "./I18nProvider";
 import type { MessageNode, Messages } from "./types";

@@ -33,6 +33,8 @@ export interface OauthAccountRow {
   readonly lastRefreshedAt: Date | null;
   readonly lastSyncedAt: Date | null;
   readonly lastSyncError: string | null;
+  readonly signatureHtml: string | null;
+  readonly signatureText: string | null;
 }
 
 export interface OauthAccountInsert {
@@ -201,6 +203,25 @@ export class OauthAccountsRepository {
       .set({
         lastSyncedAt: args.at,
         lastSyncError: args.error,
+        updatedAt: new Date(),
+      })
+      .where(and(eq(oauthAccounts.tenantId, tenantId), eq(oauthAccounts.id, id)));
+  }
+
+  // Persist a per-account signature edited via the Settings UI. Both
+  // shapes are optional but at least one is expected to be set; the
+  // composer wraps whichever is non-null in a `mailai-signature`
+  // sentinel so future automation can strip it cleanly.
+  async setSignature(
+    tenantId: string,
+    id: string,
+    sig: { html: string | null; text: string | null },
+  ): Promise<void> {
+    await this.db
+      .update(oauthAccounts)
+      .set({
+        signatureHtml: sig.html,
+        signatureText: sig.text,
         updatedAt: new Date(),
       })
       .where(and(eq(oauthAccounts.tenantId, tenantId), eq(oauthAccounts.id, id)));

@@ -114,6 +114,40 @@ export async function sendGraph(args: GraphSendArgs): Promise<{ ok: true }> {
   return { ok: true };
 }
 
+// Send a fully-baked RFC 5322 MIME message via Graph, mirroring
+// Gmail's raw path. Required for parity once we ship attachments and
+// inline images: Graph's structured Message JSON does support file
+// attachments, but its API is byte-quota-bound (3 MB inline / 150 MB
+// total) and uses a separate POST per attachment, which doubles
+// per-send latency. The MIME-via-sendMail path is one request and
+// reuses the same composeMessage() output we already feed Gmail.
+//
+// Wire shape: POST /me/sendMail with `Content-Type: text/plain` and
+// the request body is the base64-encoded MIME envelope.
+export interface GraphSendRawArgs {
+  readonly accessToken: string;
+  readonly raw: Buffer | string;
+  readonly fetchImpl?: typeof fetch;
+}
+
+export async function sendGraphRawMime(args: GraphSendRawArgs): Promise<{ ok: true }> {
+  const f = args.fetchImpl ?? fetch;
+  const buf = typeof args.raw === "string" ? Buffer.from(args.raw, "utf8") : args.raw;
+  const res = await f(GRAPH_SENDMAIL_URL, {
+    method: "POST",
+    headers: {
+      authorization: `Bearer ${args.accessToken}`,
+      "content-type": "text/plain",
+    },
+    body: buf.toString("base64"),
+  });
+  if (!res.ok) {
+    const text = await safeText(res);
+    throw new Error(`graph sendMail (raw) failed: ${res.status} ${text.slice(0, 300)}`);
+  }
+  return { ok: true };
+}
+
 // RFC 4648 base64url encoding (no padding) for Gmail's `raw` field.
 function toBase64Url(buf: Buffer): string {
   return buf.toString("base64").replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/g, "");

@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="en" class="h-full">
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=5"
+    />
+    <meta name="theme-color" content="#ffffff" />
+    <title>mail-ai</title>
+    <meta name="description" content="AI-native email collaboration" />
+
+    <!--
+      Web fonts loaded via <link> rather than @import in CSS so the
+      Vite build doesn't have to resolve them at compile time. The
+      system fallbacks declared on --font-sans / --font-mono cover the
+      brief flash before the network sheet lands.
+    -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link
+      rel="preconnect"
+      href="https://fonts.gstatic.com"
+      crossorigin="anonymous"
+    />
+    <link
+      rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Inter:wght@400;500;600;700&display=swap"
+    />
+
+    <!--
+      Theme bootstrap: read the persisted choice and resolve "system"
+      against the OS BEFORE React paints, so the dark/light brand pack
+      latches without a flash. The class set on <html> matches what
+      next-themes (the runtime ThemeProvider) will manage afterwards,
+      so there's no client-server mismatch to reconcile.
+    -->
+    <script>
+      (function () {
+        try {
+          var stored = localStorage.getItem("theme");
+          var systemDark = window.matchMedia(
+            "(prefers-color-scheme: dark)",
+          ).matches;
+          var resolved =
+            stored === "light" || stored === "dark"
+              ? stored
+              : systemDark
+                ? "dark"
+                : "light";
+          document.documentElement.classList.add(resolved);
+        } catch (_) {
+          /* localStorage / matchMedia missing — let React handle it */
+        }
+      })();
+    </script>
+  </head>
+  <body class="h-full bg-background text-foreground antialiased">
+    <div id="root" class="h-full"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

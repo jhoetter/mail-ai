@@ -1,6 +1,4 @@
-"use client";
-
-import { Button, Card, Input, PageHeader, Shell } from "@mailai/ui";
+import { Button, Card, Input, PageBody, PageHeader, Shell } from "@mailai/ui";
 import { useCallback, useEffect, useState } from "react";
 import { AppNav } from "../../components/AppNav";
 import { useTranslator } from "../../lib/i18n/useTranslator";
@@ -58,6 +56,7 @@ export default function TagsSettingsPage() {
   return (
     <Shell sidebar={<AppNav />}>
       <PageHeader title={t("tags.title")} subtitle={t("tags.subtitle")} />
+      <PageBody>
       <Card>
         <div className="flex flex-col gap-4">
           <div className="flex items-center gap-2">
@@ -113,6 +112,7 @@ export default function TagsSettingsPage() {
           )}
         </div>
       </Card>
+      </PageBody>
     </Shell>
   );
 }

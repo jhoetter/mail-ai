@@ -510,6 +510,141 @@ export const MIGRATIONS: Array<{ id: string; up: string }> = [
       ALTER TABLE oauth_messages ADD COLUMN IF NOT EXISTS body_ics text;
     `,
   },
+  {
+    // Full-feature email overhaul.
+    //   - oauth_attachments: one row per real attachment seen on a
+    //     synced or sent message. Bytes live in S3 at object_key; the
+    //     row is created the moment sync sees the part metadata, and
+    //     the bytes are lazily fetched on first download.
+    //   - draft_attachments: in-flight composer uploads. A separate
+    //     namespace (`drafts/<draft_id>/att/<file_id>`) so discarding
+    //     a draft can wipe the whole subtree without touching any
+    //     landed message.
+    //   - oauth_accounts.signature_html / signature_text: per-account
+    //     signature served by the composer + reply.
+    //   - oauth_messages.has_attachments / starred: cheap flags so
+    //     list views can render indicators without joining.
+    id: "0014_attachments_signatures",
+    up: `
+      CREATE TABLE IF NOT EXISTS oauth_attachments (
+        id text PRIMARY KEY,
+        tenant_id text NOT NULL,
+        oauth_account_id text NOT NULL REFERENCES oauth_accounts(id) ON DELETE CASCADE,
+        provider_message_id text NOT NULL,
+        provider_attachment_id text,
+        object_key text NOT NULL,
+        filename text,
+        mime text NOT NULL DEFAULT 'application/octet-stream',
+        size_bytes bigint NOT NULL DEFAULT 0,
+        content_id text,
+        is_inline boolean NOT NULL DEFAULT false,
+        cached_at timestamptz,
+        created_at timestamptz NOT NULL DEFAULT now()
+      );
+      CREATE INDEX IF NOT EXISTS oauth_attachments_account_msg_idx
+        ON oauth_attachments(oauth_account_id, provider_message_id);
+      CREATE INDEX IF NOT EXISTS oauth_attachments_cid_idx
+        ON oauth_attachments(tenant_id, content_id) WHERE content_id IS NOT NULL;
+      ALTER TABLE oauth_attachments ENABLE ROW LEVEL SECURITY;
+      DO $$ BEGIN CREATE POLICY tenant_iso ON oauth_attachments USING (tenant_id = current_setting('mailai.tenant_id', true)); EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+
+      CREATE TABLE IF NOT EXISTS draft_attachments (
+        id text PRIMARY KEY,
+        tenant_id text NOT NULL,
+        user_id text NOT NULL REFERENCES users(id),
+        draft_id text REFERENCES drafts(id) ON DELETE CASCADE,
+        object_key text NOT NULL,
+        filename text NOT NULL,
+        mime text NOT NULL DEFAULT 'application/octet-stream',
+        size_bytes bigint NOT NULL DEFAULT 0,
+        created_at timestamptz NOT NULL DEFAULT now()
+      );
+      CREATE INDEX IF NOT EXISTS draft_attachments_draft_idx
+        ON draft_attachments(tenant_id, draft_id);
+      CREATE INDEX IF NOT EXISTS draft_attachments_user_idx
+        ON draft_attachments(tenant_id, user_id);
+      ALTER TABLE draft_attachments ENABLE ROW LEVEL SECURITY;
+      DO $$ BEGIN CREATE POLICY tenant_iso ON draft_attachments USING (tenant_id = current_setting('mailai.tenant_id', true)); EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+
+      ALTER TABLE oauth_accounts
+        ADD COLUMN IF NOT EXISTS signature_html text,
+        ADD COLUMN IF NOT EXISTS signature_text text;
+
+      ALTER TABLE oauth_messages
+        ADD COLUMN IF NOT EXISTS has_attachments boolean NOT NULL DEFAULT false,
+        ADD COLUMN IF NOT EXISTS starred boolean NOT NULL DEFAULT false;
+    `,
+  },
+  {
+    // Calendar invites + conferencing.
+    //
+    // - sequence: RFC 5546 SEQUENCE counter; bumped each time the
+    //   calendar handler emits a REQUEST or CANCEL iTIP message so the
+    //   recipient client can tell update-from-original.
+    // - meeting_provider / meeting_join_url: the conferencing link
+    //   minted by the upstream provider (Google Meet via
+    //   conferenceData, Teams via isOnlineMeeting). NULL when the user
+    //   created an event without a meeting link.
+    id: "0015_event_invites",
+    up: `
+      ALTER TABLE events
+        ADD COLUMN IF NOT EXISTS sequence integer NOT NULL DEFAULT 0,
+        ADD COLUMN IF NOT EXISTS meeting_provider text,
+        ADD COLUMN IF NOT EXISTS meeting_join_url text;
+    `,
+  },
+  {
+    // Per-account address book cache (recipient autocomplete in the
+    // composer). Provider data is the source of truth — this table
+    // exists only so the suggest endpoint stays fast and works while
+    // the provider is rate-limiting.
+    //
+    //   - source distinguishes the populations the providers surface
+    //     separately. 'other' (Google) and 'people' (Graph) are the
+    //     ones that auto-collect anyone the user has emailed, so they
+    //     match the Gmail "type 'jt' → suggest jt.hoetter@gmail.com"
+    //     experience without any extra harvesting on our side.
+    //   - primary_email is stored lower-cased; the index is therefore
+    //     directly usable for ILIKE 'q%' lookups without per-row
+    //     lower() at query time.
+    //   - The pg_trgm GIN index lets the suggest endpoint stay
+    //     responsive on substring matches as the table grows. The
+    //     extension is created idempotently so fresh installs don't
+    //     need to pre-provision it.
+    //   - oauth_contacts cascades on oauth_account_id so disconnecting
+    //     a mailbox purges its contacts — matches the overlay
+    //     isolation rule we hold every cache to.
+    id: "0016_oauth_contacts",
+    up: `
+      CREATE EXTENSION IF NOT EXISTS pg_trgm;
+
+      CREATE TABLE IF NOT EXISTS oauth_contacts (
+        id text PRIMARY KEY,
+        tenant_id text NOT NULL,
+        oauth_account_id text NOT NULL REFERENCES oauth_accounts(id) ON DELETE CASCADE,
+        provider text NOT NULL CHECK (provider IN ('google-mail','outlook')),
+        provider_contact_id text NOT NULL,
+        source text NOT NULL CHECK (source IN ('my','other','people')),
+        display_name text,
+        primary_email text NOT NULL,
+        emails_json jsonb NOT NULL DEFAULT '[]'::jsonb,
+        last_interaction_at timestamptz,
+        fetched_at timestamptz NOT NULL DEFAULT now()
+      );
+      CREATE UNIQUE INDEX IF NOT EXISTS oauth_contacts_account_contact_idx
+        ON oauth_contacts(oauth_account_id, provider_contact_id);
+      CREATE INDEX IF NOT EXISTS oauth_contacts_tenant_email_idx
+        ON oauth_contacts(tenant_id, primary_email);
+      CREATE INDEX IF NOT EXISTS oauth_contacts_tenant_name_idx
+        ON oauth_contacts(tenant_id, display_name);
+      CREATE INDEX IF NOT EXISTS oauth_contacts_trgm_idx
+        ON oauth_contacts USING GIN (
+          (lower(coalesce(display_name,'') || ' ' || primary_email)) gin_trgm_ops
+        );
+      ALTER TABLE oauth_contacts ENABLE ROW LEVEL SECURITY;
+      DO $$ BEGIN CREATE POLICY tenant_iso ON oauth_contacts USING (tenant_id = current_setting('mailai.tenant_id', true)); EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+    `,
+  },
 ];
 
 export async function runMigrations(pool: Pool): Promise<void> {

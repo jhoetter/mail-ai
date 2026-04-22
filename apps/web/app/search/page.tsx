@@ -1,7 +1,5 @@
-"use client";
-
 import { useState } from "react";
-import { Card, PageHeader, Shell, Button, Input } from "@mailai/ui";
+import { Card, PageBody, PageHeader, Shell, Button, Input } from "@mailai/ui";
 import { AppNav } from "../components/AppNav";
 import { baseUrl } from "../lib/api";
 
@@ -56,6 +54,7 @@ export default function SearchPage() {
         title="Search"
         subtitle="Full-text search across synced mail (Postgres tsvector)."
       />
+      <PageBody>
       <Card>
         <form
           className="flex gap-2"
@@ -101,6 +100,7 @@ export default function SearchPage() {
           </ul>
         )}
       </Card>
+      </PageBody>
     </Shell>
   );
 }

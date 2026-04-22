@@ -1,5 +1,3 @@
-"use client";
-
 // Registry context owned by AppShell. Children hook into it via
 // useRegisterPaletteCommands(commands) to contribute scoped commands;
 // commands automatically unmount with the component, which means the

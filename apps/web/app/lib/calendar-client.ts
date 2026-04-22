@@ -33,7 +33,15 @@ export interface EventSummary {
   organizerEmail: string | null;
   responseStatus: string | null;
   status: string | null;
+  // Conferencing wired to this event. Both null when no meeting link
+  // was attached at create time.
+  meetingProvider?: "google-meet" | "ms-teams" | null;
+  meetingJoinUrl?: string | null;
 }
+
+// Mirrors MeetingChoice on the server. 'gmeet' is gated to google-mail
+// accounts and 'teams' to outlook; the dropdown disables the other.
+export type MeetingChoice = "gmeet" | "teams" | "none";
 
 export async function listCalendars(): Promise<CalendarSummary[]> {
   const res = await fetch(`${baseUrl()}/api/calendars`);
@@ -72,6 +80,7 @@ export interface CreateEventInput {
   endsAt: string;
   allDay?: boolean;
   attendees?: string[];
+  meeting?: MeetingChoice;
 }
 
 export async function createEvent(input: CreateEventInput): Promise<void> {

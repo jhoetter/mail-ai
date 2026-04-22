@@ -21,9 +21,12 @@
 import type { FastifyInstance } from "fastify";
 import {
   OauthAccountsRepository,
+  OauthAttachmentsRepository,
   OauthMessagesRepository,
+  attachmentKeys,
   withTenant,
   type OauthAccountRow,
+  type OauthAttachmentRow,
   type OauthMessageRow,
   type Pool,
 } from "@mailai/overlay-db";
@@ -31,8 +34,11 @@ import {
   getGmailMessageBody,
   getGraphMessageBody,
   getValidAccessToken,
+  type GmailAttachmentMeta,
+  type GraphAttachmentMeta,
   type ProviderCredentials,
 } from "@mailai/oauth-tokens";
+import { randomId } from "@mailai/core";
 
 export interface ThreadRoutesDeps {
   readonly pool: Pool;
@@ -66,6 +72,7 @@ export function registerThreadRoutes(app: FastifyInstance, deps: ThreadRoutesDep
     // open, which is the core of the user's complaint.
     const filled = await fillBodiesIfMissing(deps, ident.tenantId, initial.all);
 
+    const attachmentsByMsg = await loadAttachments(deps, ident.tenantId, filled);
     const unreadCount = filled.filter((m) => m.unread).length;
     return {
       id: initial.root.id,
@@ -73,7 +80,9 @@ export function registerThreadRoutes(app: FastifyInstance, deps: ThreadRoutesDep
       providerThreadId: initial.root.providerThreadId,
       provider: initial.root.provider,
       unreadCount,
-      messages: filled.map(toMessage),
+      messages: filled.map((m) =>
+        toMessage(m, attachmentsByMsg.get(m.id) ?? []),
+      ),
     };
   });
 
@@ -88,8 +97,31 @@ export function registerThreadRoutes(app: FastifyInstance, deps: ThreadRoutesDep
       return reply.code(404).send({ error: "not_found", message: `message ${id} not found` });
     }
     const [filled] = await fillBodiesIfMissing(deps, ident.tenantId, [m]);
-    return toMessage(filled ?? m);
+    const row = filled ?? m;
+    const attachmentsByMsg = await loadAttachments(deps, ident.tenantId, [row]);
+    return toMessage(row, attachmentsByMsg.get(row.id) ?? []);
   });
+}
+
+async function loadAttachments(
+  deps: ThreadRoutesDeps,
+  tenantId: string,
+  rows: OauthMessageRow[],
+): Promise<Map<string, OauthAttachmentRow[]>> {
+  const out = new Map<string, OauthAttachmentRow[]>();
+  if (rows.length === 0) return out;
+  await withTenant(deps.pool, tenantId, async (tx) => {
+    const repo = new OauthAttachmentsRepository(tx);
+    for (const row of rows) {
+      const list = await repo.listForMessage(
+        tenantId,
+        row.oauthAccountId,
+        row.providerMessageId,
+      );
+      out.set(row.id, list);
+    }
+  });
+  return out;
 }
 
 // Pull bodies from the provider for every message that doesn't have
@@ -133,39 +165,99 @@ async function fillBodiesIfMissing(
   });
 
   // Fetch in parallel, capped concurrency.
-  const fetched = await mapWithConcurrency(missing, 6, async (m) => {
+  type Fetched = {
+    id: string;
+    text: string | null;
+    html: string | null;
+    attachments: GmailAttachmentMeta[] | GraphAttachmentMeta[];
+    providerMessageId: string;
+    oauthAccountId: string;
+    provider: "google-mail" | "outlook" | "unknown";
+  };
+  const fetched: Fetched[] = await mapWithConcurrency(missing, 6, async (m) => {
     const tok = tokensByAccount.get(m.oauthAccountId);
-    if (!tok) return { id: m.id, text: null as string | null, html: null as string | null };
+    const base = {
+      id: m.id,
+      providerMessageId: m.providerMessageId,
+      oauthAccountId: m.oauthAccountId,
+    };
+    if (!tok) {
+      return { ...base, text: null, html: null, attachments: [], provider: "unknown" as const };
+    }
     try {
       if (tok.account.provider === "google-mail") {
         const b = await getGmailMessageBody({
           accessToken: tok.accessToken,
           messageId: m.providerMessageId,
         });
-        return { id: m.id, text: b.text, html: b.html };
+        return {
+          ...base,
+          text: b.text,
+          html: b.html,
+          attachments: [...b.attachments],
+          provider: "google-mail" as const,
+        };
       }
       if (tok.account.provider === "outlook") {
         const b = await getGraphMessageBody({
           accessToken: tok.accessToken,
           messageId: m.providerMessageId,
         });
-        return { id: m.id, text: b.text, html: b.html };
+        return {
+          ...base,
+          text: b.text,
+          html: b.html,
+          attachments: [...b.attachments],
+          provider: "outlook" as const,
+        };
       }
-      return { id: m.id, text: null, html: null };
+      return { ...base, text: null, html: null, attachments: [], provider: "unknown" as const };
     } catch {
       // One bad message shouldn't sink the whole thread render.
-      // We still mark body_fetched_at so we don't hammer the API on
-      // every refresh; the row just stays empty until the user
-      // explicitly refreshes the message.
-      return { id: m.id, text: null, html: null };
+      return { ...base, text: null, html: null, attachments: [], provider: "unknown" as const };
     }
   });
 
-  // Persist in a single transaction.
+  // Persist body + attachment metadata in a single transaction. We
+  // upsert one `oauth_attachments` row per part the provider returned
+  // (no bytes yet — the actual download happens lazily when the
+  // browser hits /api/attachments/:id).
   await withTenant(deps.pool, tenantId, async (tx) => {
     const repo = new OauthMessagesRepository(tx);
+    const attRepo = new OauthAttachmentsRepository(tx);
     for (const r of fetched) {
       await repo.setBody(tenantId, r.id, { text: r.text, html: r.html });
+      let hasAtts = false;
+      for (const att of r.attachments) {
+        const id = `att_${randomId()}`;
+        const providerAttachmentId =
+          r.provider === "google-mail"
+            ? (att as GmailAttachmentMeta).attachmentId
+            : (att as GraphAttachmentMeta).providerAttachmentId;
+        const filename = att.filename;
+        const objectKey = attachmentKeys.accountMessageAtt(
+          r.oauthAccountId,
+          r.providerMessageId,
+          id,
+        );
+        await attRepo.upsertForMessage({
+          id,
+          tenantId,
+          oauthAccountId: r.oauthAccountId,
+          providerMessageId: r.providerMessageId,
+          providerAttachmentId: providerAttachmentId ?? null,
+          objectKey,
+          filename: filename ?? null,
+          mime: att.mime,
+          sizeBytes: att.sizeBytes,
+          contentId: att.contentId ?? null,
+          isInline: att.isInline,
+        });
+        hasAtts = true;
+      }
+      if (hasAtts) {
+        await repo.setHasAttachments(tenantId, r.oauthAccountId, r.providerMessageId, true);
+      }
     }
   });
 
@@ -202,10 +294,11 @@ async function mapWithConcurrency<T, R>(
   return out;
 }
 
-function toMessage(m: OauthMessageRow) {
+function toMessage(m: OauthMessageRow, attachments: OauthAttachmentRow[]) {
   return {
     id: m.id,
     providerMessageId: m.providerMessageId,
+    subject: m.subject,
     from: m.fromName || m.fromEmail || "unknown",
     fromName: m.fromName,
     fromEmail: m.fromEmail,
@@ -213,8 +306,18 @@ function toMessage(m: OauthMessageRow) {
     date: m.internalDate.toISOString(),
     snippet: m.snippet,
     unread: m.unread,
+    starred: m.starred,
+    hasAttachments: m.hasAttachments,
     bodyText: m.bodyText,
     bodyHtml: m.bodyHtml,
     bodyFetchedAt: m.bodyFetchedAt ? m.bodyFetchedAt.toISOString() : null,
+    attachments: attachments.map((a) => ({
+      id: a.id,
+      filename: a.filename,
+      mime: a.mime,
+      sizeBytes: a.sizeBytes,
+      contentId: a.contentId,
+      isInline: a.isInline,
+    })),
   };
 }

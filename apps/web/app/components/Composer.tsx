@@ -1,5 +1,3 @@
-"use client";
-
 // Composer for **new** messages. Reply lives inline inside the
 // thread (see InlineReply). For new mail we use a Gmail-style
 // floating panel anchored to the bottom-right of the viewport,
@@ -32,6 +30,9 @@ import { client } from "../lib/api";
 import { useTranslator } from "../lib/i18n/useTranslator";
 import { dispatchCommand } from "../lib/commands-client";
 import type { DraftSummary } from "../lib/drafts-client";
+import { useAttachmentUploads } from "../lib/attachment-uploads";
+import { AttachmentTray } from "./AttachmentTray";
+import { RecipientField } from "./RecipientField";
 
 type Mode = "min" | "normal" | "full";
 
@@ -61,10 +62,10 @@ export function Composer({
 }: Props) {
   const { t } = useTranslator();
   const [mode, setMode] = useState<Mode>("normal");
-  const [to, setTo] = useState(initialDraft?.to.join(", ") ?? "");
+  const [to, setTo] = useState<string[]>(initialDraft?.to ?? []);
   const [showCcBcc, setShowCcBcc] = useState(false);
-  const [cc, setCc] = useState(initialDraft?.cc?.join(", ") ?? "");
-  const [bcc, setBcc] = useState(initialDraft?.bcc?.join(", ") ?? "");
+  const [cc, setCc] = useState<string[]>(initialDraft?.cc ?? []);
+  const [bcc, setBcc] = useState<string[]>(initialDraft?.bcc ?? []);
   const [subject, setSubject] = useState(
     initialDraft?.subject ?? replyTo?.subject ?? "",
   );
@@ -78,11 +79,14 @@ export function Composer({
   const [savedAt, setSavedAt] = useState<number | null>(null);
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const editorRef = useRef<RichEditorHandle | null>(null);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const [dragOver, setDragOver] = useState(false);
+  const uploads = useAttachmentUploads({ draftId });
 
   const reset = useCallback(() => {
-    setTo(initialDraft?.to.join(", ") ?? "");
-    setCc(initialDraft?.cc?.join(", ") ?? "");
-    setBcc(initialDraft?.bcc?.join(", ") ?? "");
+    setTo(initialDraft?.to ?? []);
+    setCc(initialDraft?.cc ?? []);
+    setBcc(initialDraft?.bcc ?? []);
     setSubject(initialDraft?.subject ?? replyTo?.subject ?? "");
     valueRef.current = {
       html: initialDraft?.bodyHtml ?? "",
@@ -104,12 +108,12 @@ export function Composer({
     if (replyTo) return; // replies don't autosave as drafts (yet)
     const text = valueRef.current.text;
     const html = valueRef.current.html;
-    if (!text && !subject && !to) return;
+    if (!text && !subject && to.length === 0) return;
     if (saveTimer.current) clearTimeout(saveTimer.current);
     saveTimer.current = setTimeout(() => {
-      const recipients = to.split(",").map((s) => s.trim()).filter(Boolean);
-      const ccList = cc.split(",").map((s) => s.trim()).filter(Boolean);
-      const bccList = bcc.split(",").map((s) => s.trim()).filter(Boolean);
+      const recipients = to;
+      const ccList = cc;
+      const bccList = bcc;
       if (draftId) {
         void dispatchCommand({
           type: "draft:update",
@@ -166,6 +170,7 @@ export function Composer({
       const idempotencyKey = `web:${replyTo?.threadId ?? draftId ?? "send"}:${hash(text)}:${Date.now()
         .toString(36)
         .slice(0, 6)}`;
+      const attachmentRefs = uploads.refs;
       if (replyTo) {
         await client().applyCommand({
           type: "mail:reply",
@@ -173,48 +178,127 @@ export function Composer({
             threadId: replyTo.threadId,
             body: text,
             ...(html ? { bodyHtml: html } : {}),
+            ...(attachmentRefs.length > 0 ? { attachments: attachmentRefs } : {}),
           },
           idempotencyKey,
         });
       } else if (draftId) {
         await dispatchCommand({ type: "draft:send", payload: { id: draftId } });
       } else {
-        const ccList = cc.split(",").map((s) => s.trim()).filter(Boolean);
-        const bccList = bcc.split(",").map((s) => s.trim()).filter(Boolean);
         await client().applyCommand({
           type: "mail:send",
           payload: {
-            to: to.split(",").map((s) => s.trim()).filter(Boolean),
-            ...(ccList.length > 0 ? { cc: ccList } : {}),
-            ...(bccList.length > 0 ? { bcc: bccList } : {}),
+            to,
+            ...(cc.length > 0 ? { cc } : {}),
+            ...(bcc.length > 0 ? { bcc } : {}),
             subject,
             body: text,
             ...(html ? { bodyHtml: html } : {}),
+            ...(attachmentRefs.length > 0 ? { attachments: attachmentRefs } : {}),
+            ...(draftId ? { draftId } : {}),
           },
           idempotencyKey,
         });
       }
       onSent?.();
+      uploads.reset();
       close();
     } catch (e) {
       setErr(e instanceof Error ? e.message : String(e));
       setBusy(false);
     }
-  }, [bcc, cc, close, draftId, onSent, replyTo, subject, to]);
+  }, [bcc, cc, close, draftId, onSent, replyTo, subject, to, uploads]);
+
+  const onPickFiles = useCallback(() => {
+    fileInputRef.current?.click();
+  }, []);
+
+  const onFileInputChange = useCallback(
+    (e: React.ChangeEvent<HTMLInputElement>) => {
+      const files = Array.from(e.target.files ?? []);
+      if (files.length > 0) void uploads.addFiles(files);
+      e.target.value = "";
+    },
+    [uploads],
+  );
+
+  const onDrop = useCallback(
+    (e: React.DragEvent) => {
+      e.preventDefault();
+      setDragOver(false);
+      const files = Array.from(e.dataTransfer.files ?? []);
+      if (files.length > 0) void uploads.addFiles(files);
+    },
+    [uploads],
+  );
+
+  const onPaste = useCallback(
+    (e: React.ClipboardEvent) => {
+      const files: File[] = [];
+      for (const item of Array.from(e.clipboardData.items)) {
+        if (item.kind === "file") {
+          const f = item.getAsFile();
+          if (f) files.push(f);
+        }
+      }
+      if (files.length > 0) void uploads.addFiles(files);
+    },
+    [uploads],
+  );
 
   if (!open) return null;
 
   // Layout per mode. We use fixed positioning so the panel floats over
   // the app shell without forcing the inbox to recompute its grid.
+  //
+  // Mobile (< sm): the floating panel chrome doesn't make sense on a
+  // 360px-wide phone — the user can barely read the form, let alone
+  // see the inbox behind it. Below `sm` we promote every mode to a
+  // true full-screen sheet using dynamic viewport units (so iOS
+  // Safari's URL bar doesn't crop the bottom of the editor). The
+  // header bar still has a Close button so the user can dismiss.
+  //
+  // Desktop (≥ sm): the original Gmail-style three-mode floating
+  // panel anchored to the bottom-right is preserved.
+  const mobileClass =
+    "fixed inset-0 z-40 flex h-[100dvh] w-screen flex-col rounded-none border-0 bg-background shadow-none";
   const panelClass =
     mode === "full"
-      ? "fixed inset-4 sm:inset-8 z-40 flex flex-col rounded-xl border border-divider bg-background shadow-2xl"
+      ? `${mobileClass} sm:inset-8 sm:h-auto sm:w-auto sm:rounded-xl sm:border sm:border-divider sm:shadow-2xl`
       : mode === "normal"
-        ? "fixed bottom-0 right-4 z-40 flex h-[640px] max-h-[calc(100vh-2rem)] w-[560px] max-w-[calc(100vw-2rem)] flex-col overflow-hidden rounded-t-xl border border-b-0 border-divider bg-background shadow-2xl"
-        : "fixed bottom-0 right-4 z-40 flex w-[420px] max-w-[calc(100vw-2rem)] flex-col rounded-t-xl border border-b-0 border-divider bg-background shadow-xl";
+        ? `${mobileClass} sm:inset-auto sm:bottom-0 sm:right-4 sm:left-auto sm:top-auto sm:h-[640px] sm:max-h-[calc(100vh-2rem)] sm:w-[560px] sm:max-w-[calc(100vw-2rem)] sm:overflow-hidden sm:rounded-t-xl sm:border sm:border-b-0 sm:border-divider sm:shadow-2xl`
+        : `${mobileClass} sm:inset-auto sm:bottom-0 sm:right-4 sm:left-auto sm:top-auto sm:h-auto sm:w-[420px] sm:max-w-[calc(100vw-2rem)] sm:rounded-t-xl sm:border sm:border-b-0 sm:border-divider sm:shadow-xl`;
 
   return (
-    <div className={panelClass} role="dialog" aria-label={replyTo ? t("composer.replyTitle") : t("composer.newMessage")}>
+    <div
+      className={panelClass}
+      role="dialog"
+      aria-label={replyTo ? t("composer.replyTitle") : t("composer.newMessage")}
+      onDragOver={(e) => {
+        if (e.dataTransfer.types.includes("Files")) {
+          e.preventDefault();
+          setDragOver(true);
+        }
+      }}
+      onDragLeave={() => setDragOver(false)}
+      onDrop={onDrop}
+      onPaste={onPaste}
+    >
+      <input
+        ref={fileInputRef}
+        type="file"
+        multiple
+        className="hidden"
+        onChange={onFileInputChange}
+      />
+      {dragOver ? (
+        <div
+          className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center rounded-xl border-2 border-dashed border-foreground/40 bg-background/80 text-sm text-foreground"
+          aria-hidden
+        >
+          {t("composer.dropFilesHere")}
+        </div>
+      ) : null}
       {/* Title bar */}
       <div
         className="flex items-center justify-between gap-2 border-b border-divider bg-foreground px-3 py-2 text-background"
@@ -253,11 +337,11 @@ export function Composer({
             {!replyTo ? (
               <>
                 <FieldRow label={t("composer.to")}>
-                  <input
-                    className="w-full bg-transparent px-1 text-sm text-foreground outline-none placeholder:text-tertiary"
-                    placeholder={t("composer.to")}
+                  <RecipientField
                     value={to}
-                    onChange={(e) => setTo(e.target.value)}
+                    onChange={setTo}
+                    placeholder={t("composer.to")}
+                    ariaLabel={t("composer.to")}
                   />
                   <button
                     type="button"
@@ -270,19 +354,19 @@ export function Composer({
                 {showCcBcc ? (
                   <>
                     <FieldRow label={t("composer.cc")}>
-                      <input
-                        className="w-full bg-transparent px-1 text-sm text-foreground outline-none placeholder:text-tertiary"
-                        placeholder={t("composer.cc")}
+                      <RecipientField
                         value={cc}
-                        onChange={(e) => setCc(e.target.value)}
+                        onChange={setCc}
+                        placeholder={t("composer.cc")}
+                        ariaLabel={t("composer.cc")}
                       />
                     </FieldRow>
                     <FieldRow label={t("composer.bcc")}>
-                      <input
-                        className="w-full bg-transparent px-1 text-sm text-foreground outline-none placeholder:text-tertiary"
-                        placeholder={t("composer.bcc")}
+                      <RecipientField
                         value={bcc}
-                        onChange={(e) => setBcc(e.target.value)}
+                        onChange={setBcc}
+                        placeholder={t("composer.bcc")}
+                        ariaLabel={t("composer.bcc")}
                       />
                     </FieldRow>
                   </>
@@ -320,6 +404,13 @@ export function Composer({
             />
           </div>
 
+          {/* Attachments */}
+          <AttachmentTray
+            slots={uploads.slots}
+            onRemove={uploads.remove}
+            onPick={onPickFiles}
+          />
+
           {/* Footer */}
           <div className="flex items-center justify-between gap-2 border-t border-divider px-3 py-2">
             <div className="flex items-center gap-2">
@@ -330,7 +421,7 @@ export function Composer({
                 disabled={
                   busy ||
                   valueRef.current.text.trim().length === 0 ||
-                  (!replyTo && (to.trim().length === 0 || subject.trim().length === 0))
+                  (!replyTo && (to.length === 0 || subject.trim().length === 0))
                 }
               >
                 {busy ? t("composer.sending") : t("composer.send")}

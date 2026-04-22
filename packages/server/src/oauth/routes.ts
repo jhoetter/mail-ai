@@ -296,6 +296,8 @@ export function registerOauthRoutes(app: FastifyInstance, deps: OauthRoutesDeps)
           fromEmail: m.fromEmail,
           snippet: m.snippet,
           unread: m.unread,
+          starred: m.starred,
+          hasAttachments: m.hasAttachments,
           labels: m.labelsJson,
           date: m.internalDate.toISOString(),
           tags: tags.map((t) => ({ id: t.id, name: t.name, color: t.color })),

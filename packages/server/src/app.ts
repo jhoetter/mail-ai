@@ -6,6 +6,7 @@ import Fastify, { type FastifyInstance } from "fastify";
 import { CommandBus, type Command } from "@mailai/core";
 import { CommandPayloadSchema } from "@mailai/agent";
 import { loadProviderCredentialsFromEnv } from "@mailai/oauth-tokens";
+import type { ObjectStore } from "@mailai/overlay-db";
 import { EventBroadcaster } from "./events.js";
 import { registerOauthRoutes, type OauthRoutesDeps } from "./oauth/routes.js";
 import { registerSearchRoutes } from "./routes/search.js";
@@ -16,6 +17,10 @@ import { registerTagRoutes } from "./routes/tags.js";
 import { registerViewRoutes } from "./routes/views.js";
 import { registerDraftRoutes } from "./routes/drafts.js";
 import { registerCalendarRoutes } from "./routes/calendar.js";
+import { registerAttachmentRoutes } from "./routes/attachments.js";
+import { registerRawMessageRoutes } from "./routes/messages-raw.js";
+import { registerSignatureRoutes } from "./routes/signatures.js";
+import { registerContactsRoutes } from "./routes/contacts.js";
 
 export interface AppDeps {
   readonly bus: CommandBus;
@@ -29,6 +34,10 @@ export interface AppDeps {
   // Optional: when omitted, OAuth onboarding routes are NOT mounted.
   // Useful for tests that don't want a Postgres dep.
   readonly oauth?: Omit<OauthRoutesDeps, "identity">;
+  // Object storage for attachments + raw EML cache. Required for
+  // /api/attachments and /api/messages/:id/raw.eml; mounted only when
+  // present so test harnesses without S3 still work.
+  readonly objectStore?: ObjectStore;
 }
 
 export function buildApp(deps: AppDeps): FastifyInstance {
@@ -61,6 +70,29 @@ export function buildApp(deps: AppDeps): FastifyInstance {
       identity: deps.identity,
       credentials: deps.oauth.credentials ?? loadProviderCredentialsFromEnv(),
     });
+    registerSignatureRoutes(app, {
+      pool: deps.oauth.pool,
+      identity: deps.identity,
+    });
+    registerContactsRoutes(app, {
+      pool: deps.oauth.pool,
+      identity: deps.identity,
+      credentials: deps.oauth.credentials ?? loadProviderCredentialsFromEnv(),
+    });
+    if (deps.objectStore) {
+      registerAttachmentRoutes(app, {
+        pool: deps.oauth.pool,
+        objectStore: deps.objectStore,
+        credentials: deps.oauth.credentials ?? loadProviderCredentialsFromEnv(),
+        identity: deps.identity,
+      });
+      registerRawMessageRoutes(app, {
+        pool: deps.oauth.pool,
+        objectStore: deps.objectStore,
+        credentials: deps.oauth.credentials ?? loadProviderCredentialsFromEnv(),
+        identity: deps.identity,
+      });
+    }
   }
 
   app.post("/api/commands", async (req, reply) => {

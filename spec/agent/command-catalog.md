@@ -20,6 +20,10 @@ both this file and the staging-policy table.
 | `mail:reply`          | smtp-send          | `threadId`, body                                       | **stage** (agent) |                                                      |
 | `account:connect`     | server (admin)     | `provider`, `address`                                  | apply            | Triggers OAuth in CLI; HTTP-only otherwise.          |
 | `account:disconnect`  | server (admin)     | `accountId`                                            | apply            |                                                      |
+| `calendar:create-event` | calendar         | `calendarId`, `summary`, `startsAt`, `endsAt`, `attendees?`, `meeting?` ∈ {`gmeet`,`teams`,`none`} | apply | `meeting:'gmeet'` requires google-mail account, `'teams'` requires outlook. Sends RFC 5546 REQUEST `.ics` over SMTP. |
+| `calendar:update-event` | calendar         | `eventId`, partial event fields                        | apply            | Bumps SEQUENCE; re-sends REQUEST.                    |
+| `calendar:delete-event` | calendar         | `eventId`                                              | apply            | Sends CANCEL `.ics` first, then DELETEs upstream.    |
+| `calendar:respond`    | calendar           | `eventId` or `icalUid`, `response`                     | apply            | RSVPs upstream and emits an iTIP REPLY to organizer. |
 
 ## Schema location
 

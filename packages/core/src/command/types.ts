@@ -28,6 +28,8 @@ export type EntityKind =
   | "tag"
   | "assignment"
   | "account"
+  | "oauth-account"
+  | "attachment"
   | "draft"
   | "event"
   | "thread-state"

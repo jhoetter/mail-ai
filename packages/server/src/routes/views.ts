@@ -277,6 +277,8 @@ export function registerViewRoutes(app: FastifyInstance, deps: ViewRoutesDeps): 
           fromEmail: m.fromEmail,
           snippet: m.snippet,
           unread: m.unread,
+          starred: m.starred,
+          hasAttachments: m.hasAttachments,
           labels: m.labelsJson,
           date: m.internalDate.toISOString(),
           tags: (tagsByThread.get(m.providerThreadId) ?? []).map((t) => ({

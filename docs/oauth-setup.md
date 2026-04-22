@@ -79,11 +79,24 @@ The frontend resolves the API origin from `NEXT_PUBLIC_MAILAI_API_URL`
 3. Required scopes (must be enabled in both Nango and the provider
    console):
 
-   - **Gmail**: `https://mail.google.com/` (full IMAP/SMTP access). For
-     read-only or label-only scopes see the Gmail API docs; reduce
-     mail-ai's capabilities accordingly.
-   - **Outlook**: `offline_access`, `IMAP.AccessAsUser.All`,
-     `SMTP.Send`, `Mail.Read`, `User.Read`.
+   - **Gmail** (`google-mail` integration): `https://mail.google.com/`
+     (full IMAP/SMTP access) **plus**
+     `https://www.googleapis.com/auth/calendar.events` for the calendar
+     plugin. The calendar scope is what lets us POST events with
+     `conferenceData.createRequest` to mint Google Meet links.
+   - **Outlook** (`outlook` integration): `offline_access`,
+     `IMAP.AccessAsUser.All`, `SMTP.Send`, `Mail.Read`, `User.Read`,
+     `Calendars.ReadWrite` and `OnlineMeetings.ReadWrite`. The last
+     two are required by the calendar plugin: `Calendars.ReadWrite`
+     for event CRUD and `OnlineMeetings.ReadWrite` so Graph will
+     provision a Microsoft Teams meeting when an event is created
+     with `isOnlineMeeting: true`.
+
+   These are **scope additions on the existing two Nango integrations** —
+   no new integration entries (e.g. `google-cal`, `microsoft-teams`)
+   are needed. After widening the scopes in the Nango dashboard,
+   existing connected accounts must reconnect once for the new
+   permissions to be granted.
 
 4. Restart the API:
 

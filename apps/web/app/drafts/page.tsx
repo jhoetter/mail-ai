@@ -1,6 +1,4 @@
-"use client";
-
-import { Button, Card, PageHeader, Shell } from "@mailai/ui";
+import { Button, Card, PageBody, PageHeader, Shell } from "@mailai/ui";
 import { useCallback, useEffect, useState } from "react";
 import { AppNav } from "../components/AppNav";
 import { Composer } from "../components/Composer";
@@ -62,6 +60,7 @@ export default function DraftsPage() {
   return (
     <Shell sidebar={<AppNav />}>
       <PageHeader title={t("drafts.title")} subtitle={t("drafts.subtitle")} />
+      <PageBody>
       <Card>
         {error ? (
           <p className="text-sm text-error">{error}</p>
@@ -117,6 +116,7 @@ export default function DraftsPage() {
           </ul>
         )}
       </Card>
+      </PageBody>
       {editingDraft ? (
         <Composer
           open

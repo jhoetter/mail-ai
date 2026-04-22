@@ -2,17 +2,42 @@
 // Production deployment usually splits these onto separate replicas,
 // but for v1 single-process is enough.
 
+import { loadWorkspaceDotenv } from "./env-bootstrap.js";
+// Must run before any module reads process.env (e.g. credentials,
+// S3 config below) so `pnpm dev` picks up `.env` the same way `make
+// dev` does. Existing shell env always wins.
+loadWorkspaceDotenv();
+
 import { WebSocketServer } from "ws";
 import { CommandBus } from "@mailai/core";
-import { AuditRepository, createPool, runMigrations, withTenant } from "@mailai/overlay-db";
+import {
+  AuditRepository,
+  InMemoryObjectStore,
+  S3ObjectStore,
+  createPool,
+  loadS3OptionsFromEnv,
+  runMigrations,
+  withTenant,
+  type ObjectStore,
+} from "@mailai/overlay-db";
 import { loadProviderCredentialsFromEnv } from "@mailai/oauth-tokens";
 import { buildApp } from "./app.js";
 import { EventBroadcaster } from "./events.js";
 import { NangoClient } from "./oauth/nango-client.js";
 import {
+  buildMailForwardHandler,
+  buildMailMarkReadHandler,
+  buildMailMarkUnreadHandler,
   buildMailReplyHandler,
   buildMailSendHandler,
+  buildMailStarHandler,
 } from "./handlers/mail-send.js";
+import {
+  buildAttachmentRemoveHandler,
+  buildAttachmentUploadFinaliseHandler,
+  buildAttachmentUploadInitHandler,
+} from "./handlers/attachments.js";
+import { buildAccountSetSignatureHandler } from "./handlers/account-signature.js";
 import {
   buildThreadAddTagHandler,
   buildThreadRemoveTagHandler,
@@ -68,13 +93,66 @@ async function main() {
   });
 
   const credentials = loadProviderCredentialsFromEnv();
+
+  // Object storage. Falls back to an in-memory store so test
+  // environments without MinIO/S3 can still boot the server (presigned
+  // URL paths will fail loudly when the composer tries to upload).
+  const s3Opts = loadS3OptionsFromEnv();
+  let objectStore: ObjectStore;
+  if (s3Opts) {
+    const s3 = new S3ObjectStore(s3Opts);
+    try {
+      await s3.ensureBucket();
+    } catch (err) {
+      console.warn("warning: S3 bucket bootstrap failed (continuing):", err);
+    }
+    objectStore = s3;
+  } else {
+    console.warn(
+      "S3_* env vars not set; using InMemoryObjectStore — presigned URLs will not work",
+    );
+    objectStore = new InMemoryObjectStore();
+  }
+
   bus.register(
     "mail:send",
-    buildMailSendHandler({ pool, tenantId: DEV_TENANT, credentials }),
+    buildMailSendHandler({ pool, tenantId: DEV_TENANT, credentials, objectStore }),
   );
   bus.register(
     "mail:reply",
-    buildMailReplyHandler({ pool, tenantId: DEV_TENANT, credentials }),
+    buildMailReplyHandler({ pool, tenantId: DEV_TENANT, credentials, objectStore }),
+  );
+  bus.register(
+    "mail:forward",
+    buildMailForwardHandler({ pool, tenantId: DEV_TENANT, credentials, objectStore }),
+  );
+  bus.register(
+    "mail:mark-read",
+    buildMailMarkReadHandler({ pool, tenantId: DEV_TENANT, credentials, objectStore }),
+  );
+  bus.register(
+    "mail:mark-unread",
+    buildMailMarkUnreadHandler({ pool, tenantId: DEV_TENANT, credentials, objectStore }),
+  );
+  bus.register(
+    "mail:star",
+    buildMailStarHandler({ pool, tenantId: DEV_TENANT, credentials, objectStore }),
+  );
+  bus.register(
+    "attachment:upload-init",
+    buildAttachmentUploadInitHandler({ pool, tenantId: DEV_TENANT, objectStore }),
+  );
+  bus.register(
+    "attachment:upload-finalise",
+    buildAttachmentUploadFinaliseHandler({ pool, tenantId: DEV_TENANT, objectStore }),
+  );
+  bus.register(
+    "attachment:remove",
+    buildAttachmentRemoveHandler({ pool, tenantId: DEV_TENANT, objectStore }),
+  );
+  bus.register(
+    "account:set-signature",
+    buildAccountSetSignatureHandler({ pool, tenantId: DEV_TENANT }),
   );
   bus.register(
     "thread:add-tag",
@@ -180,6 +258,7 @@ async function main() {
       credentials,
       ...(nango ? { nango } : {}),
     },
+    objectStore,
   });
 
   const port = Number(process.env["API_PORT"] ?? process.env["PORT"] ?? 8200);

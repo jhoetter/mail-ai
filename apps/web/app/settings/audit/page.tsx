@@ -1,6 +1,4 @@
-"use client";
-
-import { Button, Input, PageHeader, Shell } from "@mailai/ui";
+import { Button, Input, PageBody, PageHeader, Shell } from "@mailai/ui";
 import { useCallback, useEffect, useState } from "react";
 import { AppNav } from "../../components/AppNav";
 import { listAudit, type AuditEntry } from "../../lib/audit-client";
@@ -47,6 +45,7 @@ export default function AuditPage() {
         title="Audit log"
         subtitle="Every mutation that ever ran — append-only, durable copy of the command bus."
       />
+      <PageBody width="wide">
 
       <form
         className="flex flex-wrap gap-2 items-end mb-3"
@@ -125,6 +124,7 @@ export default function AuditPage() {
           <p className="text-xs text-secondary">End of log.</p>
         ) : null}
       </div>
+      </PageBody>
     </Shell>
   );
 }

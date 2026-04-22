@@ -48,7 +48,10 @@
     "goToAccounts": "Zu den Konten →",
     "columnSubject": "Betreff",
     "columnFrom": "Von",
-    "columnDate": "Datum"
+    "columnDate": "Datum",
+    "star": "Markieren",
+    "unstar": "Markierung entfernen",
+    "hasAttachment": "Hat einen Anhang"
   },
   "thread": {
     "loading": "Konversation wird geladen…",
@@ -56,6 +59,8 @@
     "reply": "Antworten",
     "replyAll": "Allen antworten",
     "forward": "Weiterleiten",
+    "forwardingFrom": "Nachricht von {name} weiterleiten",
+    "forwardPlaceholder": "Notiz für die Empfänger:innen…",
     "assign": "Zuweisen",
     "messageCount": "{count} Nachrichten",
     "messageCountOne": "{count} Nachricht",
@@ -74,6 +79,12 @@
     "replyHint": "⌘↵ zum Senden",
     "discard": "Verwerfen",
     "attach": "Anhängen",
+    "attachments": "Anhänge",
+    "downloadEml": ".eml herunterladen",
+    "showOriginal": "Original anzeigen",
+    "displayImages": "Bilder anzeigen",
+    "imagesBlocked": "Bilder in dieser E-Mail wurden blockiert.",
+    "msgUnsupported": ".msg-Dateien können nicht in der Vorschau geöffnet werden; bitte herunterladen.",
     "tags": {
       "addPlaceholder": "Tag hinzufügen…",
       "snooze": "Zurückstellen",
@@ -100,7 +111,25 @@
     "expand": "Erweitern",
     "collapse": "Reduzieren",
     "discard": "Verwerfen",
-    "showCcBcc": "Cc / Bcc"
+    "showCcBcc": "Cc / Bcc",
+    "attach": "Dateien anhängen",
+    "attachmentRemove": "Anhang entfernen",
+    "uploading": "Wird hochgeladen…",
+    "uploadFailed": "Upload fehlgeschlagen",
+    "attachmentTooLarge": "Anhang überschreitet das Limit (25 MB).",
+    "dropFilesHere": "Dateien hier ablegen",
+    "toRequired": "Mindestens eine:n Empfänger:in eingeben."
+  },
+  "contacts": {
+    "suggestionsLabel": "Empfänger-Vorschläge",
+    "noResults": "Keine passenden Kontakte.",
+    "loading": "Kontakte werden gesucht…",
+    "removeRecipient": "{email} entfernen",
+    "sourceMy": "Kontakt",
+    "sourceOther": "Häufig",
+    "sourcePeople": "Häufig",
+    "reconnectHint": "{email} neu verbinden, um Kontakt-Vorschläge für dieses Konto zu aktivieren.",
+    "reconnect": "Neu verbinden"
   },
   "search": {
     "title": "Suche",
@@ -229,10 +258,31 @@
     "respond": "Antworten",
     "accept": "Zusagen",
     "decline": "Absagen",
-    "tentative": "Vorläufig"
+    "tentative": "Vorläufig",
+    "meeting": "Besprechungslink",
+    "meetingNone": "Kein Besprechungslink",
+    "meetingGmeet": "Google Meet",
+    "meetingTeams": "Microsoft Teams",
+    "joinMeet": "Google Meet beitreten",
+    "joinTeams": "Microsoft Teams beitreten",
+    "copyLink": "Link kopieren"
   },
   "draftsClient": {
     "saving": "Wird gespeichert…",
     "saved": "Gespeichert"
+  },
+  "toast": {
+    "commandFailed": "{command} konnte nicht gespeichert werden"
+  },
+  "settings": {
+    "signature": {
+      "title": "Signatur",
+      "subtitle": "Wird an jede neue Nachricht, Antwort und Weiterleitung dieses Kontos angehängt.",
+      "placeholder": "Deine Signatur…",
+      "save": "Signatur speichern",
+      "saved": "Gespeichert",
+      "saveError": "Speichern fehlgeschlagen: {error}",
+      "noAccounts": "Verbinde zuerst ein Konto."
+    }
   }
 }

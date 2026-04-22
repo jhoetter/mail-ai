@@ -1,12 +1,10 @@
-"use client";
-
 // AppShell sits one level above pages. It owns the palette registry,
 // the global Cmd+K (Mod+K) keybind, and renders the palette overlay.
 // Everything mounted underneath can use useRegisterPaletteCommands()
 // to contribute scoped actions, and any component can call
 // usePaletteRegistry().open() to pop the palette without typing.
 
-import { useRouter } from "next/navigation";
+import { useNavigate } from "react-router";
 import { useEffect, useMemo, type ReactNode } from "react";
 import { useTheme } from "next-themes";
 import { useTranslator } from "../i18n/useTranslator";
@@ -17,6 +15,7 @@ import {
   usePaletteRegistry,
 } from "./paletteRegistry";
 import type { PaletteCommand } from "./types";
+import { CommandErrorToast } from "../../components/CommandErrorToast";
 
 export function AppShell({ children }: { children: ReactNode }) {
   // Static commands are computed inside an inner component so the
@@ -25,12 +24,16 @@ export function AppShell({ children }: { children: ReactNode }) {
     <ShellWithStaticCommands>
       <KeybindLayer>{children}</KeybindLayer>
       <CommandPalette />
+      <CommandErrorToast />
     </ShellWithStaticCommands>
   );
 }
 
 function ShellWithStaticCommands({ children }: { children: ReactNode }) {
-  const router = useRouter();
+  // useNavigate replaces Next's useRouter — same idea: imperatively
+  // navigate to a path. Returned function identity is stable across
+  // renders so listing it in the staticCommands deps is cheap.
+  const navigate = useNavigate();
   const { t } = useTranslator();
   const { setLocale, locale } = useI18n();
   const { theme, setTheme } = useTheme();
@@ -43,7 +46,7 @@ function ShellWithStaticCommands({ children }: { children: ReactNode }) {
         hint: t("commands.go-inbox.description"),
         section: t("palette.groupNavigation"),
         shortcut: "g i",
-        run: () => router.push("/inbox"),
+        run: () => navigate("/inbox"),
       },
       {
         id: "go-search",
@@ -51,7 +54,7 @@ function ShellWithStaticCommands({ children }: { children: ReactNode }) {
         hint: t("commands.go-search.description"),
         section: t("palette.groupNavigation"),
         shortcut: "g s",
-        run: () => router.push("/search"),
+        run: () => navigate("/search"),
       },
       {
         id: "go-calendar",
@@ -59,28 +62,28 @@ function ShellWithStaticCommands({ children }: { children: ReactNode }) {
         hint: t("commands.go-calendar.description"),
         section: t("palette.groupNavigation"),
         shortcut: "g c",
-        run: () => router.push("/calendar"),
+        run: () => navigate("/calendar"),
       },
       {
         id: "go-accounts",
         label: t("commands.go-accounts.label"),
         hint: t("commands.go-accounts.description"),
         section: t("palette.groupNavigation"),
-        run: () => router.push("/settings/account"),
+        run: () => navigate("/settings/account"),
       },
       {
         id: "go-inboxes",
         label: t("commands.go-inboxes.label"),
         hint: t("commands.go-inboxes.description"),
         section: t("palette.groupNavigation"),
-        run: () => router.push("/settings/inboxes"),
+        run: () => navigate("/settings/inboxes"),
       },
       {
         id: "go-audit",
         label: t("commands.go-audit.label"),
         hint: t("commands.go-audit.description"),
         section: t("palette.groupNavigation"),
-        run: () => router.push("/settings/audit"),
+        run: () => navigate("/settings/audit"),
       },
       {
         id: "switch-language",
@@ -102,7 +105,7 @@ function ShellWithStaticCommands({ children }: { children: ReactNode }) {
         },
       },
     ],
-    [t, router, setLocale, locale, theme, setTheme],
+    [t, navigate, setLocale, locale, theme, setTheme],
   );
 
   return (
