@@ -91,9 +91,15 @@ importers:
       dompurify:
         specifier: ^3
         version: 3.4.1
+      lucide-react:
+        specifier: ^0.574.0
+        version: 0.574.0(react@19.2.5)
       next:
         specifier: 15.1.0
         version: 15.1.0(@playwright/test@1.59.1)(react-dom@19.2.5(react@19.2.5))(react@19.2.5)
+      next-themes:
+        specifier: ^0.4.6
+        version: 0.4.6(react-dom@19.2.5(react@19.2.5))(react@19.2.5)
       react:
         specifier: ^19.0.0
         version: 19.2.5
@@ -297,12 +303,21 @@ importers:
 
   packages/react-app:
     dependencies:
+      '@mailai/agent':
+        specifier: workspace:*
+        version: link:../agent
+      '@mailai/core':
+        specifier: workspace:*
+        version: link:../core
       '@mailai/design-tokens':
         specifier: workspace:*
         version: link:../design-tokens
       '@mailai/ui':
         specifier: workspace:*
         version: link:../ui
+      lucide-react:
+        specifier: ^0.574.0
+        version: 0.574.0(react@19.2.5)
     devDependencies:
       '@types/react':
         specifier: ^19.0.0
@@ -393,6 +408,9 @@ importers:
       clsx:
         specifier: ^2.1.1
         version: 2.1.1
+      lucide-react:
+        specifier: ^0.574.0
+        version: 0.574.0(react@19.2.5)
     devDependencies:
       '@types/react':
         specifier: ^19.0.0
@@ -400,11 +418,14 @@ importers:
       '@types/react-dom':
         specifier: ^19.0.0
         version: 19.2.3(@types/react@19.2.14)
+      next-themes:
+        specifier: ^0.4.6
+        version: 0.4.6(react-dom@19.2.5(react@19.2.5))(react@19.2.5)
       react:
-        specifier: ^19.0.0
+        specifier: ^19.2.5
         version: 19.2.5
       react-dom:
-        specifier: ^19.0.0
+        specifier: ^19.2.5
         version: 19.2.5(react@19.2.5)
       typescript:
         specifier: ^5.6.3
@@ -2748,6 +2769,11 @@ packages:
   lru-cache@5.1.1:
     resolution: {integrity: sha512-KpNARQA3Iwv+jTA0utUVVbrh+Jlrr1Fv0e56GGzAFOXN7dk/FviaDW8LHmK52DlcH4WP2n6gI8vN1aesBFgo9w==}
 
+  lucide-react@0.574.0:
+    resolution: {integrity: sha512-dJ8xb5juiZVIbdSn3HTyHsjjIwUwZ4FNwV0RtYDScOyySOeie1oXZTymST6YPJ4Qwt3Po8g4quhYl4OxtACiuQ==}
+    peerDependencies:
+      react: ^16.5.1 || ^17.0.0 || ^18.0.0 || ^19.0.0
+
   luxon@3.7.2:
     resolution: {integrity: sha512-vtEhXh/gNjI9Yg1u4jX/0YVPMvxzHuGgCm6tC5kZyb08yjGWGnqAjGJvcXbqQR2P3MyMEFnRbpcdFS6PBcLqew==}
     engines: {node: '>=12'}
@@ -2815,6 +2841,12 @@ packages:
   negotiator@1.0.0:
     resolution: {integrity: sha512-8Ofs/AUQh8MaEcrlq5xOX0CQ9ypTF5dl78mjlMNfOK08fzpgTHQRQPBxcPlEtIw0yRpws+Zo/3r+5WRby7u3Gg==}
     engines: {node: '>= 0.6'}
+
+  next-themes@0.4.6:
+    resolution: {integrity: sha512-pZvgD5L0IEvX5/9GWyHMf3m8BKiVQwsCMHfoFosXtXBMnaS0ZnIJ9ST4b4NqLVKDEm8QBxoNNGNaBv2JNF6XNA==}
+    peerDependencies:
+      react: ^16.8 || ^17 || ^18 || ^19 || ^19.0.0-rc
+      react-dom: ^16.8 || ^17 || ^18 || ^19 || ^19.0.0-rc
 
   next@15.1.0:
     resolution: {integrity: sha512-QKhzt6Y8rgLNlj30izdMbxAwjHMFANnLwDwZ+WQh5sMhyt4lEBqDK9QpvWHtIM4rINKPoJ8aiRZKg5ULSybVHw==}
@@ -5529,6 +5561,10 @@ snapshots:
     dependencies:
       yallist: 3.1.1
 
+  lucide-react@0.574.0(react@19.2.5):
+    dependencies:
+      react: 19.2.5
+
   luxon@3.7.2: {}
 
   magic-string@0.30.21:
@@ -5595,6 +5631,11 @@ snapshots:
   natural-compare@1.4.0: {}
 
   negotiator@1.0.0: {}
+
+  next-themes@0.4.6(react-dom@19.2.5(react@19.2.5))(react@19.2.5):
+    dependencies:
+      react: 19.2.5
+      react-dom: 19.2.5(react@19.2.5)
 
   next@15.1.0(@playwright/test@1.59.1)(react-dom@19.2.5(react@19.2.5))(react@19.2.5):
     dependencies:

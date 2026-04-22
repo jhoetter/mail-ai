@@ -56,7 +56,7 @@ export default function AuditPage() {
         }}
       >
         <label className="flex flex-col gap-1 text-xs">
-          <span className="text-muted">Actor</span>
+          <span className="text-secondary">Actor</span>
           <Input
             placeholder="u_alice"
             value={actor}
@@ -65,7 +65,7 @@ export default function AuditPage() {
           />
         </label>
         <label className="flex flex-col gap-1 text-xs">
-          <span className="text-muted">Type</span>
+          <span className="text-secondary">Type</span>
           <Input
             placeholder="mail:reply"
             value={type}
@@ -74,7 +74,7 @@ export default function AuditPage() {
           />
         </label>
         <label className="flex flex-col gap-1 text-xs">
-          <span className="text-muted">Since</span>
+          <span className="text-secondary">Since</span>
           <Input
             placeholder="1h, 24h, 7d, or ISO"
             value={since}
@@ -87,14 +87,14 @@ export default function AuditPage() {
         </Button>
       </form>
 
-      {err ? <p className="text-sm text-danger mb-3">{err}</p> : null}
+      {err ? <p className="text-sm text-error mb-3">{err}</p> : null}
 
       {items.length === 0 && !loading ? (
-        <p className="text-sm text-muted">No entries match the current filters.</p>
+        <p className="text-sm text-secondary">No entries match the current filters.</p>
       ) : (
         <table className="w-full border-collapse text-sm">
           <thead>
-            <tr className="border-b border-border text-left text-muted">
+            <tr className="border-b border-divider text-left text-secondary">
               <th className="px-3 py-2 font-medium">Time</th>
               <th className="px-3 py-2 font-medium">Actor</th>
               <th className="px-3 py-2 font-medium">Type</th>
@@ -122,7 +122,7 @@ export default function AuditPage() {
             {loading ? "Loading…" : "Load more"}
           </Button>
         ) : items.length > 0 ? (
-          <p className="text-xs text-muted">End of log.</p>
+          <p className="text-xs text-secondary">End of log.</p>
         ) : null}
       </div>
     </Shell>
@@ -135,7 +135,7 @@ function Row({ entry }: { entry: AuditEntry }) {
   return (
     <>
       <tr
-        className="border-b border-border hover:bg-surface cursor-pointer"
+        className="border-b border-divider hover:bg-surface cursor-pointer"
         onClick={() => setOpen((o) => !o)}
       >
         <td className="px-3 py-2 align-top whitespace-nowrap text-xs">
@@ -143,7 +143,7 @@ function Row({ entry }: { entry: AuditEntry }) {
         </td>
         <td className="px-3 py-2 align-top text-xs">
           <code>{entry.actorId}</code>{" "}
-          <span className="text-muted">({entry.source})</span>
+          <span className="text-secondary">({entry.source})</span>
         </td>
         <td className="px-3 py-2 align-top">
           <code className="text-xs">{entry.commandType}</code>
@@ -152,9 +152,9 @@ function Row({ entry }: { entry: AuditEntry }) {
           <span className={statusClass(entry.status)}>{entry.status}</span>
         </td>
         <td className="px-3 py-2 align-top text-xs">
-          {target ? <code>{target}</code> : <span className="text-muted">—</span>}
+          {target ? <code>{target}</code> : <span className="text-secondary">—</span>}
         </td>
-        <td className="px-3 py-2 align-top text-xs text-muted">
+        <td className="px-3 py-2 align-top text-xs text-secondary">
           {open ? "▾ hide" : "▸ show"}
         </td>
       </tr>
@@ -164,13 +164,13 @@ function Row({ entry }: { entry: AuditEntry }) {
             <div className="grid grid-cols-2 gap-3 text-xs">
               <div>
                 <p className="font-medium mb-1">Payload</p>
-                <pre className="overflow-x-auto rounded border border-border bg-bg p-2">
+                <pre className="overflow-x-auto rounded border border-divider bg-background p-2">
                   {JSON.stringify(entry.payload, null, 2)}
                 </pre>
               </div>
               <div>
                 <p className="font-medium mb-1">Diff</p>
-                <pre className="overflow-x-auto rounded border border-border bg-bg p-2">
+                <pre className="overflow-x-auto rounded border border-divider bg-background p-2">
                   {JSON.stringify(entry.diff, null, 2)}
                 </pre>
               </div>
@@ -195,7 +195,7 @@ function statusClass(s: string): string {
     case "applied":
       return "text-success";
     case "failed":
-      return "text-danger";
+      return "text-error";
     default:
       return "";
   }

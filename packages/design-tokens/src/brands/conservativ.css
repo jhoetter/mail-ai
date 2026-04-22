@@ -1,0 +1,59 @@
+/*
+ * "conservativ" brand pack — modeled after the bithof palette in
+ * ~/repos/hof-os/packages/design-tokens. Drop-in replacement for
+ * @mailai/design-tokens/styles.css: redeclares the same semantic CSS
+ * variables with a slightly warmer, more conservative palette.
+ *
+ * Wire it in by importing AFTER the default sheet in apps/web/app/globals.css:
+ *
+ *   @import "@mailai/design-tokens/styles.css";
+ *   @import "@mailai/design-tokens/brands/conservativ.css";
+ *
+ * Cascade does the rest — every primitive in @mailai/ui and every
+ * Tailwind utility resolved through @theme inline picks up the override
+ * automatically, in both light and dark mode.
+ */
+
+@layer base {
+  :root {
+    --background: #ffffff;
+    --foreground: #37352f;
+    --secondary: #787774;
+    --tertiary: #c3c2c1;
+    --divider: #e9e9e7;
+    --hover: #f7f7f5;
+    --surface: #fbfbfa;
+    --accent: #2383e2; /* notion-like blue */
+    --accent-light: #e8f0fe;
+    --on-accent: #ffffff;
+  }
+
+  .dark,
+  html.dark {
+    --background: #191919;
+    --foreground: #e3e2e0;
+    --secondary: #9b9a97;
+    --tertiary: #5a5a58;
+    --divider: #2f2f2f;
+    --hover: #252525;
+    --surface: #202020;
+    --accent: #529cca;
+    --accent-light: #1f3a4f;
+    --on-accent: #0b1322;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root:not(.light) {
+      --background: #191919;
+      --foreground: #e3e2e0;
+      --secondary: #9b9a97;
+      --tertiary: #5a5a58;
+      --divider: #2f2f2f;
+      --hover: #252525;
+      --surface: #202020;
+      --accent: #529cca;
+      --accent-light: #1f3a4f;
+      --on-accent: #0b1322;
+    }
+  }
+}

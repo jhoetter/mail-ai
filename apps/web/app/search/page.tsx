@@ -75,7 +75,7 @@ export default function SearchPage() {
           </Button>
         </form>
         {error ? (
-          <p className="mt-4 text-sm text-danger">{error}</p>
+          <p className="mt-4 text-sm text-error">{error}</p>
         ) : (
           <ul className="mt-4 flex flex-col gap-3">
             {hits.map((h) => (
@@ -86,14 +86,14 @@ export default function SearchPage() {
                 >
                   {h.subject}
                 </a>
-                <p className="text-muted">{h.snippet}</p>
+                <p className="text-secondary">{h.snippet}</p>
               </li>
             ))}
             {!pending && hasSearched && hits.length === 0 ? (
-              <li className="text-sm text-muted">No results.</li>
+              <li className="text-sm text-secondary">No results.</li>
             ) : null}
             {!hasSearched ? (
-              <li className="text-sm text-muted">
+              <li className="text-sm text-secondary">
                 Type a query and hit Search. Indexes are kept fresh via the FTS
                 trigger on the messages table.
               </li>

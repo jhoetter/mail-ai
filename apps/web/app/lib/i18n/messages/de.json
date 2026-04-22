@@ -27,11 +27,14 @@
     "workspace": "Arbeitsbereich",
     "settings": "Einstellungen",
     "inbox": "Posteingang",
+    "drafts": "Entwürfe",
     "search": "Suche",
     "accounts": "Konten",
     "inboxes": "Postfächer",
     "auditLog": "Audit-Log",
     "calendar": "Kalender",
+    "tags": "Tags",
+    "views": "Ansichten",
     "soon": "bald"
   },
   "inbox": {
@@ -61,7 +64,23 @@
     "fetchingBody": "Nachricht wird geladen…",
     "noBody": "(kein Inhalt)",
     "from": "Von",
-    "to": "An"
+    "to": "An",
+    "cc": "Cc",
+    "details": "Details",
+    "hideDetails": "Details ausblenden",
+    "showQuoted": "Zitierten Text anzeigen",
+    "hideQuoted": "Zitierten Text ausblenden",
+    "replyPlaceholder": "An {name} antworten…",
+    "replyHint": "⌘↵ zum Senden",
+    "discard": "Verwerfen",
+    "attach": "Anhängen",
+    "tags": {
+      "addPlaceholder": "Tag hinzufügen…",
+      "snooze": "Zurückstellen",
+      "snoozeUntil": "Zurückstellen bis…",
+      "markDone": "Als erledigt",
+      "reopen": "Wieder öffnen"
+    }
   },
   "composer": {
     "newMessage": "Neue Nachricht",
@@ -71,10 +90,17 @@
     "cc": "Cc",
     "bcc": "Bcc",
     "body": "Nachricht",
+    "bodyPlaceholder": "Nachricht schreiben…",
     "send": "Senden",
     "sending": "Wird gesendet…",
     "sendError": "Senden fehlgeschlagen: {error}",
-    "fromAccount": "Vom Konto"
+    "fromAccount": "Vom Konto",
+    "minimize": "Minimieren",
+    "maximize": "Maximieren",
+    "expand": "Erweitern",
+    "collapse": "Reduzieren",
+    "discard": "Verwerfen",
+    "showCcBcc": "Cc / Bcc"
   },
   "search": {
     "title": "Suche",
@@ -149,13 +175,64 @@
     "thread-reply": { "label": "Antworten", "description": "Antworte auf die geöffnete Konversation." },
     "thread-snooze": { "label": "Konversation zurückstellen", "description": "Stelle die geöffnete Konversation zurück." },
     "thread-done": { "label": "Konversation als erledigt markieren", "description": "Markiere die geöffnete Konversation als erledigt." },
-    "switch-language": { "label": "Sprache wechseln", "description": "Wechsle die UI-Sprache." }
+    "switch-language": { "label": "Sprache wechseln", "description": "Wechsle die UI-Sprache." },
+    "switch-theme": { "label": "Theme wechseln", "description": "Hell → Dunkel → System durchschalten." }
+  },
+  "theme": {
+    "light": "Hell",
+    "dark": "Dunkel",
+    "system": "System"
   },
   "tags": {
     "title": "Tags",
+    "subtitle": "Tags erscheinen als Chips an Konversationen und als Filter in Ansichten.",
     "addTag": "Tag hinzufügen",
     "removeTag": "Tag entfernen",
     "newTagPlaceholder": "Tag-Name…",
-    "noTags": "Noch keine Tags."
+    "noTags": "Noch keine Tags.",
+    "create": "Tag anlegen",
+    "count": "{count} Konversationen",
+    "countOne": "1 Konversation"
+  },
+  "views": {
+    "title": "Ansichten",
+    "all": "Alle",
+    "newView": "Neue Ansicht",
+    "saveAsView": "Als Ansicht speichern",
+    "rename": "Umbenennen",
+    "delete": "Ansicht löschen",
+    "namePlaceholder": "Name der Ansicht…"
+  },
+  "drafts": {
+    "title": "Entwürfe",
+    "subtitle": "Nachrichten, die du begonnen, aber noch nicht gesendet hast.",
+    "empty": "Keine Entwürfe.",
+    "discard": "Entwurf verwerfen",
+    "send": "Entwurf senden",
+    "lastEdited": "Bearbeitet {when}"
+  },
+  "calendar": {
+    "title": "Kalender",
+    "subtitle": "Deine Kalender aus verbundenen Konten.",
+    "today": "Heute",
+    "previous": "Zurück",
+    "next": "Weiter",
+    "newEvent": "Neuer Termin",
+    "eventTitle": "Titel",
+    "eventDescription": "Beschreibung",
+    "eventLocation": "Ort",
+    "eventStart": "Start",
+    "eventEnd": "Ende",
+    "eventAttendees": "Teilnehmende (durch Kommas getrennt)",
+    "noCalendars": "Keine Kalender verbunden. Synchronisiere, um sie zu importieren.",
+    "syncCalendars": "Kalender synchronisieren",
+    "respond": "Antworten",
+    "accept": "Zusagen",
+    "decline": "Absagen",
+    "tentative": "Vorläufig"
+  },
+  "draftsClient": {
+    "saving": "Wird gespeichert…",
+    "saved": "Gespeichert"
   }
 }

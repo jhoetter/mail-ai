@@ -28,7 +28,10 @@
   },
   "dependencies": {
     "@mailai/ui": "workspace:*",
-    "@mailai/design-tokens": "workspace:*"
+    "@mailai/design-tokens": "workspace:*",
+    "@mailai/agent": "workspace:*",
+    "@mailai/core": "workspace:*",
+    "lucide-react": "^0.574.0"
   },
   "devDependencies": {
     "@types/react": "^19.0.0",

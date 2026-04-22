@@ -45,13 +45,13 @@ export default function InboxesSettingsPage() {
         </Button>
       </div>
 
-      {error ? <p className="text-sm text-danger mb-3">{error}</p> : null}
+      {error ? <p className="text-sm text-error mb-3">{error}</p> : null}
 
       {rows === null ? (
-        <p className="text-sm text-muted">Loading…</p>
+        <p className="text-sm text-secondary">Loading…</p>
       ) : rows.length === 0 ? (
-        <div className="rounded-md border border-dashed border-border p-6 text-sm text-muted">
-          No inboxes yet. Click <span className="font-medium text-fg">New inbox</span> to
+        <div className="rounded-md border border-dashed border-divider p-6 text-sm text-secondary">
+          No inboxes yet. Click <span className="font-medium text-foreground">New inbox</span> to
           create one — pick a name now, wire accounts and members from the row drawer.
         </div>
       ) : (
@@ -119,7 +119,7 @@ function CreateDialog({
   return (
     <Dialog open={open} onClose={onClose}>
       <h3 className="text-base font-semibold">Create inbox</h3>
-      <p className="text-xs text-muted mt-1">
+      <p className="text-xs text-secondary mt-1">
         You can wire accounts and members after creating.
       </p>
       <div className="mt-4 flex flex-col gap-3">
@@ -140,7 +140,7 @@ function CreateDialog({
             placeholder="Customer support escalation queue"
           />
         </label>
-        {err ? <p className="text-sm text-danger">{err}</p> : null}
+        {err ? <p className="text-sm text-error">{err}</p> : null}
       </div>
       <div className="mt-5 flex justify-end gap-2">
         <Button variant="secondary" size="sm" onClick={onClose} disabled={busy}>
@@ -202,12 +202,12 @@ function InboxDrawer({
   return (
     <Dialog open={true} onClose={onClose}>
       {!detail ? (
-        <p className="text-sm text-muted">Loading…</p>
+        <p className="text-sm text-secondary">Loading…</p>
       ) : (
         <div className="flex flex-col gap-4">
           <header>
             <h3 className="text-base font-semibold">{detail.name}</h3>
-            <p className="text-xs text-muted mt-1">
+            <p className="text-xs text-secondary mt-1">
               {detail.description ?? "No description"} · <code>{detail.id}</code>
             </p>
           </header>
@@ -216,13 +216,13 @@ function InboxDrawer({
             <h4 className="text-sm font-medium">Members ({detail.members.length})</h4>
             <ul className="text-sm flex flex-col gap-1">
               {detail.members.length === 0 ? (
-                <li className="text-muted">No members yet.</li>
+                <li className="text-secondary">No members yet.</li>
               ) : (
                 detail.members.map((m) => (
                   <li key={`${m.inboxId}:${m.userId}`} className="flex items-center justify-between">
                     <span>
                       <code className="text-xs">{m.userId}</code>{" "}
-                      <span className="text-muted">({m.role})</span>
+                      <span className="text-secondary">({m.role})</span>
                     </span>
                     <Button
                       size="sm"
@@ -245,7 +245,7 @@ function InboxDrawer({
                 onChange={(e) => setMemberId(e.target.value)}
               />
               <select
-                className="h-9 rounded-md border border-border bg-bg px-2 text-sm"
+                className="h-9 rounded-md border border-divider bg-background px-2 text-sm"
                 value={memberRole}
                 onChange={(e) => setMemberRole(e.target.value as InboxRole)}
               >
@@ -272,7 +272,7 @@ function InboxDrawer({
             <h4 className="text-sm font-medium">Sources ({detail.mailboxes.length})</h4>
             <ul className="text-sm flex flex-col gap-1">
               {detail.mailboxes.length === 0 ? (
-                <li className="text-muted">No mailbox sources wired yet.</li>
+                <li className="text-secondary">No mailbox sources wired yet.</li>
               ) : (
                 detail.mailboxes.map((mb) => (
                   <li key={`${mb.accountId}:${mb.mailboxPath}`}>
@@ -307,8 +307,8 @@ function InboxDrawer({
             </div>
           </section>
 
-          {err ? <p className="text-sm text-danger">{err}</p> : null}
-          <div className="flex justify-between pt-3 border-t border-border">
+          {err ? <p className="text-sm text-error">{err}</p> : null}
+          <div className="flex justify-between pt-3 border-t border-divider">
             <Button
               size="sm"
               variant="ghost"

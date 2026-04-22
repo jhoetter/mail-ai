@@ -14,11 +14,15 @@ interface Props<T> {
   onRowClick?: (row: T) => void;
 }
 
-export function DataTable<T extends { id: string }>({ rows, columns, onRowClick }: Props<T>) {
+export function DataTable<T extends { id: string }>({
+  rows,
+  columns,
+  onRowClick,
+}: Props<T>) {
   return (
     <table className="w-full border-collapse text-sm">
       <thead>
-        <tr className="border-b border-border text-left text-muted">
+        <tr className="border-b border-divider text-left text-secondary">
           {columns.map((c) => (
             <th key={c.key} className="px-3 py-2 font-medium">
               {c.header}
@@ -30,7 +34,7 @@ export function DataTable<T extends { id: string }>({ rows, columns, onRowClick 
         {rows.map((row) => (
           <tr
             key={row.id}
-            className="border-b border-border last:border-0 hover:bg-surface cursor-pointer"
+            className="cursor-pointer border-b border-divider last:border-0 hover:bg-hover"
             onClick={() => onRowClick?.(row)}
           >
             {columns.map((c) => (

@@ -10,6 +10,8 @@ import {
   listAccounts,
   syncAccount,
 } from "../../lib/oauth-client";
+import { LocaleToggle } from "../../lib/i18n/LocaleToggle";
+import { useTranslator } from "../../lib/i18n/useTranslator";
 
 interface AccountRow extends AccountSummary {
   // Plain-data row only — JSX renderers live in the columns def so the
@@ -18,6 +20,7 @@ interface AccountRow extends AccountSummary {
 }
 
 export default function AccountSettingsPage() {
+  const { t } = useTranslator();
   const [accounts, setAccounts] = useState<AccountSummary[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -85,21 +88,32 @@ export default function AccountSettingsPage() {
   return (
     <Shell sidebar={<AppNav />}>
       <PageHeader
-        title="Accounts"
-        subtitle="Connected mail accounts. mail-ai never modifies what it didn't ask for."
+        title={t("accounts.title")}
+        subtitle={t("accounts.subtitle")}
         actions={
           <Button variant="primary" size="sm" onClick={() => setOpen(true)}>
-            Connect account
+            {t("accounts.connectGmail")}
           </Button>
         }
       />
       <Card>
+        <div className="flex items-center justify-between gap-4 py-1">
+          <div>
+            <p className="text-sm font-medium">{t("common.language")}</p>
+            <p className="text-xs text-secondary">
+              {t("common.english")} / {t("common.german")}
+            </p>
+          </div>
+          <LocaleToggle />
+        </div>
+      </Card>
+      <Card>
         {loadError ? (
-          <p className="text-sm text-danger">
+          <p className="text-sm text-error">
             Couldn&apos;t load accounts: {loadError}
           </p>
         ) : loading ? (
-          <p className="text-sm text-muted">Loading…</p>
+          <p className="text-sm text-secondary">Loading…</p>
         ) : rows.length === 0 ? (
           <EmptyState onConnect={() => setOpen(true)} />
         ) : (
@@ -122,7 +136,7 @@ export default function AccountSettingsPage() {
                         ? "text-success"
                         : r.status === "needs-reauth"
                           ? "text-warning"
-                          : "text-danger"
+                          : "text-error"
                     }
                   >
                     {statusLabel(r.status)}
@@ -133,7 +147,7 @@ export default function AccountSettingsPage() {
                 key: "lastSyncedAt",
                 header: "Last synced",
                 render: (r) => (
-                  <span className="text-muted">
+                  <span className="text-secondary">
                     {r.lastSyncError
                       ? `error: ${truncate(r.lastSyncError, 60)}`
                       : r.lastSyncedAt
@@ -202,7 +216,7 @@ function formatRelative(d: Date): string {
 function EmptyState({ onConnect }: { onConnect: () => void }) {
   return (
     <div className="flex flex-col items-start gap-3 py-6">
-      <p className="text-sm text-muted">
+      <p className="text-sm text-secondary">
         No accounts connected yet. Connect Gmail or Outlook to start syncing
         mail into mail-ai.
       </p>

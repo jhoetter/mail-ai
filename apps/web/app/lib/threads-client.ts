@@ -17,6 +17,14 @@ export interface ThreadSummary {
   unread: boolean;
   labels: string[];
   date: string;
+  tags?: TagSummary[];
+  status?: "open" | "snoozed" | "done" | "draft";
+}
+
+export interface TagSummary {
+  id: string;
+  name: string;
+  color: string;
 }
 
 export async function listThreads(opts: { limit?: number } = {}): Promise<ThreadSummary[]> {

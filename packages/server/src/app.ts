@@ -12,6 +12,10 @@ import { registerSearchRoutes } from "./routes/search.js";
 import { registerThreadRoutes } from "./routes/threads.js";
 import { registerInboxRoutes } from "./routes/inboxes.js";
 import { registerAuditRoutes } from "./routes/audit.js";
+import { registerTagRoutes } from "./routes/tags.js";
+import { registerViewRoutes } from "./routes/views.js";
+import { registerDraftRoutes } from "./routes/drafts.js";
+import { registerCalendarRoutes } from "./routes/calendar.js";
 
 export interface AppDeps {
   readonly bus: CommandBus;
@@ -49,6 +53,14 @@ export function buildApp(deps: AppDeps): FastifyInstance {
     });
     registerInboxRoutes(app, { pool: deps.oauth.pool, identity: deps.identity });
     registerAuditRoutes(app, { pool: deps.oauth.pool, identity: deps.identity });
+    registerTagRoutes(app, { pool: deps.oauth.pool, identity: deps.identity });
+    registerViewRoutes(app, { pool: deps.oauth.pool, identity: deps.identity });
+    registerDraftRoutes(app, { pool: deps.oauth.pool, identity: deps.identity });
+    registerCalendarRoutes(app, {
+      pool: deps.oauth.pool,
+      identity: deps.identity,
+      credentials: deps.oauth.credentials ?? loadProviderCredentialsFromEnv(),
+    });
   }
 
   app.post("/api/commands", async (req, reply) => {

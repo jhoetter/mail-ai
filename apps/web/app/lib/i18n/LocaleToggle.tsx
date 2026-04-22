@@ -31,7 +31,7 @@ export function LocaleToggle({ className, compact }: LocaleToggleProps) {
         type="button"
         onClick={() => setLocale(next.value)}
         className={
-          "flex h-7 min-w-7 items-center justify-center rounded-md px-1.5 text-[11px] font-medium text-muted hover:bg-surface hover:text-fg transition-colors duration-150 " +
+          "flex h-7 min-w-7 items-center justify-center rounded-md px-1.5 text-[11px] font-medium text-secondary hover:bg-surface hover:text-foreground transition-colors duration-150 " +
           (className ?? "")
         }
         title={`${current.title} → ${next.title}`}
@@ -59,7 +59,7 @@ export function LocaleToggle({ className, compact }: LocaleToggleProps) {
             title={title}
             className={
               "flex h-6 items-center justify-center rounded px-2 text-[11px] font-medium transition-colors duration-150 " +
-              (active ? "bg-bg text-fg shadow-sm" : "text-muted hover:text-fg")
+              (active ? "bg-background text-foreground shadow-sm" : "text-secondary hover:text-foreground")
             }
           >
             {label}

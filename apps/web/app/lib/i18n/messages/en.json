@@ -27,11 +27,14 @@
     "workspace": "Workspace",
     "settings": "Settings",
     "inbox": "Inbox",
+    "drafts": "Drafts",
     "search": "Search",
     "accounts": "Accounts",
     "inboxes": "Inboxes",
     "auditLog": "Audit log",
     "calendar": "Calendar",
+    "tags": "Tags",
+    "views": "Views",
     "soon": "soon"
   },
   "inbox": {
@@ -61,7 +64,23 @@
     "fetchingBody": "Fetching message…",
     "noBody": "(no body)",
     "from": "From",
-    "to": "To"
+    "to": "To",
+    "cc": "Cc",
+    "details": "Details",
+    "hideDetails": "Hide details",
+    "showQuoted": "Show quoted text",
+    "hideQuoted": "Hide quoted text",
+    "replyPlaceholder": "Reply to {name}…",
+    "replyHint": "⌘↵ to send",
+    "discard": "Discard",
+    "attach": "Attach",
+    "tags": {
+      "addPlaceholder": "Add tag…",
+      "snooze": "Snooze",
+      "snoozeUntil": "Snooze until…",
+      "markDone": "Mark done",
+      "reopen": "Reopen"
+    }
   },
   "composer": {
     "newMessage": "New message",
@@ -71,10 +90,17 @@
     "cc": "Cc",
     "bcc": "Bcc",
     "body": "Message",
+    "bodyPlaceholder": "Write your message…",
     "send": "Send",
     "sending": "Sending…",
     "sendError": "Couldn't send: {error}",
-    "fromAccount": "From account"
+    "fromAccount": "From account",
+    "minimize": "Minimize",
+    "maximize": "Maximize",
+    "expand": "Expand",
+    "collapse": "Collapse",
+    "discard": "Discard",
+    "showCcBcc": "Cc / Bcc"
   },
   "search": {
     "title": "Search",
@@ -149,13 +175,64 @@
     "thread-reply": { "label": "Reply", "description": "Reply to the open thread." },
     "thread-snooze": { "label": "Snooze thread", "description": "Snooze the open thread." },
     "thread-done": { "label": "Mark thread done", "description": "Mark the open thread as done." },
-    "switch-language": { "label": "Switch language", "description": "Cycle the UI language." }
+    "switch-language": { "label": "Switch language", "description": "Cycle the UI language." },
+    "switch-theme": { "label": "Switch theme", "description": "Cycle light → dark → system." }
+  },
+  "theme": {
+    "light": "Light",
+    "dark": "Dark",
+    "system": "System"
   },
   "tags": {
     "title": "Tags",
+    "subtitle": "Tags appear as chips on threads and as filters in views.",
     "addTag": "Add tag",
     "removeTag": "Remove tag",
     "newTagPlaceholder": "Tag name…",
-    "noTags": "No tags yet."
+    "noTags": "No tags yet.",
+    "create": "Create tag",
+    "count": "{count} threads",
+    "countOne": "1 thread"
+  },
+  "views": {
+    "title": "Views",
+    "all": "All",
+    "newView": "New view",
+    "saveAsView": "Save as view",
+    "rename": "Rename",
+    "delete": "Delete view",
+    "namePlaceholder": "View name…"
+  },
+  "drafts": {
+    "title": "Drafts",
+    "subtitle": "Messages you started but haven't sent yet.",
+    "empty": "No drafts.",
+    "discard": "Discard draft",
+    "send": "Send draft",
+    "lastEdited": "Edited {when}"
+  },
+  "calendar": {
+    "title": "Calendar",
+    "subtitle": "Your calendars from connected accounts.",
+    "today": "Today",
+    "previous": "Previous",
+    "next": "Next",
+    "newEvent": "New event",
+    "eventTitle": "Title",
+    "eventDescription": "Description",
+    "eventLocation": "Location",
+    "eventStart": "Start",
+    "eventEnd": "End",
+    "eventAttendees": "Attendees (comma-separated)",
+    "noCalendars": "No calendars connected. Sync to import them.",
+    "syncCalendars": "Sync calendars",
+    "respond": "Respond",
+    "accept": "Accept",
+    "decline": "Decline",
+    "tentative": "Tentative"
+  },
+  "draftsClient": {
+    "saving": "Saving…",
+    "saved": "Saved"
   }
 }

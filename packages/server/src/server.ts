@@ -13,6 +13,28 @@ import {
   buildMailReplyHandler,
   buildMailSendHandler,
 } from "./handlers/mail-send.js";
+import {
+  buildThreadAddTagHandler,
+  buildThreadRemoveTagHandler,
+} from "./handlers/thread-tags.js";
+import {
+  buildThreadMarkDoneHandler,
+  buildThreadReopenHandler,
+  buildThreadSnoozeHandler,
+  buildThreadUnsnoozeHandler,
+} from "./handlers/thread-state.js";
+import {
+  buildDraftCreateHandler,
+  buildDraftDeleteHandler,
+  buildDraftSendHandler,
+  buildDraftUpdateHandler,
+} from "./handlers/drafts.js";
+import {
+  buildCalendarCreateEventHandler,
+  buildCalendarDeleteEventHandler,
+  buildCalendarRespondHandler,
+  buildCalendarUpdateEventHandler,
+} from "./handlers/calendar.js";
 
 async function main() {
 
@@ -53,6 +75,62 @@ async function main() {
   bus.register(
     "mail:reply",
     buildMailReplyHandler({ pool, tenantId: DEV_TENANT, credentials }),
+  );
+  bus.register(
+    "thread:add-tag",
+    buildThreadAddTagHandler({ pool, tenantId: DEV_TENANT }),
+  );
+  bus.register(
+    "thread:remove-tag",
+    buildThreadRemoveTagHandler({ pool, tenantId: DEV_TENANT }),
+  );
+  bus.register(
+    "thread:snooze",
+    buildThreadSnoozeHandler({ pool, tenantId: DEV_TENANT }),
+  );
+  bus.register(
+    "thread:unsnooze",
+    buildThreadUnsnoozeHandler({ pool, tenantId: DEV_TENANT }),
+  );
+  bus.register(
+    "thread:mark-done",
+    buildThreadMarkDoneHandler({ pool, tenantId: DEV_TENANT }),
+  );
+  bus.register(
+    "thread:reopen",
+    buildThreadReopenHandler({ pool, tenantId: DEV_TENANT }),
+  );
+  bus.register(
+    "draft:create",
+    buildDraftCreateHandler({ pool, tenantId: DEV_TENANT, bus }),
+  );
+  bus.register(
+    "draft:update",
+    buildDraftUpdateHandler({ pool, tenantId: DEV_TENANT, bus }),
+  );
+  bus.register(
+    "draft:delete",
+    buildDraftDeleteHandler({ pool, tenantId: DEV_TENANT, bus }),
+  );
+  bus.register(
+    "draft:send",
+    buildDraftSendHandler({ pool, tenantId: DEV_TENANT, bus }),
+  );
+  bus.register(
+    "calendar:create-event",
+    buildCalendarCreateEventHandler({ pool, tenantId: DEV_TENANT, credentials }),
+  );
+  bus.register(
+    "calendar:update-event",
+    buildCalendarUpdateEventHandler({ pool, tenantId: DEV_TENANT, credentials }),
+  );
+  bus.register(
+    "calendar:delete-event",
+    buildCalendarDeleteEventHandler({ pool, tenantId: DEV_TENANT, credentials }),
+  );
+  bus.register(
+    "calendar:respond",
+    buildCalendarRespondHandler({ pool, tenantId: DEV_TENANT, credentials }),
   );
   // Best-effort: don't crash the server if Postgres isn't up (the dev
   // stack might be starting in parallel). OAuth routes will return 500

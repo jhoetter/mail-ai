@@ -6,3 +6,4 @@ export * from "./xoauth2.js";
 export * from "./gmail.js";
 export * from "./graph.js";
 export * from "./send.js";
+export * from "./calendar.js";

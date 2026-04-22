@@ -347,6 +347,169 @@ export const MIGRATIONS: Array<{ id: string; up: string }> = [
       DROP TABLE IF EXISTS pending_mutations CASCADE;
     `,
   },
+  {
+    // Bridge table that lets us tag OAuth-side conversations
+    // (provider_thread_id) without forcing a synthetic row in the
+    // IMAP-shaped `threads` table. The user-applied tag definitions
+    // themselves live in the existing `tags` table.
+    //
+    // We add `created_by` so AI-applied tags (a future `mail:classify`
+    // command) can be filtered separately from manual ones without an
+    // extra column on `tags`.
+    id: "0009_oauth_thread_tags",
+    up: `
+      CREATE TABLE IF NOT EXISTS oauth_thread_tags (
+        tenant_id text NOT NULL,
+        provider_thread_id text NOT NULL,
+        tag_id text NOT NULL REFERENCES tags(id) ON DELETE CASCADE,
+        added_at timestamptz NOT NULL DEFAULT now(),
+        added_by text REFERENCES users(id),
+        PRIMARY KEY (tenant_id, provider_thread_id, tag_id)
+      );
+      CREATE INDEX IF NOT EXISTS oauth_thread_tags_thread_idx
+        ON oauth_thread_tags(tenant_id, provider_thread_id);
+      CREATE INDEX IF NOT EXISTS oauth_thread_tags_tag_idx
+        ON oauth_thread_tags(tenant_id, tag_id);
+      ALTER TABLE oauth_thread_tags ENABLE ROW LEVEL SECURITY;
+      DO $$ BEGIN CREATE POLICY tenant_iso ON oauth_thread_tags USING (tenant_id = current_setting('mailai.tenant_id', true)); EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+    `,
+  },
+  {
+    // Per-user thread state (snooze + done) for OAuth-side
+    // conversations. Lives apart from the IMAP `threads` table for
+    // the same reason oauth_thread_tags does. Required because in a
+    // shared inbox each member can mark their own copy of the thread
+    // done independently.
+    //
+    // status='snoozed' rows carry `snoozed_until`; the views layer
+    // wakes them up lazily by running a tiny UPDATE on every read of
+    // a status=open or status=snoozed view.
+    id: "0010_oauth_thread_state",
+    up: `
+      CREATE TABLE IF NOT EXISTS oauth_thread_state (
+        tenant_id text NOT NULL,
+        user_id text NOT NULL REFERENCES users(id),
+        provider_thread_id text NOT NULL,
+        status text NOT NULL DEFAULT 'open' CHECK (status IN ('open','snoozed','done')),
+        snoozed_until timestamptz,
+        done_at timestamptz,
+        updated_at timestamptz NOT NULL DEFAULT now(),
+        PRIMARY KEY (tenant_id, user_id, provider_thread_id)
+      );
+      CREATE INDEX IF NOT EXISTS oauth_thread_state_user_status_idx
+        ON oauth_thread_state(tenant_id, user_id, status);
+      ALTER TABLE oauth_thread_state ENABLE ROW LEVEL SECURITY;
+      DO $$ BEGIN CREATE POLICY tenant_iso ON oauth_thread_state USING (tenant_id = current_setting('mailai.tenant_id', true)); EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+    `,
+  },
+  {
+    // Saved views (filter + sort + group). is_builtin distinguishes
+    // the seeded defaults (Inbox / Drafts / Sent / Snoozed / Done /
+    // All Mail) from user-created tabs — the UI hides delete/rename
+    // for builtins.
+    id: "0011_views",
+    up: `
+      CREATE TABLE IF NOT EXISTS views (
+        id text PRIMARY KEY,
+        tenant_id text NOT NULL,
+        user_id text NOT NULL REFERENCES users(id),
+        name text NOT NULL,
+        icon text,
+        position integer NOT NULL DEFAULT 0,
+        is_builtin boolean NOT NULL DEFAULT false,
+        filter_json jsonb NOT NULL DEFAULT '{}'::jsonb,
+        sort_by text NOT NULL DEFAULT 'date_desc',
+        group_by text,
+        layout text NOT NULL DEFAULT 'list',
+        created_at timestamptz NOT NULL DEFAULT now()
+      );
+      CREATE INDEX IF NOT EXISTS views_user_position_idx ON views(tenant_id, user_id, position);
+      ALTER TABLE views ENABLE ROW LEVEL SECURITY;
+      DO $$ BEGIN CREATE POLICY tenant_iso ON views USING (tenant_id = current_setting('mailai.tenant_id', true)); EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+    `,
+  },
+  {
+    // Overlay-only drafts. Drafts never round-trip to the provider
+    // (per the Notion-Mail-overhaul plan), so this is the single
+    // source of truth. On send we dispatch mail:send / mail:reply and
+    // delete the draft row.
+    id: "0012_drafts",
+    up: `
+      CREATE TABLE IF NOT EXISTS drafts (
+        id text PRIMARY KEY,
+        tenant_id text NOT NULL,
+        user_id text NOT NULL REFERENCES users(id),
+        oauth_account_id text REFERENCES oauth_accounts(id) ON DELETE SET NULL,
+        reply_to_message_id text,
+        provider_thread_id text,
+        to_addr jsonb NOT NULL DEFAULT '[]'::jsonb,
+        cc_addr jsonb NOT NULL DEFAULT '[]'::jsonb,
+        bcc_addr jsonb NOT NULL DEFAULT '[]'::jsonb,
+        subject text,
+        body_html text,
+        body_text text,
+        scheduled_send_at timestamptz,
+        created_at timestamptz NOT NULL DEFAULT now(),
+        updated_at timestamptz NOT NULL DEFAULT now()
+      );
+      CREATE INDEX IF NOT EXISTS drafts_user_idx ON drafts(tenant_id, user_id, updated_at DESC);
+      ALTER TABLE drafts ENABLE ROW LEVEL SECURITY;
+      DO $$ BEGIN CREATE POLICY tenant_iso ON drafts USING (tenant_id = current_setting('mailai.tenant_id', true)); EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+    `,
+  },
+  {
+    // Calendar tables. Two providers, one shape — matches the gmail
+    // / graph mail tables where the model is "we cache provider rows
+    // we've seen, keyed by their stable provider id".
+    //
+    // ical_uid lets us match an event to a .ics part captured from
+    // an email message body (RFC 5545 invitations).
+    id: "0013_calendar",
+    up: `
+      CREATE TABLE IF NOT EXISTS calendars (
+        id text PRIMARY KEY,
+        tenant_id text NOT NULL,
+        oauth_account_id text NOT NULL REFERENCES oauth_accounts(id) ON DELETE CASCADE,
+        provider text NOT NULL CHECK (provider IN ('google-cal','outlook')),
+        provider_calendar_id text NOT NULL,
+        name text NOT NULL,
+        color text,
+        is_primary boolean NOT NULL DEFAULT false,
+        is_visible boolean NOT NULL DEFAULT true,
+        fetched_at timestamptz NOT NULL DEFAULT now(),
+        UNIQUE (oauth_account_id, provider_calendar_id)
+      );
+      CREATE TABLE IF NOT EXISTS events (
+        id text PRIMARY KEY,
+        tenant_id text NOT NULL,
+        calendar_id text NOT NULL REFERENCES calendars(id) ON DELETE CASCADE,
+        provider_event_id text NOT NULL,
+        ical_uid text,
+        summary text,
+        description text,
+        location text,
+        starts_at timestamptz NOT NULL,
+        ends_at timestamptz NOT NULL,
+        all_day boolean NOT NULL DEFAULT false,
+        attendees_json jsonb NOT NULL DEFAULT '[]'::jsonb,
+        organizer_email text,
+        response_status text,
+        status text,
+        recurrence_json jsonb,
+        raw_json jsonb,
+        fetched_at timestamptz NOT NULL DEFAULT now(),
+        UNIQUE (calendar_id, provider_event_id)
+      );
+      CREATE INDEX IF NOT EXISTS events_tenant_time_idx ON events(tenant_id, starts_at);
+      CREATE INDEX IF NOT EXISTS events_ical_uid_idx ON events(tenant_id, ical_uid) WHERE ical_uid IS NOT NULL;
+      ALTER TABLE calendars ENABLE ROW LEVEL SECURITY;
+      ALTER TABLE events ENABLE ROW LEVEL SECURITY;
+      DO $$ BEGIN CREATE POLICY tenant_iso ON calendars USING (tenant_id = current_setting('mailai.tenant_id', true)); EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+      DO $$ BEGIN CREATE POLICY tenant_iso ON events USING (tenant_id = current_setting('mailai.tenant_id', true)); EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+
+      ALTER TABLE oauth_messages ADD COLUMN IF NOT EXISTS body_ics text;
+    `,
+  },
 ];
 
 export async function runMigrations(pool: Pool): Promise<void> {

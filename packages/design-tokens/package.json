@@ -5,8 +5,12 @@
   "type": "module",
   "exports": {
     ".": "./src/index.ts",
+    "./colors": "./src/colors.ts",
+    "./typography": "./src/typography.ts",
+    "./spacing": "./src/spacing.ts",
     "./tailwind-preset": "./src/tailwind-preset.ts",
-    "./styles.css": "./src/styles.css"
+    "./styles.css": "./src/styles.css",
+    "./brands/conservativ.css": "./src/brands/conservativ.css"
   },
   "scripts": {
     "build": "echo 'tokens are source-only'",

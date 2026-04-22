@@ -1,23 +1,40 @@
-import { tokens } from "./index.js";
+import { colors } from "./colors";
+import { fontFamily } from "./typography";
+import { borderRadius, borderWidth, maxWidth } from "./spacing";
 
-export default {
+/**
+ * mail-ai Tailwind v3 preset.
+ *
+ * apps/web uses Tailwind v4 and emits the same tokens via CSS variables in
+ * `globals.css` + the `styles.css` shipped from this package, so this preset
+ * is only consumed by external embeds / hosts that still run Tailwind v3.
+ */
+export const mailAiPreset = {
   theme: {
     extend: {
       colors: {
-        bg: tokens.color.bg.light,
-        fg: tokens.color.fg.light,
-        muted: tokens.color.muted.light,
-        accent: tokens.color.accent.light,
-        danger: tokens.color.danger.light,
-        success: tokens.color.success.light,
-        border: tokens.color.border.light,
-        surface: tokens.color.surface.light,
+        background: "var(--background)",
+        foreground: "var(--foreground)",
+        secondary: "var(--secondary)",
+        tertiary: "var(--tertiary)",
+        divider: "var(--divider)",
+        hover: "var(--hover)",
+        surface: "var(--surface)",
+        accent: "var(--accent)",
+        "accent-light": "var(--accent-light)",
+        "on-accent": "var(--on-accent)",
+        warning: colors.warning,
+        error: colors.error,
+        info: colors.info,
+        success: colors.success,
       },
-      borderRadius: tokens.radius,
       fontFamily: {
-        sans: tokens.font.sans,
-        mono: tokens.font.mono,
+        sans: fontFamily.sans,
+        mono: fontFamily.mono,
       },
+      borderRadius: { ...borderRadius },
+      borderWidth: { ...borderWidth },
+      maxWidth: { ...maxWidth },
     },
   },
 };

@@ -3,10 +3,10 @@
 // agents (HTTP transport). This module ships the in-process variant;
 // the HTTP transport lives in `./http-client.ts`.
 
-import { randomUUID } from "node:crypto";
 import {
   CommandBus,
   MailaiError,
+  randomId,
   type Command,
   type CommandSource,
   type CommandTypeString,
@@ -60,7 +60,7 @@ export class MailAgent {
     this.bus = opts.bus;
     this.identity = opts.identity;
     this.source = opts.source ?? "human";
-    this.sessionId = opts.sessionId ?? randomUUID();
+    this.sessionId = opts.sessionId ?? randomId();
     this.now = opts.now ?? (() => Date.now());
   }
 

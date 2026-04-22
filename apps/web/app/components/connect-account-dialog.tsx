@@ -41,7 +41,7 @@ export function ConnectAccountDialog({
       <div className="space-y-4">
         <header>
           <h2 className="text-lg font-semibold">Connect a mail account</h2>
-          <p className="mt-1 text-sm text-muted">
+          <p className="mt-1 text-sm text-secondary">
             mail-ai connects to Gmail and Outlook over OAuth via{" "}
             <a
               className="underline"
@@ -111,7 +111,7 @@ function ProviderButton({
       type="button"
       onClick={onClick}
       disabled={disabled}
-      className="flex items-center justify-center gap-3 rounded-lg border border-border bg-surface px-4 py-3 text-sm font-medium hover:bg-bg disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+      className="flex items-center justify-center gap-3 rounded-lg border border-divider bg-surface px-4 py-3 text-sm font-medium hover:bg-background disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
       data-provider={provider}
     >
       <span
@@ -211,10 +211,10 @@ function StageBody({ stage }: { stage: ConnectStage }) {
 type NoticeTone = "info" | "success" | "warn" | "error";
 
 const NOTICE_PALETTE: Record<NoticeTone, string> = {
-  info: "border-border bg-surface text-fg",
-  success: "border-success/40 bg-success/10 text-fg",
-  warn: "border-yellow-500/40 bg-yellow-500/10 text-fg",
-  error: "border-danger/40 bg-danger/10 text-fg",
+  info: "border-divider bg-surface text-foreground",
+  success: "border-success/40 bg-success/10 text-foreground",
+  warn: "border-yellow-500/40 bg-yellow-500/10 text-foreground",
+  error: "border-danger/40 bg-error/10 text-foreground",
 };
 
 function Notice({

@@ -21,6 +21,8 @@ import type { FastifyInstance } from "fastify";
 import {
   OauthAccountsRepository,
   OauthMessagesRepository,
+  OauthThreadStateRepository,
+  OauthThreadTagsRepository,
   withTenant,
 } from "@mailai/overlay-db";
 import type { Pool } from "@mailai/overlay-db";
@@ -266,24 +268,40 @@ export function registerOauthRoutes(app: FastifyInstance, deps: OauthRoutesDeps)
     const ident = await deps.identity({ headers: req.headers as Record<string, unknown> });
     const q = (req.query as { limit?: string }) ?? {};
     const limit = q.limit ? Math.min(Math.max(Number(q.limit) || 100, 1), 500) : 100;
-    const rows = await withTenant(deps.pool, ident.tenantId, async (tx) => {
+    const result = await withTenant(deps.pool, ident.tenantId, async (tx) => {
       const messages = new OauthMessagesRepository(tx);
-      return messages.listByTenant(ident.tenantId, { limit });
+      const threadTags = new OauthThreadTagsRepository(tx);
+      const threadState = new OauthThreadStateRepository(tx);
+      const rows = await messages.listByTenant(ident.tenantId, { limit });
+      const providerThreadIds = Array.from(new Set(rows.map((m) => m.providerThreadId)));
+      const tagsByThread = await threadTags.listForThreads(ident.tenantId, providerThreadIds);
+      const stateByThread = await threadState.byUserAndThreads(
+        ident.tenantId,
+        ident.userId,
+        providerThreadIds,
+      );
+      return { rows, tagsByThread, stateByThread };
     });
     return {
-      threads: rows.map((m) => ({
-        id: m.id,
-        providerThreadId: m.providerThreadId,
-        providerMessageId: m.providerMessageId,
-        provider: m.provider,
-        subject: m.subject ?? "(no subject)",
-        from: m.fromName || m.fromEmail || "unknown",
-        fromEmail: m.fromEmail,
-        snippet: m.snippet,
-        unread: m.unread,
-        labels: m.labelsJson,
-        date: m.internalDate.toISOString(),
-      })),
+      threads: result.rows.map((m) => {
+        const tags = result.tagsByThread.get(m.providerThreadId) ?? [];
+        const state = result.stateByThread.get(m.providerThreadId);
+        return {
+          id: m.id,
+          providerThreadId: m.providerThreadId,
+          providerMessageId: m.providerMessageId,
+          provider: m.provider,
+          subject: m.subject ?? "(no subject)",
+          from: m.fromName || m.fromEmail || "unknown",
+          fromEmail: m.fromEmail,
+          snippet: m.snippet,
+          unread: m.unread,
+          labels: m.labelsJson,
+          date: m.internalDate.toISOString(),
+          tags: tags.map((t) => ({ id: t.id, name: t.name, color: t.color })),
+          status: state?.status ?? "open",
+        };
+      }),
     };
   });
 

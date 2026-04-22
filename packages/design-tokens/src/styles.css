@@ -1,28 +1,107 @@
-/* Global stylesheet shipped with @mailai/design-tokens.
-   Imported by apps/web and re-bundled into @mailai/react-app for hosts. */
+/*
+ * mail-ai design tokens — default brand sheet.
+ *
+ * This file is the contract every brand pack must honour: it declares
+ * the semantic CSS variables the rest of the system reads. To plug in a
+ * custom brand (e.g. a "conservativ" palette borrowed from hof-os), ship
+ * a stylesheet that redeclares the same variables and import it AFTER
+ * this file in your app's globals.css. Cascade does the rest — every
+ * @mailai/ui primitive, every Tailwind token defined via @theme inline,
+ * and every custom rule below picks up the new values automatically.
+ *
+ * The file declares the variables in three places so the system reacts
+ * correctly regardless of how the host drives theming:
+ *
+ *   1. `:root`                       → light mode default
+ *   2. `.dark, html.dark`            → next-themes class-based override
+ *   3. `@media (prefers-color-scheme: dark) { :root:not(.light) }`
+ *                                    → OS preference fallback when no
+ *                                      explicit theme has been set
+ *
+ * Brand packs only need to override (1) and (2); the OS-fallback block
+ * stays as-is unless you also want to change the dark palette.
+ */
 
 @layer base {
   :root {
     color-scheme: light dark;
-    --mailai-bg: #ffffff;
-    --mailai-fg: #0f172a;
-    --mailai-muted: #64748b;
-    --mailai-accent: #2563eb;
-    --mailai-border: #e2e8f0;
-    --mailai-surface: #f8fafc;
+
+    /* ── Semantic surfaces ── */
+    --background: #ffffff;
+    --foreground: #37352f;
+    --secondary: #787774;
+    --tertiary: #c3c2c1;
+    --divider: #e9e9e7;
+    --hover: #f7f7f5;
+    --surface: #fbfbfa;
+    --accent: #2563eb;
+    --accent-light: #eaf2fe;
+    --on-accent: #ffffff;
+
+    /* ── Semantic status ── */
+    --warning: #e57a2e;
+    --error: #d84b3e;
+    --success: #2f7d59;
+    --info: #787774;
+
+    /* ── Error/danger palette (composed surfaces) ── */
+    --error-text: #d84b3e;
+    --error-bg: #fef2f2;
+    --error-border: #fecaca;
+    --error-muted: rgba(216, 75, 62, 0.1);
   }
+
+  .dark,
+  html.dark {
+    --background: #191919;
+    --foreground: #e3e2e0;
+    --secondary: #9b9a97;
+    --tertiary: #5a5a58;
+    --divider: #2f2f2f;
+    --hover: #252525;
+    --surface: #202020;
+    --accent: #60a5fa;
+    --accent-light: #1e2d45;
+    --on-accent: #0b1322;
+
+    --warning: #e57a2e;
+    --error: #e06c63;
+    --success: #4dab4d;
+    --info: #9b9a97;
+
+    --error-text: #f87171;
+    --error-bg: rgba(153, 27, 27, 0.2);
+    --error-border: rgba(153, 27, 27, 0.35);
+    --error-muted: rgba(239, 68, 68, 0.1);
+  }
+
   @media (prefers-color-scheme: dark) {
-    :root {
-      --mailai-bg: #0a0a0a;
-      --mailai-fg: #f1f5f9;
-      --mailai-muted: #94a3b8;
-      --mailai-accent: #60a5fa;
-      --mailai-border: #1f2937;
-      --mailai-surface: #111827;
+    :root:not(.light) {
+      --background: #191919;
+      --foreground: #e3e2e0;
+      --secondary: #9b9a97;
+      --tertiary: #5a5a58;
+      --divider: #2f2f2f;
+      --hover: #252525;
+      --surface: #202020;
+      --accent: #60a5fa;
+      --accent-light: #1e2d45;
+      --on-accent: #0b1322;
+
+      --warning: #e57a2e;
+      --error: #e06c63;
+      --success: #4dab4d;
+      --info: #9b9a97;
+
+      --error-text: #f87171;
+      --error-bg: rgba(153, 27, 27, 0.2);
+      --error-border: rgba(153, 27, 27, 0.35);
+      --error-muted: rgba(239, 68, 68, 0.1);
     }
   }
+
   body {
-    background: var(--mailai-bg);
-    color: var(--mailai-fg);
+    background: var(--background);
+    color: var(--foreground);
   }
 }

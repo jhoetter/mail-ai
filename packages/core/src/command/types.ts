@@ -21,7 +21,17 @@ export interface Command<
   readonly idempotencyKey?: string;
 }
 
-export type EntityKind = "thread" | "message" | "comment" | "tag" | "assignment" | "account";
+export type EntityKind =
+  | "thread"
+  | "message"
+  | "comment"
+  | "tag"
+  | "assignment"
+  | "account"
+  | "draft"
+  | "event"
+  | "thread-state"
+  | "thread-tag";
 
 export interface EntitySnapshot {
   readonly kind: EntityKind;

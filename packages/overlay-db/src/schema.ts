@@ -287,3 +287,146 @@ export const inboxMembers = pgTable(
 // table is dropped in migration 0008. The Drizzle definition is kept
 // off the schema on purpose — re-adding it would let new code reach
 // for a queue we no longer support.
+
+// Bridge from the OAuth-side message store to the existing tags
+// table. Lets a Gmail/Graph thread carry tags without forcing us to
+// invent a synthetic IMAP `threads` row per conversation. See
+// migration 0009 for the rationale and the manual-vs-AI distinction.
+export const oauthThreadTags = pgTable(
+  "oauth_thread_tags",
+  {
+    tenantId: text("tenant_id").notNull(),
+    providerThreadId: text("provider_thread_id").notNull(),
+    tagId: text("tag_id")
+      .references(() => tags.id, { onDelete: "cascade" })
+      .notNull(),
+    addedAt: timestamp("added_at", { withTimezone: true }).defaultNow().notNull(),
+    addedBy: text("added_by").references(() => users.id),
+  },
+  (t) => ({
+    pk: uniqueIndex("oauth_thread_tags_pk").on(
+      t.tenantId,
+      t.providerThreadId,
+      t.tagId,
+    ),
+  }),
+);
+
+// Per-user thread state for OAuth conversations: open / snoozed /
+// done. Multi-member shared inboxes need this per-user so two people
+// triaging the same thread don't trip over each other's "done".
+export const oauthThreadState = pgTable(
+  "oauth_thread_state",
+  {
+    tenantId: text("tenant_id").notNull(),
+    userId: text("user_id").references(() => users.id).notNull(),
+    providerThreadId: text("provider_thread_id").notNull(),
+    status: text("status").notNull().default("open"),
+    snoozedUntil: timestamp("snoozed_until", { withTimezone: true }),
+    doneAt: timestamp("done_at", { withTimezone: true }),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => ({
+    pk: uniqueIndex("oauth_thread_state_pk").on(
+      t.tenantId,
+      t.userId,
+      t.providerThreadId,
+    ),
+  }),
+);
+
+// Notion-style saved views (filter + sort + group). Per-user; the
+// bus seeds a built-in set on first /api/views read.
+export const views = pgTable("views", {
+  id: text("id").primaryKey(),
+  tenantId: text("tenant_id").notNull(),
+  userId: text("user_id").references(() => users.id).notNull(),
+  name: text("name").notNull(),
+  icon: text("icon"),
+  position: integer("position").notNull().default(0),
+  isBuiltin: boolean("is_builtin").notNull().default(false),
+  filterJson: jsonb("filter_json").notNull(),
+  sortBy: text("sort_by").notNull().default("date_desc"),
+  groupBy: text("group_by"),
+  layout: text("layout").notNull().default("list"),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+});
+
+// Overlay-only drafts. Multi-device inside mail-ai; provider doesn't
+// see them until the user hits Send.
+export const drafts = pgTable("drafts", {
+  id: text("id").primaryKey(),
+  tenantId: text("tenant_id").notNull(),
+  userId: text("user_id").references(() => users.id).notNull(),
+  oauthAccountId: text("oauth_account_id").references(() => oauthAccounts.id, {
+    onDelete: "set null",
+  }),
+  replyToMessageId: text("reply_to_message_id"),
+  providerThreadId: text("provider_thread_id"),
+  toAddr: jsonb("to_addr").notNull(),
+  ccAddr: jsonb("cc_addr").notNull(),
+  bccAddr: jsonb("bcc_addr").notNull(),
+  subject: text("subject"),
+  bodyHtml: text("body_html"),
+  bodyText: text("body_text"),
+  scheduledSendAt: timestamp("scheduled_send_at", { withTimezone: true }),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+});
+
+export const calendars = pgTable(
+  "calendars",
+  {
+    id: text("id").primaryKey(),
+    tenantId: text("tenant_id").notNull(),
+    oauthAccountId: text("oauth_account_id")
+      .references(() => oauthAccounts.id, { onDelete: "cascade" })
+      .notNull(),
+    provider: text("provider").notNull(),
+    providerCalendarId: text("provider_calendar_id").notNull(),
+    name: text("name").notNull(),
+    color: text("color"),
+    isPrimary: boolean("is_primary").notNull().default(false),
+    isVisible: boolean("is_visible").notNull().default(true),
+    fetchedAt: timestamp("fetched_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => ({
+    providerIdx: uniqueIndex("calendars_account_provider_idx").on(
+      t.oauthAccountId,
+      t.providerCalendarId,
+    ),
+  }),
+);
+
+export const events = pgTable(
+  "events",
+  {
+    id: text("id").primaryKey(),
+    tenantId: text("tenant_id").notNull(),
+    calendarId: text("calendar_id")
+      .references(() => calendars.id, { onDelete: "cascade" })
+      .notNull(),
+    providerEventId: text("provider_event_id").notNull(),
+    icalUid: text("ical_uid"),
+    summary: text("summary"),
+    description: text("description"),
+    location: text("location"),
+    startsAt: timestamp("starts_at", { withTimezone: true }).notNull(),
+    endsAt: timestamp("ends_at", { withTimezone: true }).notNull(),
+    allDay: boolean("all_day").notNull().default(false),
+    attendeesJson: jsonb("attendees_json").notNull(),
+    organizerEmail: text("organizer_email"),
+    responseStatus: text("response_status"),
+    status: text("status"),
+    recurrenceJson: jsonb("recurrence_json"),
+    rawJson: jsonb("raw_json"),
+    fetchedAt: timestamp("fetched_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => ({
+    eventIdx: uniqueIndex("events_calendar_event_idx").on(
+      t.calendarId,
+      t.providerEventId,
+    ),
+    timeIdx: index("events_tenant_time_idx").on(t.tenantId, t.startsAt),
+  }),
+);

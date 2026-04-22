@@ -12,8 +12,8 @@
 // External agents that want a human-in-the-loop must build that on
 // their side before they call us.
 
-import { randomUUID } from "node:crypto";
 import { MailaiError } from "../errors.js";
+import { randomId } from "../random.js";
 import type {
   Command,
   CommandTypeString,
@@ -103,7 +103,7 @@ export class CommandBus {
       }
     }
 
-    const id = randomUUID();
+    const id = randomId();
     const createdAt = this.now();
     if (cmd.idempotencyKey) this.idempotencyCache.set(this.idempotencyId(cmd), id);
 

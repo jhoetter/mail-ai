@@ -64,6 +64,11 @@ export interface GraphSendArgs {
   readonly accessToken: string;
   readonly subject: string;
   readonly body: string;
+  // Optional rich-text HTML body. When provided, Graph is told to send
+  // the message as `contentType: "HTML"` (text/plain stays available
+  // through the synced message store; Graph itself doesn't accept a
+  // multipart envelope, only one body kind).
+  readonly bodyHtml?: string;
   readonly to: readonly string[];
   readonly cc?: readonly string[];
   readonly bcc?: readonly string[];
@@ -75,7 +80,10 @@ export async function sendGraph(args: GraphSendArgs): Promise<{ ok: true }> {
   const f = args.fetchImpl ?? fetch;
   const message = {
     subject: args.subject,
-    body: { contentType: "Text", content: args.body },
+    body:
+      args.bodyHtml && args.bodyHtml.trim().length > 0
+        ? { contentType: "HTML", content: args.bodyHtml }
+        : { contentType: "Text", content: args.body },
     toRecipients: args.to.map((address) => ({ emailAddress: { address } })),
     ...(args.cc
       ? { ccRecipients: args.cc.map((address) => ({ emailAddress: { address } })) }

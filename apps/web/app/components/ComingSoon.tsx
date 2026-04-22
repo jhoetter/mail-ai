@@ -26,7 +26,7 @@ export function ComingSoon({ what, why, bullets, status, cta }: Props) {
       <Card>
         <div className="flex flex-col gap-3">
           <p className="text-sm">{what}</p>
-          <p className="text-sm text-muted">{why}</p>
+          <p className="text-sm text-secondary">{why}</p>
         </div>
       </Card>
       <Card>
@@ -35,7 +35,7 @@ export function ComingSoon({ what, why, bullets, status, cta }: Props) {
           {bullets.map((b) => (
             <li key={b.title} className="text-sm">
               <span className="font-medium">{b.title}</span>
-              <span className="text-muted"> — {b.detail}</span>
+              <span className="text-secondary"> — {b.detail}</span>
             </li>
           ))}
         </ul>
@@ -44,7 +44,7 @@ export function ComingSoon({ what, why, bullets, status, cta }: Props) {
         <div className="flex items-start justify-between gap-4">
           <div>
             <h2 className="text-sm font-semibold">Status</h2>
-            <p className="mt-2 text-sm text-muted">{status}</p>
+            <p className="mt-2 text-sm text-secondary">{status}</p>
           </div>
           {cta}
         </div>

@@ -54,6 +54,7 @@ interface SendPayload {
   bcc?: string[];
   subject: string;
   body: string;
+  bodyHtml?: string;
   inReplyTo?: string;
   accountId?: string;
 }
@@ -61,6 +62,7 @@ interface SendPayload {
 interface ReplyPayload {
   threadId: string;
   body: string;
+  bodyHtml?: string;
   accountId?: string;
 }
 
@@ -75,6 +77,7 @@ export function buildMailSendHandler(deps: MailSendDeps): CommandHandler<"mail:s
       bcc: payload.bcc,
       subject: payload.subject,
       body: payload.body,
+      ...(payload.bodyHtml ? { bodyHtml: payload.bodyHtml } : {}),
       ...(payload.inReplyTo ? { inReplyTo: payload.inReplyTo } : {}),
     });
   };
@@ -107,6 +110,7 @@ export function buildMailReplyHandler(deps: MailSendDeps): CommandHandler<"mail:
       to: [replyTo],
       subject,
       body: payload.body,
+      ...(payload.bodyHtml ? { bodyHtml: payload.bodyHtml } : {}),
       providerThreadId: root.providerThreadId,
       inReplyToProviderId: ref,
     });
@@ -120,6 +124,7 @@ interface SendIntent {
   bcc?: string[] | undefined;
   subject: string;
   body: string;
+  bodyHtml?: string | undefined;
   inReplyTo?: string | undefined;
   providerThreadId?: string | undefined;
   inReplyToProviderId?: string | undefined;
@@ -154,6 +159,7 @@ async function sendAndSnapshot(
       ...(intent.bcc ? { bcc: intent.bcc } : {}),
       subject: intent.subject,
       body: intent.body,
+      ...(intent.bodyHtml ? { bodyHtml: intent.bodyHtml } : {}),
       messageId,
       ...(inReplyTo ? { inReplyTo } : {}),
       ...(inReplyTo ? { references: [inReplyTo] } : {}),
@@ -177,6 +183,7 @@ async function sendAndSnapshot(
       accessToken,
       subject: intent.subject,
       body: intent.body,
+      ...(intent.bodyHtml ? { bodyHtml: intent.bodyHtml } : {}),
       to: intent.to,
       ...(intent.cc ? { cc: intent.cc } : {}),
       ...(intent.bcc ? { bcc: intent.bcc } : {}),
@@ -242,10 +249,11 @@ function wrapSnapshot(
   };
 }
 
-// Minimal RFC 5322 builder. text/plain, ASCII subject if possible
-// (otherwise RFC 2047 encoded-word). Sufficient for the OAuth-only
-// MVP; HTML / attachments land in a follow-up that brings in
-// nodemailer's MimeNode.
+// Minimal RFC 5322 builder. Emits text/plain by default; when a
+// `bodyHtml` is supplied it emits a multipart/alternative envelope so
+// capable clients render the formatted version while text/plain stays
+// as a faithful fallback. Subject lines that contain non-ASCII fall
+// back to RFC 2047 encoded-words. Attachments are still TODO.
 function buildMime(args: {
   from: string;
   to: string[];
@@ -253,28 +261,49 @@ function buildMime(args: {
   bcc?: string[];
   subject: string;
   body: string;
+  bodyHtml?: string;
   messageId: string;
   inReplyTo?: string;
   references?: string[];
 }): string {
-  const lines: string[] = [];
-  lines.push(`From: ${args.from}`);
-  lines.push(`To: ${args.to.join(", ")}`);
-  if (args.cc && args.cc.length > 0) lines.push(`Cc: ${args.cc.join(", ")}`);
-  if (args.bcc && args.bcc.length > 0) lines.push(`Bcc: ${args.bcc.join(", ")}`);
-  lines.push(`Subject: ${encodeHeader(args.subject)}`);
-  lines.push(`Date: ${new Date().toUTCString()}`);
-  lines.push(`Message-ID: ${angle(args.messageId)}`);
-  if (args.inReplyTo) lines.push(`In-Reply-To: ${angle(args.inReplyTo)}`);
+  const headers: string[] = [];
+  headers.push(`From: ${args.from}`);
+  headers.push(`To: ${args.to.join(", ")}`);
+  if (args.cc && args.cc.length > 0) headers.push(`Cc: ${args.cc.join(", ")}`);
+  if (args.bcc && args.bcc.length > 0) headers.push(`Bcc: ${args.bcc.join(", ")}`);
+  headers.push(`Subject: ${encodeHeader(args.subject)}`);
+  headers.push(`Date: ${new Date().toUTCString()}`);
+  headers.push(`Message-ID: ${angle(args.messageId)}`);
+  if (args.inReplyTo) headers.push(`In-Reply-To: ${angle(args.inReplyTo)}`);
   if (args.references && args.references.length > 0) {
-    lines.push(`References: ${args.references.map(angle).join(" ")}`);
+    headers.push(`References: ${args.references.map(angle).join(" ")}`);
   }
-  lines.push(`MIME-Version: 1.0`);
-  lines.push(`Content-Type: text/plain; charset="utf-8"`);
-  lines.push(`Content-Transfer-Encoding: quoted-printable`);
-  lines.push("");
-  lines.push(quotedPrintable(args.body));
-  return lines.join("\r\n");
+  headers.push(`MIME-Version: 1.0`);
+
+  if (args.bodyHtml && args.bodyHtml.trim().length > 0) {
+    const boundary = `=_mailai_${Date.now().toString(36)}_${Math.random()
+      .toString(36)
+      .slice(2, 10)}`;
+    headers.push(`Content-Type: multipart/alternative; boundary="${boundary}"`);
+    const parts: string[] = [];
+    parts.push("");
+    parts.push(`--${boundary}`);
+    parts.push(`Content-Type: text/plain; charset="utf-8"`);
+    parts.push(`Content-Transfer-Encoding: quoted-printable`);
+    parts.push("");
+    parts.push(quotedPrintable(args.body));
+    parts.push(`--${boundary}`);
+    parts.push(`Content-Type: text/html; charset="utf-8"`);
+    parts.push(`Content-Transfer-Encoding: quoted-printable`);
+    parts.push("");
+    parts.push(quotedPrintable(args.bodyHtml));
+    parts.push(`--${boundary}--`);
+    return [...headers, ...parts].join("\r\n");
+  }
+
+  headers.push(`Content-Type: text/plain; charset="utf-8"`);
+  headers.push(`Content-Transfer-Encoding: quoted-printable`);
+  return [...headers, "", quotedPrintable(args.body)].join("\r\n");
 }
 
 function encodeHeader(s: string): string {
