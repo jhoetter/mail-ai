@@ -5,11 +5,23 @@
 // the inbox UI needs after a Gmail/Graph REST sync, keyed by the
 // provider's own message id. See migration 0006_oauth_messages.
 
-import { and, desc, eq, sql } from "drizzle-orm";
+import { and, desc, eq, isNull, sql } from "drizzle-orm";
 import type { Database } from "../client.js";
 import { oauthMessages } from "../schema.js";
 
 export type OauthMessageProvider = "google-mail" | "outlook";
+
+// Mirrors WellKnownFolder in @mailai/providers. Re-declared here so
+// the overlay-db package stays free of provider-shape coupling.
+// Phase 3's migration enforces the same enum at the SQL layer.
+export type WellKnownFolder =
+  | "inbox"
+  | "sent"
+  | "drafts"
+  | "trash"
+  | "spam"
+  | "archive"
+  | "other";
 
 export interface OauthMessageRow {
   readonly id: string;
@@ -32,6 +44,10 @@ export interface OauthMessageRow {
   readonly bodyFetchedAt: Date | null;
   readonly hasAttachments: boolean;
   readonly starred: boolean;
+  readonly wellKnownFolder: WellKnownFolder;
+  // Soft-delete column. Non-null rows are hidden from view-compiler
+  // queries (Phase 6); a future janitor hard-deletes after retention.
+  readonly deletedAt: Date | null;
 }
 
 export interface OauthMessageInsert {
@@ -49,6 +65,7 @@ export interface OauthMessageInsert {
   readonly internalDate: Date;
   readonly labelsJson: string[];
   readonly unread: boolean;
+  readonly wellKnownFolder: WellKnownFolder;
 }
 
 export class OauthMessagesRepository {
@@ -70,13 +87,15 @@ export class OauthMessagesRepository {
           id, tenant_id, oauth_account_id, provider,
           provider_message_id, provider_thread_id,
           subject, from_name, from_email, to_addr,
-          snippet, internal_date, labels_json, unread, fetched_at
+          snippet, internal_date, labels_json, unread, fetched_at,
+          well_known_folder
         ) VALUES (
           ${r.id}, ${r.tenantId}, ${r.oauthAccountId}, ${r.provider},
           ${r.providerMessageId}, ${r.providerThreadId},
           ${r.subject}, ${r.fromName}, ${r.fromEmail}, ${r.toAddr},
           ${r.snippet}, ${r.internalDate.toISOString()}::timestamptz,
-          ${JSON.stringify(r.labelsJson)}::jsonb, ${r.unread}, now()
+          ${JSON.stringify(r.labelsJson)}::jsonb, ${r.unread}, now(),
+          ${r.wellKnownFolder}
         )
         ON CONFLICT (oauth_account_id, provider_message_id) DO UPDATE SET
           subject = EXCLUDED.subject,
@@ -86,6 +105,7 @@ export class OauthMessagesRepository {
           snippet = EXCLUDED.snippet,
           labels_json = EXCLUDED.labels_json,
           unread = EXCLUDED.unread,
+          well_known_folder = EXCLUDED.well_known_folder,
           fetched_at = now()
         RETURNING (xmax = 0) AS inserted
       `);
@@ -98,13 +118,15 @@ export class OauthMessagesRepository {
 
   async listByTenant(
     tenantId: string,
-    opts: { limit?: number } = {},
+    opts: { limit?: number; includeDeleted?: boolean } = {},
   ): Promise<OauthMessageRow[]> {
     const limit = Math.min(Math.max(opts.limit ?? 100, 1), 500);
+    const filters = [eq(oauthMessages.tenantId, tenantId)];
+    if (!opts.includeDeleted) filters.push(isNull(oauthMessages.deletedAt));
     const rows = await this.db
       .select()
       .from(oauthMessages)
-      .where(eq(oauthMessages.tenantId, tenantId))
+      .where(and(...filters))
       .orderBy(desc(oauthMessages.internalDate))
       .limit(limit);
     return rows as OauthMessageRow[];
@@ -113,18 +135,18 @@ export class OauthMessagesRepository {
   async listByAccount(
     tenantId: string,
     oauthAccountId: string,
-    opts: { limit?: number } = {},
+    opts: { limit?: number; includeDeleted?: boolean } = {},
   ): Promise<OauthMessageRow[]> {
     const limit = Math.min(Math.max(opts.limit ?? 100, 1), 500);
+    const filters = [
+      eq(oauthMessages.tenantId, tenantId),
+      eq(oauthMessages.oauthAccountId, oauthAccountId),
+    ];
+    if (!opts.includeDeleted) filters.push(isNull(oauthMessages.deletedAt));
     const rows = await this.db
       .select()
       .from(oauthMessages)
-      .where(
-        and(
-          eq(oauthMessages.tenantId, tenantId),
-          eq(oauthMessages.oauthAccountId, oauthAccountId),
-        ),
-      )
+      .where(and(...filters))
       .orderBy(desc(oauthMessages.internalDate))
       .limit(limit);
     return rows as OauthMessageRow[];
@@ -132,7 +154,10 @@ export class OauthMessagesRepository {
 
   async countByTenant(tenantId: string): Promise<number> {
     const result = await this.db.execute(sql`
-      SELECT count(*)::int AS n FROM oauth_messages WHERE tenant_id = ${tenantId}
+      SELECT count(*)::int AS n
+      FROM oauth_messages
+      WHERE tenant_id = ${tenantId}
+        AND deleted_at IS NULL
     `);
     const n = (result.rows?.[0] as { n?: number } | undefined)?.n;
     return typeof n === "number" ? n : 0;
@@ -212,17 +237,40 @@ export class OauthMessagesRepository {
   async listByProviderThread(
     tenantId: string,
     providerThreadId: string,
+    opts: { includeDeleted?: boolean } = {},
   ): Promise<OauthMessageRow[]> {
+    const filters = [
+      eq(oauthMessages.tenantId, tenantId),
+      eq(oauthMessages.providerThreadId, providerThreadId),
+    ];
+    if (!opts.includeDeleted) filters.push(isNull(oauthMessages.deletedAt));
     const rows = await this.db
       .select()
       .from(oauthMessages)
-      .where(
-        and(
-          eq(oauthMessages.tenantId, tenantId),
-          eq(oauthMessages.providerThreadId, providerThreadId),
-        ),
-      )
+      .where(and(...filters))
       .orderBy(oauthMessages.internalDate);
     return rows as OauthMessageRow[];
+  }
+
+  // Mark provider-side message ids as remotely deleted. Used by
+  // pullDelta when Gmail's history API returns `messagesDeleted` or
+  // Graph's delta returns `@removed` entries. Idempotent — re-running
+  // with the same ids is a no-op once the timestamp is set.
+  async markDeleted(
+    tenantId: string,
+    oauthAccountId: string,
+    providerMessageIds: ReadonlyArray<string>,
+    at: Date = new Date(),
+  ): Promise<number> {
+    if (providerMessageIds.length === 0) return 0;
+    const result = await this.db.execute(sql`
+      UPDATE oauth_messages
+      SET deleted_at = ${at.toISOString()}::timestamptz
+      WHERE tenant_id = ${tenantId}
+        AND oauth_account_id = ${oauthAccountId}
+        AND provider_message_id = ANY(${providerMessageIds as unknown as string[]}::text[])
+        AND deleted_at IS NULL
+    `);
+    return result.rowCount ?? 0;
   }
 }

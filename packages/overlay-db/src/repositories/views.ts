@@ -22,9 +22,16 @@ export interface ViewFilter {
   readonly fromContains?: string;
   readonly unread?: boolean;
   readonly accountIds?: readonly string[];
-  // Semantic view kinds: "drafts" / "sent" / "all" short-circuit the
-  // generic compiler because they pull from a different source table.
-  readonly kind?: "default" | "drafts" | "sent" | "all";
+  // Semantic view kinds. "drafts" pulls from its own table; the
+  // others are filtered by oauth_messages.well_known_folder so the
+  // views compiler never has to look inside provider labels.
+  readonly kind?:
+    | "default"
+    | "drafts"
+    | "sent"
+    | "trash"
+    | "spam"
+    | "all";
 }
 
 export interface ViewRow {
@@ -68,7 +75,9 @@ const BUILTINS: ReadonlyArray<{
   { suffix: "sent", name: "Sent", icon: "📤", position: 2, filter: { kind: "sent" } },
   { suffix: "snoozed", name: "Snoozed", icon: "💤", position: 3, filter: { kind: "default", status: ["snoozed"] } },
   { suffix: "done", name: "Done", icon: "✓", position: 4, filter: { kind: "default", status: ["done"] } },
-  { suffix: "all", name: "All Mail", icon: "📚", position: 5, filter: { kind: "all" } },
+  { suffix: "trash", name: "Trash", icon: "🗑️", position: 5, filter: { kind: "trash" } },
+  { suffix: "spam", name: "Spam", icon: "🚫", position: 6, filter: { kind: "spam" } },
+  { suffix: "all", name: "All Mail", icon: "📚", position: 7, filter: { kind: "all" } },
 ];
 
 export class ViewsRepository {

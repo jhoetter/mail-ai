@@ -43,8 +43,6 @@
     "loadError": "Posteingang konnte nicht geladen werden: {error}",
     "selectThread": "Wähle eine Konversation aus.",
     "nothingToShow": "Keine Nachrichten zum Anzeigen.",
-    "emptyTitle": "Noch keine Mails synchronisiert.",
-    "emptyHint": "Verbinde ein Gmail- oder Outlook-Konto, damit mail-ai deine Mails synchronisieren kann. Wir laden aktuelle Posteingangs-Metadaten per OAuth, sodass du ohne Seitenwechsel triagieren kannst.",
     "goToAccounts": "Zu den Konten →",
     "columnSubject": "Betreff",
     "columnFrom": "Von",
@@ -52,6 +50,43 @@
     "star": "Markieren",
     "unstar": "Markierung entfernen",
     "hasAttachment": "Hat einen Anhang"
+  },
+  "emptyView": {
+    "noAccountsTitle": "Verbinde ein Postfach, um loszulegen.",
+    "noAccountsHint": "Verbinde ein Gmail- oder Outlook-Konto, damit mail-ai deine Mails synchronisieren kann. Wir laden Metadaten per OAuth, sodass du ohne Seitenwechsel triagieren kannst.",
+    "goToAccounts": "Zu den Konten →",
+    "syncErrorTitle": "Synchronisierung läuft nicht.",
+    "syncErrorHint": "Beim letzten Versuch ließ sich dieses Konto nicht synchronisieren. Autorisiere es in den Konten neu, um fortzufahren.",
+    "syncErrorDetails": "Letzter Fehler: {error}",
+    "openAccounts": "Konten öffnen",
+    "default": {
+      "title": "Posteingang ist leer.",
+      "hint": "Es ist noch nichts in deinem Posteingang gelandet. Neue Mails erscheinen hier automatisch nach der Synchronisierung."
+    },
+    "drafts": {
+      "title": "Keine Entwürfe.",
+      "hint": "Entwürfe, die du beginnst, erscheinen hier. Klicke auf Verfassen, um einen neuen zu schreiben."
+    },
+    "sent": {
+      "title": "Noch nichts gesendet.",
+      "hint": "Nachrichten, die du über mail-ai sendest, erscheinen hier — ebenso wie Mails, die du in einem anderen Client gesendet hast, sobald sie synchronisiert sind."
+    },
+    "trash": {
+      "title": "Papierkorb ist leer.",
+      "hint": "Gelöschte Nachrichten landen hier. Dein Anbieter entfernt sie nach einiger Zeit endgültig."
+    },
+    "spam": {
+      "title": "Spam ist leer.",
+      "hint": "Nachrichten, die dein Anbieter als Junk markiert hat, erscheinen hier. Markiere echte Mails als „Kein Spam“, um sie zurückzuholen."
+    },
+    "all": {
+      "title": "Noch keine Mails.",
+      "hint": "Alle synchronisierten Mails erscheinen hier. Warte auf die nächste Synchronisierung oder klicke in den Konten auf Jetzt synchronisieren."
+    },
+    "filtered": {
+      "title": "Keine Treffer für diese Ansicht.",
+      "hint": "Lockere die Filter oder wähle eine andere Ansicht, um mehr Mails zu sehen."
+    }
   },
   "thread": {
     "loading": "Konversation wird geladen…",
@@ -272,7 +307,11 @@
     "saved": "Gespeichert"
   },
   "toast": {
-    "commandFailed": "{command} konnte nicht gespeichert werden"
+    "commandFailed": "{command} konnte nicht gespeichert werden",
+    "authTitle": "Verbindung erforderlich",
+    "authBody": "{command} konnte nicht ausgeführt werden, weil das verbundene Konto nicht autorisiert ist.",
+    "authCta": "Konten öffnen",
+    "authDetails": "Serverantwort: {message}"
   },
   "settings": {
     "signature": {

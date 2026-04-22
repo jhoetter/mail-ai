@@ -7,6 +7,16 @@ import { CommandBus, type Command } from "@mailai/core";
 import { CommandPayloadSchema } from "@mailai/agent";
 import { loadProviderCredentialsFromEnv } from "@mailai/oauth-tokens";
 import type { ObjectStore } from "@mailai/overlay-db";
+import type {
+  CalendarProviderRegistry,
+  ContactsProviderRegistry,
+  MailProviderRegistry,
+} from "@mailai/providers";
+import {
+  buildCalendarProviderRegistry,
+  buildContactsProviderRegistry,
+  buildMailProviderRegistry,
+} from "./providers.js";
 import { EventBroadcaster } from "./events.js";
 import { registerOauthRoutes, type OauthRoutesDeps } from "./oauth/routes.js";
 import { registerSearchRoutes } from "./routes/search.js";
@@ -21,6 +31,8 @@ import { registerAttachmentRoutes } from "./routes/attachments.js";
 import { registerRawMessageRoutes } from "./routes/messages-raw.js";
 import { registerSignatureRoutes } from "./routes/signatures.js";
 import { registerContactsRoutes } from "./routes/contacts.js";
+import { registerWebhookRoutes } from "./routes/webhooks.js";
+import type { SyncScheduler } from "./sync/scheduler.js";
 
 export interface AppDeps {
   readonly bus: CommandBus;
@@ -32,19 +44,45 @@ export interface AppDeps {
     displayName?: string;
   }>;
   // Optional: when omitted, OAuth onboarding routes are NOT mounted.
-  // Useful for tests that don't want a Postgres dep.
-  readonly oauth?: Omit<OauthRoutesDeps, "identity">;
+  // Useful for tests that don't want a Postgres dep. The mail
+  // provider registry is supplied by the app itself, so callers
+  // don't have to pass it twice.
+  readonly oauth?: Omit<OauthRoutesDeps, "identity" | "providers">;
   // Object storage for attachments + raw EML cache. Required for
   // /api/attachments and /api/messages/:id/raw.eml; mounted only when
   // present so test harnesses without S3 still work.
   readonly objectStore?: ObjectStore;
+  // Mail provider registry. When omitted, we build a default
+  // registry containing every adapter we ship — production wires
+  // its own so test harnesses can stub adapters without a network.
+  readonly providers?: MailProviderRegistry;
+  // Calendar provider registry, same opt-out story as `providers`.
+  readonly calendarProviders?: CalendarProviderRegistry;
+  // Contacts provider registry, same opt-out story as `providers`.
+  readonly contactsProviders?: ContactsProviderRegistry;
+  // Scheduler used to react to push webhooks immediately. Optional
+  // so test harnesses without a scheduler can still boot — webhook
+  // routes are simply not mounted in that case.
+  readonly scheduler?: SyncScheduler;
+  // Tenants the webhook router will look subscriptions up in. v1 dev:
+  // a single dev tenant. Required only when `scheduler` is supplied.
+  readonly webhookTenants?: () => Promise<ReadonlyArray<string>>;
 }
 
 export function buildApp(deps: AppDeps): FastifyInstance {
   const app = Fastify({ logger: true });
+  const providers = deps.providers ?? buildMailProviderRegistry();
+  const calendarProviders =
+    deps.calendarProviders ?? buildCalendarProviderRegistry();
+  const contactsProviders =
+    deps.contactsProviders ?? buildContactsProviderRegistry();
 
   if (deps.oauth) {
-    registerOauthRoutes(app, { ...deps.oauth, identity: deps.identity });
+    registerOauthRoutes(app, {
+      ...deps.oauth,
+      identity: deps.identity,
+      providers,
+    });
     // Search + thread detail share the same Postgres pool as OAuth
     // onboarding (they query oauth_messages). We mount them under the
     // same condition so test environments without a DB don't try to
@@ -58,6 +96,7 @@ export function buildApp(deps: AppDeps): FastifyInstance {
       // bodies (provider fetch will simply 401 and the row stays
       // empty, matching the pre-body behaviour).
       credentials: deps.oauth.credentials ?? loadProviderCredentialsFromEnv(),
+      providers,
       identity: deps.identity,
     });
     registerInboxRoutes(app, { pool: deps.oauth.pool, identity: deps.identity });
@@ -69,6 +108,7 @@ export function buildApp(deps: AppDeps): FastifyInstance {
       pool: deps.oauth.pool,
       identity: deps.identity,
       credentials: deps.oauth.credentials ?? loadProviderCredentialsFromEnv(),
+      calendarProviders,
     });
     registerSignatureRoutes(app, {
       pool: deps.oauth.pool,
@@ -78,18 +118,28 @@ export function buildApp(deps: AppDeps): FastifyInstance {
       pool: deps.oauth.pool,
       identity: deps.identity,
       credentials: deps.oauth.credentials ?? loadProviderCredentialsFromEnv(),
+      contactsProviders,
     });
+    if (deps.scheduler && deps.webhookTenants) {
+      registerWebhookRoutes(app, {
+        pool: deps.oauth.pool,
+        scheduler: deps.scheduler,
+        tenants: deps.webhookTenants,
+      });
+    }
     if (deps.objectStore) {
       registerAttachmentRoutes(app, {
         pool: deps.oauth.pool,
         objectStore: deps.objectStore,
         credentials: deps.oauth.credentials ?? loadProviderCredentialsFromEnv(),
+        providers,
         identity: deps.identity,
       });
       registerRawMessageRoutes(app, {
         pool: deps.oauth.pool,
         objectStore: deps.objectStore,
         credentials: deps.oauth.credentials ?? loadProviderCredentialsFromEnv(),
+        providers,
         identity: deps.identity,
       });
     }

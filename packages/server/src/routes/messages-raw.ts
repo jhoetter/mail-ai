@@ -19,17 +19,17 @@ import {
   type Pool,
 } from "@mailai/overlay-db";
 import {
-  fetchGmailRawMessage,
-  fetchGraphRawMessage,
   getValidAccessToken,
   type ProviderCredentials,
 } from "@mailai/oauth-tokens";
+import type { MailProviderId, MailProviderRegistry } from "@mailai/providers";
 import { parseMessage } from "@mailai/mime";
 
 export interface RawMessageRoutesDeps {
   readonly pool: Pool;
   readonly objectStore: ObjectStore;
   readonly credentials: ProviderCredentials;
+  readonly providers: MailProviderRegistry;
   readonly identity: (req: { headers: Record<string, unknown> }) => Promise<{
     userId: string;
     tenantId: string;
@@ -43,7 +43,7 @@ interface RawCtx {
     providerMessageId: string;
     subject: string | null;
     oauthAccountId: string;
-    provider: "google-mail" | "outlook";
+    provider: MailProviderId;
   };
 }
 
@@ -129,10 +129,10 @@ async function ensureRawCached(deps: RawMessageRoutesDeps, ctx: RawCtx): Promise
       credentials: deps.credentials,
     });
   });
-  const buf =
-    ctx.message.provider === "google-mail"
-      ? await fetchGmailRawMessage({ accessToken, messageId: ctx.message.providerMessageId })
-      : await fetchGraphRawMessage({ accessToken, messageId: ctx.message.providerMessageId });
+  const buf = await deps.providers.for(ctx.message.provider).fetchRawMime({
+    accessToken,
+    providerMessageId: ctx.message.providerMessageId,
+  });
   await deps.objectStore.put(ctx.key, buf, "message/rfc822");
 }
 

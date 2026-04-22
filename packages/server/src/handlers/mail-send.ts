@@ -35,15 +35,10 @@ import {
   type Pool,
 } from "@mailai/overlay-db";
 import {
-  fetchGmailRawMessage,
-  fetchGraphRawMessage,
   getValidAccessToken,
-  modifyGmailMessageLabels,
-  patchGraphMessage,
-  sendGmail,
-  sendGraphRawMime,
   type ProviderCredentials,
 } from "@mailai/oauth-tokens";
+import type { MailProviderId, MailProviderRegistry } from "@mailai/providers";
 import { composeMessage, type AttachmentSpec } from "@mailai/mime";
 
 export interface MailSendDeps {
@@ -51,6 +46,7 @@ export interface MailSendDeps {
   readonly tenantId: string;
   readonly credentials: ProviderCredentials;
   readonly objectStore: ObjectStore;
+  readonly providers: MailProviderRegistry;
 }
 
 interface AttachmentRef {
@@ -231,23 +227,14 @@ function buildMarkReadOrUnread<T extends "mail:mark-read" | "mail:mark-unread">(
     const accountId = payload.accountId ?? rows[0]!.oauthAccountId;
     const account = await pickAccount(deps, accountId);
     const accessToken = await refreshToken(deps, account);
+    const adapter = deps.providers.for(account.provider);
     for (const m of rows) {
       try {
-        if (account.provider === "google-mail") {
-          await modifyGmailMessageLabels({
-            accessToken,
-            messageId: m.providerMessageId,
-            ...(unread
-              ? { addLabelIds: ["UNREAD"] }
-              : { removeLabelIds: ["UNREAD"] }),
-          });
-        } else if (account.provider === "outlook") {
-          await patchGraphMessage({
-            accessToken,
-            messageId: m.providerMessageId,
-            patch: { isRead: !unread },
-          });
-        }
+        await adapter.setRead({
+          accessToken,
+          providerMessageId: m.providerMessageId,
+          read: !unread,
+        });
       } catch (err) {
         console.warn("[mail:mark-read] provider call failed", {
           messageId: m.providerMessageId,
@@ -291,23 +278,11 @@ export function buildMailStarHandler(
     }
     const account = await pickAccount(deps, payload.accountId ?? message.oauthAccountId);
     const accessToken = await refreshToken(deps, account);
-    if (account.provider === "google-mail") {
-      await modifyGmailMessageLabels({
-        accessToken,
-        messageId: payload.providerMessageId,
-        ...(payload.starred
-          ? { addLabelIds: ["STARRED"] }
-          : { removeLabelIds: ["STARRED"] }),
-      });
-    } else if (account.provider === "outlook") {
-      await patchGraphMessage({
-        accessToken,
-        messageId: payload.providerMessageId,
-        patch: {
-          flag: { flagStatus: payload.starred ? "flagged" : "notFlagged" },
-        },
-      });
-    }
+    await deps.providers.for(account.provider).setStarred({
+      accessToken,
+      providerMessageId: payload.providerMessageId,
+      starred: payload.starred,
+    });
     await withTenant(deps.pool, deps.tenantId, async (tx) => {
       const repo = new OauthMessagesRepository(tx);
       await repo.setStarred(
@@ -386,27 +361,36 @@ async function sendAndSnapshot(
   });
   const messageId = composed.messageId.replace(/^<|>$/g, "");
 
-  let providerMessageId = messageId;
-  let providerThreadId: string | null = intent.providerThreadId ?? null;
-
-  if (account.provider === "google-mail") {
-    const result = await sendGmail({
-      accessToken,
+  // Route through the provider registry so this file stays free of
+  // gmail/outlook branches. Each adapter advertises whether its send
+  // call returns a synchronous id (Gmail does; Graph 202s with an
+  // empty body) — we just trust whatever providerMessageId comes
+  // back: Gmail returns the real id, Outlook returns the
+  // locally-composed Message-ID and the next sync reconciles via
+  // the RFC822 Message-ID header.
+  const sendResult = await deps.providers.for(account.provider).send({
+    accessToken,
+    message: {
       raw: composed.raw,
-      ...(intent.providerThreadId ? { threadId: intent.providerThreadId } : {}),
-    });
-    providerMessageId = result.id;
-    providerThreadId = result.threadId;
-  } else if (account.provider === "outlook") {
-    await sendGraphRawMime({ accessToken, raw: composed.raw });
-    // Graph's raw send returns 202 with no id; subsequent sync will
-    // pick it up from Sent and we'll dedupe via the local Message-ID.
-  } else {
-    throw new MailaiError(
-      "validation_error",
-      `account ${account.id} has unsupported provider ${account.provider}`,
-    );
-  }
+      rfc822MessageId: messageId,
+      ...(intent.providerThreadId
+        ? { providerThreadId: intent.providerThreadId }
+        : {}),
+    },
+  });
+  const providerMessageId = sendResult.providerMessageId;
+  const providerThreadId: string | null =
+    sendResult.providerThreadId ?? intent.providerThreadId ?? null;
+
+  // Mirror the just-sent message into oauth_messages with
+  // wellKnownFolder='sent' so the Sent view shows it instantly,
+  // before any provider-side sync.
+  await mirrorSentMessage(deps, account, {
+    providerMessageId,
+    providerThreadId: providerThreadId ?? providerMessageId,
+    intent,
+    snippet: intent.body.slice(0, 280),
+  });
 
   // Mirror draft-staged attachment metadata into oauth_attachments
   // so the freshly-sent message renders with its tray on the next
@@ -430,6 +414,83 @@ async function sendAndSnapshot(
   }
 
   return wrapSnapshot(providerMessageId, intent, providerThreadId);
+}
+
+// Insert (or update) the local oauth_messages row representing the
+// just-sent message. Without this the user sends a message and then
+// stares at an empty Sent folder until the next provider sync (which
+// for Outlook can be many minutes). Idempotency is provided by the
+// repo's ON CONFLICT (oauth_account_id, provider_message_id) so when
+// the real provider sync later returns this same id, we don't get
+// duplicates — we just overwrite our local guesses with the
+// authoritative server-side values (subject, snippet, etc. unchanged
+// in practice; labelsJson rewrites are fine because the next sync
+// will re-establish them).
+async function mirrorSentMessage(
+  deps: MailSendDeps,
+  account: OauthAccountRow,
+  args: {
+    providerMessageId: string;
+    providerThreadId: string;
+    intent: SendIntent;
+    snippet: string;
+  },
+): Promise<void> {
+  const row = buildSentMirrorRow({
+    tenantId: deps.tenantId,
+    accountId: account.id,
+    accountEmail: account.email,
+    accountProvider: account.provider,
+    providerMessageId: args.providerMessageId,
+    providerThreadId: args.providerThreadId,
+    subject: args.intent.subject,
+    to: args.intent.to,
+    snippet: args.snippet,
+    sentAt: new Date(),
+  });
+  await withTenant(deps.pool, deps.tenantId, async (tx) => {
+    const repo = new OauthMessagesRepository(tx);
+    await repo.upsertMany([row]);
+  });
+}
+
+export interface SentMirrorInput {
+  readonly tenantId: string;
+  readonly accountId: string;
+  readonly accountEmail: string;
+  readonly accountProvider: MailProviderId;
+  readonly providerMessageId: string;
+  readonly providerThreadId: string;
+  readonly subject: string;
+  readonly to: readonly string[];
+  readonly snippet: string;
+  readonly sentAt: Date;
+}
+
+// Pure factory exported for unit tests. Keeps the SQL-backed mirror
+// path one indirection away from a value-only assertion that the
+// row we hand to upsertMany has the shape the Sent view expects
+// (wellKnownFolder='sent', unread=false, fromEmail set to the
+// account, etc). Labels are intentionally empty: the Sent bucket is
+// folder identity, not a label.
+export function buildSentMirrorRow(input: SentMirrorInput) {
+  return {
+    id: `om_${randomId()}`,
+    tenantId: input.tenantId,
+    oauthAccountId: input.accountId,
+    provider: input.accountProvider,
+    providerMessageId: input.providerMessageId,
+    providerThreadId: input.providerThreadId,
+    subject: input.subject,
+    fromName: null as string | null,
+    fromEmail: input.accountEmail,
+    toAddr: input.to.join(", "),
+    snippet: input.snippet,
+    internalDate: input.sentAt,
+    labelsJson: [] as string[],
+    unread: false,
+    wellKnownFolder: "sent" as const,
+  };
 }
 
 async function refreshToken(deps: MailSendDeps, account: OauthAccountRow): Promise<string> {
@@ -531,10 +592,9 @@ async function loadRawForMessage(
     return deps.objectStore.getBytes(key);
   }
   const accessToken = await refreshToken(deps, account);
-  const buf =
-    account.provider === "google-mail"
-      ? await fetchGmailRawMessage({ accessToken, messageId: providerMessageId })
-      : await fetchGraphRawMessage({ accessToken, messageId: providerMessageId });
+  const buf = await deps.providers
+    .for(account.provider)
+    .fetchRawMime({ accessToken, providerMessageId });
   await deps.objectStore.put(key, buf, "message/rfc822");
   return buf;
 }

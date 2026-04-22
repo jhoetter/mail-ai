@@ -22,6 +22,11 @@ import {
 } from "@mailai/overlay-db";
 import { loadProviderCredentialsFromEnv } from "@mailai/oauth-tokens";
 import { buildApp } from "./app.js";
+import {
+  buildCalendarProviderRegistry,
+  buildMailProviderRegistry,
+  buildPushProviderRegistry,
+} from "./providers.js";
 import { EventBroadcaster } from "./events.js";
 import { NangoClient } from "./oauth/nango-client.js";
 import {
@@ -60,6 +65,7 @@ import {
   buildCalendarRespondHandler,
   buildCalendarUpdateEventHandler,
 } from "./handlers/calendar.js";
+import { SyncScheduler } from "./sync/scheduler.js";
 
 async function main() {
 
@@ -93,6 +99,8 @@ async function main() {
   });
 
   const credentials = loadProviderCredentialsFromEnv();
+  const providers = buildMailProviderRegistry();
+  const calendarProviders = buildCalendarProviderRegistry();
 
   // Object storage. Falls back to an in-memory store so test
   // environments without MinIO/S3 can still boot the server (presigned
@@ -114,30 +122,19 @@ async function main() {
     objectStore = new InMemoryObjectStore();
   }
 
-  bus.register(
-    "mail:send",
-    buildMailSendHandler({ pool, tenantId: DEV_TENANT, credentials, objectStore }),
-  );
-  bus.register(
-    "mail:reply",
-    buildMailReplyHandler({ pool, tenantId: DEV_TENANT, credentials, objectStore }),
-  );
-  bus.register(
-    "mail:forward",
-    buildMailForwardHandler({ pool, tenantId: DEV_TENANT, credentials, objectStore }),
-  );
-  bus.register(
-    "mail:mark-read",
-    buildMailMarkReadHandler({ pool, tenantId: DEV_TENANT, credentials, objectStore }),
-  );
-  bus.register(
-    "mail:mark-unread",
-    buildMailMarkUnreadHandler({ pool, tenantId: DEV_TENANT, credentials, objectStore }),
-  );
-  bus.register(
-    "mail:star",
-    buildMailStarHandler({ pool, tenantId: DEV_TENANT, credentials, objectStore }),
-  );
+  const mailSendDeps = {
+    pool,
+    tenantId: DEV_TENANT,
+    credentials,
+    objectStore,
+    providers,
+  };
+  bus.register("mail:send", buildMailSendHandler(mailSendDeps));
+  bus.register("mail:reply", buildMailReplyHandler(mailSendDeps));
+  bus.register("mail:forward", buildMailForwardHandler(mailSendDeps));
+  bus.register("mail:mark-read", buildMailMarkReadHandler(mailSendDeps));
+  bus.register("mail:mark-unread", buildMailMarkUnreadHandler(mailSendDeps));
+  bus.register("mail:star", buildMailStarHandler(mailSendDeps));
   bus.register(
     "attachment:upload-init",
     buildAttachmentUploadInitHandler({ pool, tenantId: DEV_TENANT, objectStore }),
@@ -194,22 +191,17 @@ async function main() {
     "draft:send",
     buildDraftSendHandler({ pool, tenantId: DEV_TENANT, bus }),
   );
-  bus.register(
-    "calendar:create-event",
-    buildCalendarCreateEventHandler({ pool, tenantId: DEV_TENANT, credentials }),
-  );
-  bus.register(
-    "calendar:update-event",
-    buildCalendarUpdateEventHandler({ pool, tenantId: DEV_TENANT, credentials }),
-  );
-  bus.register(
-    "calendar:delete-event",
-    buildCalendarDeleteEventHandler({ pool, tenantId: DEV_TENANT, credentials }),
-  );
-  bus.register(
-    "calendar:respond",
-    buildCalendarRespondHandler({ pool, tenantId: DEV_TENANT, credentials }),
-  );
+  const calendarDeps = {
+    pool,
+    tenantId: DEV_TENANT,
+    credentials,
+    calendarProviders,
+    mailProviders: providers,
+  };
+  bus.register("calendar:create-event", buildCalendarCreateEventHandler(calendarDeps));
+  bus.register("calendar:update-event", buildCalendarUpdateEventHandler(calendarDeps));
+  bus.register("calendar:delete-event", buildCalendarDeleteEventHandler(calendarDeps));
+  bus.register("calendar:respond", buildCalendarRespondHandler(calendarDeps));
   // Best-effort: don't crash the server if Postgres isn't up (the dev
   // stack might be starting in parallel). OAuth routes will return 500
   // until migrations land — acceptable for dev, and explicit in logs.
@@ -236,6 +228,57 @@ async function main() {
     ? new NangoClient({ secretKey: nangoSecret, host: nangoHost })
     : undefined;
 
+  // Background sync scheduler is built before the HTTP app so the
+  // webhook routes can be mounted with a triggerSync callback wired
+  // through the same code path the periodic tick uses. The scheduler
+  // is `start()`ed below, after the app starts listening, so the
+  // first tick doesn't fight the boot path for connection slots.
+  const syncDisabled = process.env["MAILAI_SYNC_DISABLED"] === "1";
+  const isProd = process.env["NODE_ENV"] === "production";
+  const baseIntervalMs = Number(
+    process.env["MAILAI_SYNC_INTERVAL_MS"] ?? (isProd ? 300_000 : 60_000),
+  );
+  const tickIntervalMs = Math.max(15_000, Math.floor(baseIntervalMs / 2));
+
+  // Push subscription config. Both env vars are optional — when
+  // missing for a provider the scheduler simply skips push for that
+  // provider, falling back to the periodic poll. Gmail's value is
+  // the fully-qualified Pub/Sub topic; Graph's is the public HTTPS
+  // webhook URL exposed by /api/webhooks/graph.
+  // Per-provider notification destinations. Adding a third provider
+  // means appending one more env-derived entry; the lookup below
+  // stays a Map.get so the scheduler never needs to branch on
+  // provider id. Missing entries mean "push not configured for this
+  // provider — fall back to polling".
+  const pushDestinations = new Map<string, string | null>([
+    ["google-mail", process.env["MAILAI_PUSH_GMAIL_TOPIC"] ?? null],
+    ["outlook", process.env["MAILAI_PUSH_GRAPH_WEBHOOK_URL"] ?? null],
+  ]);
+  const pushEnabled = [...pushDestinations.values()].some((v) => v != null);
+  const pushConfig = pushEnabled
+    ? {
+        registry: buildPushProviderRegistry(),
+        notificationUrlFor: (provider: string) =>
+          pushDestinations.get(provider) ?? null,
+      }
+    : null;
+
+  const scheduler = syncDisabled
+    ? null
+    : new SyncScheduler({
+        pool,
+        credentials,
+        providers,
+        broadcaster,
+        // v1 dev only knows about the seed tenant. When real auth lands
+        // this becomes a SELECT DISTINCT tenant_id FROM oauth_accounts
+        // (or a registry table) so every workspace gets swept.
+        tenants: async () => [DEV_TENANT],
+        baseIntervalMs,
+        tickIntervalMs,
+        ...(pushConfig ? { push: pushConfig } : {}),
+      });
+
   const app = buildApp({
     bus,
     broadcaster,
@@ -259,6 +302,12 @@ async function main() {
       ...(nango ? { nango } : {}),
     },
     objectStore,
+    ...(scheduler
+      ? {
+          scheduler,
+          webhookTenants: async () => [DEV_TENANT],
+        }
+      : {}),
   });
 
   const port = Number(process.env["API_PORT"] ?? process.env["PORT"] ?? 8200);
@@ -273,6 +322,26 @@ async function main() {
       ? "mail-ai server listening (oauth ENABLED via Nango)"
       : "mail-ai server listening (oauth DEMO MODE — set NANGO_SECRET_KEY)",
   );
+
+  // Background sync. Disabled with MAILAI_SYNC_DISABLED=1 (handy for
+  // running the API in a debugger without unrelated provider chatter
+  // in the logs). Interval is configurable via MAILAI_SYNC_INTERVAL_MS;
+  // defaults to 60s in dev, 300s for prod-like NODE_ENV.
+  if (scheduler) {
+    scheduler.start();
+    const shutdown = async (sig: string) => {
+      app.log.info({ sig }, "shutting down sync scheduler");
+      try {
+        await scheduler.stop();
+      } catch (err) {
+        app.log.warn({ err }, "scheduler stop failed");
+      }
+    };
+    process.once("SIGTERM", () => void shutdown("SIGTERM"));
+    process.once("SIGINT", () => void shutdown("SIGINT"));
+  } else {
+    app.log.info("background sync DISABLED via MAILAI_SYNC_DISABLED=1");
+  }
 }
 
 main().catch((err) => {

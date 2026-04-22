@@ -10,11 +10,13 @@
 import type { FastifyInstance } from "fastify";
 import {
   DraftsRepository,
+  OauthAccountsRepository,
   OauthMessagesRepository,
   OauthThreadStateRepository,
   OauthThreadTagsRepository,
   ViewsRepository,
   withTenant,
+  type OauthProvider,
   type Pool,
   type ViewFilter,
   type ViewRow,
@@ -149,23 +151,48 @@ export function registerViewRoutes(app: FastifyInstance, deps: ViewRoutesDeps): 
       }
       const filter = view.filterJson;
 
-      // Drafts short-circuit: own table.
+      // Drafts short-circuit: own table. Each draft carries the
+      // oauth_account_id it was authored against; we resolve those
+      // to the underlying provider so the row reports its true
+      // origin instead of always claiming google-mail. This matters
+      // the moment a user has both a Gmail and an Outlook connected
+      // — the inbox icon, reply behaviour, and folder routing all
+      // dispatch on `provider`.
       if (filter.kind === "drafts") {
         const draftsRepo = new DraftsRepository(tx);
         const list = await draftsRepo.listByUser(ident.tenantId, ident.userId, limit);
+        const accountsRepo = new OauthAccountsRepository(tx);
+        const accountIds = Array.from(
+          new Set(list.map((d) => d.oauthAccountId).filter((id): id is string => !!id)),
+        );
+        const providerByAccount = new Map<string, OauthProvider>();
+        for (const id of accountIds) {
+          const acct = await accountsRepo.byId(ident.tenantId, id);
+          if (acct) providerByAccount.set(id, acct.provider);
+        }
         return {
           view: toApi(view),
           threads: list.map((d) => ({
             id: d.id,
             providerThreadId: d.providerThreadId ?? "",
             providerMessageId: "",
-            provider: "google-mail",
+            // Fall through to google-mail only when the draft has
+            // no account yet (it was started before pickAccount
+            // ran). The composer always assigns one before save,
+            // so this is rare and the value is harmless either way.
+            provider:
+              (d.oauthAccountId
+                ? providerByAccount.get(d.oauthAccountId)
+                : undefined) ?? "google-mail",
             subject: d.subject ?? "(no subject)",
             from: "you",
             fromEmail: null,
             snippet: (d.bodyText ?? d.bodyHtml ?? "").slice(0, 280),
             unread: false,
-            labels: ["DRAFT"],
+            // Drafts no longer carry a synthetic "DRAFT" label — the
+            // status field below ("draft") is the authoritative
+            // signal; the inbox renders a dedicated draft pill.
+            labels: [] as string[],
             date: d.updatedAt.toISOString(),
             tags: [],
             status: "draft",
@@ -184,21 +211,37 @@ export function registerViewRoutes(app: FastifyInstance, deps: ViewRoutesDeps): 
 
       // Build per-thread roll-up keyed by providerThreadId; we only
       // surface the latest message per thread to the inbox list.
+      // Folder-scoped views (sent / trash / spam) roll up only over
+      // messages already in that folder so a thread that lives in
+      // both Inbox and Trash still appears in Trash.
+      const folderScope: "sent" | "trash" | "spam" | null =
+        filter.kind === "sent"
+          ? "sent"
+          : filter.kind === "trash"
+            ? "trash"
+            : filter.kind === "spam"
+              ? "spam"
+              : null;
+      const folderFiltered = folderScope
+        ? all.filter((m) => m.wellKnownFolder === folderScope)
+        : all;
       const byThread = new Map<string, typeof all[number]>();
-      for (const m of all) {
+      for (const m of folderFiltered) {
         const existing = byThread.get(m.providerThreadId);
         if (!existing || m.internalDate.getTime() > existing.internalDate.getTime()) {
           byThread.set(m.providerThreadId, m);
         }
       }
+      // Inbox-style views never want trash/spam noise leaking in; the
+      // generic compiler should only ever see folders we present as
+      // "main mail" — inbox + sent. Done/Snoozed/All operate on the
+      // user's curated open conversations and intentionally include
+      // sent items.
       let candidates = [...byThread.values()];
-
-      // Sent short-circuit: provider label SENT (Gmail) / equivalent
-      // on Outlook (we approximate via "to" containing the user's
-      // address; once we cache provider folder labels for Outlook
-      // we'll switch to that).
-      if (filter.kind === "sent") {
-        candidates = candidates.filter((m) => m.labelsJson.includes("SENT"));
+      if (!folderScope) {
+        candidates = candidates.filter(
+          (m) => m.wellKnownFolder !== "trash" && m.wellKnownFolder !== "spam",
+        );
       }
 
       // Status filter via per-user thread state. We pre-load just the

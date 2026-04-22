@@ -78,11 +78,28 @@ export interface SearchHit {
   readonly rank: number;
 }
 
+export type SyncFolder =
+  | "inbox"
+  | "sent"
+  | "drafts"
+  | "trash"
+  | "spam"
+  | "archive";
+
 export interface SyncResult {
   readonly fetched: number;
   readonly inserted: number;
   readonly updated: number;
+  // Number of rows soft-deleted via the delta path. 0 for full syncs.
+  readonly deleted?: number;
   readonly durationMs: number;
+  // Which path the server took. "delta" means the adapter's pullDelta
+  // returned a usable watermark; "full" means listMessages walk.
+  readonly mode?: "delta" | "full";
+  readonly perFolder?: ReadonlyArray<{
+    readonly folder: SyncFolder;
+    readonly fetched: number;
+  }>;
 }
 
 export type InboxRole = "inbox-admin" | "agent" | "viewer";

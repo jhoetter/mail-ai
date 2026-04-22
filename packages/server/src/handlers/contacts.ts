@@ -25,15 +25,14 @@ import {
 } from "@mailai/overlay-db";
 import {
   getValidAccessToken,
-  listGoogleConnections,
-  listGoogleOtherContacts,
-  listGraphContacts,
-  listGraphPeople,
+  type ProviderCredentials,
+} from "@mailai/oauth-tokens";
+import type { ContactsProviderRegistry } from "@mailai/providers";
+import {
   pickPrimaryEmail,
   type ContactSource,
   type NormalizedContact,
-  type ProviderCredentials,
-} from "@mailai/oauth-tokens";
+} from "@mailai/providers/contacts";
 
 // 24 hours. Contacts churn slowly enough that this is comfortable;
 // the freshness threshold matches Gmail's own perceived latency for
@@ -44,6 +43,10 @@ export interface ContactsSyncDeps {
   readonly accounts: OauthAccountsRepository;
   readonly contacts: OauthContactsRepository;
   readonly credentials: ProviderCredentials;
+  // Provider-agnostic surface; the per-source fan-out below picks
+  // `listOwn/Other/Frequent` off the adapter so we don't have to
+  // branch on `account.provider` in the handler.
+  readonly contactsProviders: ContactsProviderRegistry;
   readonly fetchImpl?: typeof fetch;
 }
 
@@ -95,19 +98,28 @@ export async function syncContactsForAccount(
 
   const perSource: ContactsSyncResult["perSource"] = [];
 
-  if (account.provider === "google-mail") {
-    const my = await safeList(() => listGoogleConnections({ accessToken, ...passFetch(deps) }));
+  const adapter = deps.contactsProviders.for(account.provider);
+  if (!adapter) {
+    throw new Error(
+      `no contacts adapter registered for provider ${account.provider}`,
+    );
+  }
+
+  // Fan out across the three normalized sources. Adapters that don't
+  // support a source return [] (capability also says false), which
+  // applySource below handles correctly: it will delete-missing the
+  // empty set, leaving any prior cache for that source intact.
+  if (adapter.capabilities.ownContacts) {
+    const my = await safeList(() => Promise.resolve(adapter.listOwnContacts({ accessToken })).then((r) => [...r]));
     perSource.push(await applySource(deps, account, "my", my));
-    const other = await safeList(() => listGoogleOtherContacts({ accessToken, ...passFetch(deps) }));
+  }
+  if (adapter.capabilities.otherContacts) {
+    const other = await safeList(() => Promise.resolve(adapter.listOtherContacts({ accessToken })).then((r) => [...r]));
     perSource.push(await applySource(deps, account, "other", other));
-  } else if (account.provider === "outlook") {
-    const my = await safeList(() => listGraphContacts({ accessToken, ...passFetch(deps) }));
-    perSource.push(await applySource(deps, account, "my", my));
-    const people = await safeList(() => listGraphPeople({ accessToken, ...passFetch(deps) }));
+  }
+  if (adapter.capabilities.frequentPeople) {
+    const people = await safeList(() => Promise.resolve(adapter.listFrequent({ accessToken })).then((r) => [...r]));
     perSource.push(await applySource(deps, account, "people", people));
-  } else {
-    const _exhaustive: never = account.provider;
-    throw new Error(`unknown oauth provider: ${String(_exhaustive)}`);
   }
 
   return {
@@ -163,6 +175,3 @@ async function safeList(
   }
 }
 
-function passFetch(deps: ContactsSyncDeps): { fetchImpl?: typeof fetch } {
-  return deps.fetchImpl ? { fetchImpl: deps.fetchImpl } : {};
-}

@@ -11,7 +11,7 @@ export interface ViewFilter {
   fromContains?: string;
   unread?: boolean;
   accountIds?: string[];
-  kind?: "default" | "drafts" | "sent" | "all";
+  kind?: "default" | "drafts" | "sent" | "trash" | "spam" | "all";
 }
 
 export interface ViewSummary {

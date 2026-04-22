@@ -19,6 +19,7 @@ export * from "./repositories/drafts.js";
 export * from "./repositories/calendar.js";
 export * from "./repositories/attachments.js";
 export * from "./repositories/oauth-attachments.js";
+export * from "./repositories/oauth-push-subscriptions.js";
 export * from "./repositories/oauth-contacts.js";
 export * from "./repositories/draft-attachments.js";
 export * from "./repositories/inboxes.js";

@@ -35,6 +35,12 @@ export interface OauthAccountRow {
   readonly lastSyncError: string | null;
   readonly signatureHtml: string | null;
   readonly signatureText: string | null;
+  // Provider delta watermarks (Phase 6). `historyId` is Gmail's
+  // monotonic per-mailbox counter; `deltaLink` is Microsoft Graph's
+  // opaque resume URL. Both are NULL until the first successful
+  // delta-capable sync, and reset to NULL on 404/410 expiries.
+  readonly historyId: string | null;
+  readonly deltaLink: string | null;
 }
 
 export interface OauthAccountInsert {
@@ -205,6 +211,24 @@ export class OauthAccountsRepository {
         lastSyncError: args.error,
         updatedAt: new Date(),
       })
+      .where(and(eq(oauthAccounts.tenantId, tenantId), eq(oauthAccounts.id, id)));
+  }
+
+  // Persist the provider's delta watermark after a successful pull.
+  // Either field may be passed independently — Gmail uses
+  // `historyId`, Graph uses `deltaLink`. Passing `null` explicitly
+  // clears the column (used when a 404/410 forces a re-baseline).
+  async setWatermark(
+    tenantId: string,
+    id: string,
+    args: { historyId?: string | null; deltaLink?: string | null },
+  ): Promise<void> {
+    const set: Record<string, unknown> = { updatedAt: new Date() };
+    if (args.historyId !== undefined) set["historyId"] = args.historyId;
+    if (args.deltaLink !== undefined) set["deltaLink"] = args.deltaLink;
+    await this.db
+      .update(oauthAccounts)
+      .set(set as never)
       .where(and(eq(oauthAccounts.tenantId, tenantId), eq(oauthAccounts.id, id)));
   }
 

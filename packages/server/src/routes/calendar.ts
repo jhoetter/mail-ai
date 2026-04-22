@@ -12,12 +12,9 @@ import {
 } from "@mailai/overlay-db";
 import {
   getValidAccessToken,
-  listGoogleCalendars,
-  listGoogleEvents,
-  listGraphCalendars,
-  listGraphEvents,
   type ProviderCredentials,
 } from "@mailai/oauth-tokens";
+import type { CalendarProviderRegistry } from "@mailai/providers";
 
 export interface CalendarRoutesDeps {
   readonly pool: Pool;
@@ -26,6 +23,9 @@ export interface CalendarRoutesDeps {
     tenantId: string;
   }>;
   readonly credentials?: ProviderCredentials;
+  // Optional so smoke tests / integration tests can boot the routes
+  // without provider wiring; routes that need it return a clear error.
+  readonly calendarProviders?: CalendarProviderRegistry;
 }
 
 export function registerCalendarRoutes(
@@ -37,15 +37,25 @@ export function registerCalendarRoutes(
     return withTenant(deps.pool, ident.tenantId, async (tx) => {
       const repo = new CalendarRepository(tx);
       const list = await repo.listCalendars(ident.tenantId);
+      // Surface the calendar adapter's capabilities so the UI can
+      // gate Meet/Teams entries (and any future conference type) off
+      // the port instead of a hardcoded provider-string check.
       return {
-        calendars: list.map((c) => ({
-          id: c.id,
-          name: c.name,
-          color: c.color,
-          provider: c.provider,
-          isPrimary: c.isPrimary,
-          isVisible: c.isVisible,
-        })),
+        calendars: list.map((c) => {
+          const adapter = deps.calendarProviders?.for(c.provider) ?? null;
+          const conferences = adapter ? adapter.capabilities.conferences : [];
+          return {
+            id: c.id,
+            name: c.name,
+            color: c.color,
+            provider: c.provider,
+            isPrimary: c.isPrimary,
+            isVisible: c.isVisible,
+            capabilities: {
+              conferences,
+            },
+          };
+        }),
       };
     });
   });
@@ -71,21 +81,18 @@ export function registerCalendarRoutes(
             accounts: accountsRepo,
             credentials,
           });
-          const cals =
-            account.provider === "google-mail"
-              ? await listGoogleCalendars({ accessToken })
-              : account.provider === "outlook"
-                ? await listGraphCalendars({ accessToken })
-                : [];
+          const adapter = deps.calendarProviders?.for(account.provider) ?? null;
+          if (!adapter) continue;
+          const cals = await adapter.listCalendars({ accessToken });
           for (const c of cals) {
             await repo.upsertCalendar({
               id: `cal_${account.id}_${stableHash(c.providerCalendarId)}`,
               tenantId: ident.tenantId,
               oauthAccountId: account.id,
-              provider: account.provider as "google-mail" | "outlook",
+              provider: account.provider,
               providerCalendarId: c.providerCalendarId,
               name: c.name,
-              color: c.color,
+              color: c.color ?? null,
               isPrimary: c.isPrimary,
             });
             synced += 1;
@@ -129,22 +136,15 @@ export function registerCalendarRoutes(
               accounts: accountsRepo,
               credentials: deps.credentials,
             });
-            const events =
-              account.provider === "google-mail"
-                ? await listGoogleEvents({
-                    accessToken,
-                    calendarId: calendar.providerCalendarId,
-                    timeMin: from,
-                    timeMax: to,
-                  })
-                : account.provider === "outlook"
-                  ? await listGraphEvents({
-                      accessToken,
-                      calendarId: calendar.providerCalendarId,
-                      timeMin: from,
-                      timeMax: to,
-                    })
-                  : [];
+            const adapter = deps.calendarProviders?.for(account.provider) ?? null;
+            const events = adapter
+              ? await adapter.listEvents({
+                  accessToken,
+                  calendarId: calendar.providerCalendarId,
+                  timeMin: from,
+                  timeMax: to,
+                })
+              : [];
             for (const e of events) {
               await repo.upsertEvent({
                 id: `evt_${account.id}_${stableHash(e.providerEventId)}`,

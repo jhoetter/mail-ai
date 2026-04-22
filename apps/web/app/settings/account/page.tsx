@@ -11,6 +11,7 @@ import {
 } from "../../lib/oauth-client";
 import { LocaleToggle } from "../../lib/i18n/LocaleToggle";
 import { useTranslator } from "../../lib/i18n/useTranslator";
+import { useSyncEvents } from "../../lib/realtime";
 
 interface AccountRow extends AccountSummary {
   // Plain-data row only — JSX renderers live in the columns def so the
@@ -25,6 +26,7 @@ export default function AccountSettingsPage() {
   const [loadError, setLoadError] = useState<string | null>(null);
   const [open, setOpen] = useState(false);
   const [syncingId, setSyncingId] = useState<string | null>(null);
+  const [backfillingId, setBackfillingId] = useState<string | null>(null);
 
   const refresh = useCallback(async () => {
     setLoading(true);
@@ -41,6 +43,15 @@ export default function AccountSettingsPage() {
   useEffect(() => {
     void refresh();
   }, [refresh]);
+
+  // Pick up `last_synced_at` updates the moment the SyncScheduler
+  // emits a `sync` event for any account, so the "Last synced" column
+  // doesn't go stale while the page is open.
+  useSyncEvents(
+    useCallback(() => {
+      void refresh();
+    }, [refresh]),
+  );
 
   const onDisconnect = useCallback(
     async (id: string) => {
@@ -77,6 +88,46 @@ export default function AccountSettingsPage() {
         alert(err instanceof Error ? err.message : String(err));
       } finally {
         setSyncingId(null);
+      }
+    },
+    [refresh],
+  );
+
+  // Deeper pull than `Sync now`: walks the full folder set (inbox +
+  // sent + drafts + trash + spam + archive) and asks the server for
+  // up to 25 pages each, so the user can intentionally backfill
+  // months of history. Mirrors the same /api/accounts/:id/sync
+  // endpoint with extra query params.
+  const onBackfill = useCallback(
+    async (id: string) => {
+      if (
+        !confirm(
+          "Backfill the last few thousand messages across Inbox, Sent, Drafts, Trash, Spam, and Archive? This may take a minute.",
+        )
+      ) {
+        return;
+      }
+      setBackfillingId(id);
+      try {
+        const r = await syncAccount(id, {
+          folders: ["inbox", "sent", "drafts", "trash", "spam", "archive"],
+          backfillPages: 25,
+        });
+        await refresh();
+        const breakdown = (r.perFolder ?? [])
+          .filter((p) => p.fetched > 0)
+          .map((p) => `${p.folder} ${p.fetched}`)
+          .join(", ");
+        // eslint-disable-next-line no-alert -- intentional, swap for toast later
+        alert(
+          `Backfill done in ${r.durationMs} ms — ${r.fetched} messages${
+            breakdown ? ` (${breakdown})` : ""
+          }`,
+        );
+      } catch (err) {
+        alert(err instanceof Error ? err.message : String(err));
+      } finally {
+        setBackfillingId(null);
       }
     },
     [refresh],
@@ -168,6 +219,14 @@ export default function AccountSettingsPage() {
                       onClick={() => void onSync(r.id)}
                     >
                       {syncingId === r.id ? "Syncing…" : "Sync now"}
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      disabled={backfillingId === r.id}
+                      onClick={() => void onBackfill(r.id)}
+                    >
+                      {backfillingId === r.id ? "Backfilling…" : "Backfill"}
                     </Button>
                     <Button
                       variant="ghost"

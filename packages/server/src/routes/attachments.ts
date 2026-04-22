@@ -21,16 +21,16 @@ import {
   type Pool,
 } from "@mailai/overlay-db";
 import {
-  fetchGmailAttachmentBytes,
-  fetchGraphAttachmentBytes,
   getValidAccessToken,
   type ProviderCredentials,
 } from "@mailai/oauth-tokens";
+import type { MailProviderRegistry } from "@mailai/providers";
 
 export interface AttachmentRoutesDeps {
   readonly pool: Pool;
   readonly objectStore: ObjectStore;
   readonly credentials: ProviderCredentials;
+  readonly providers: MailProviderRegistry;
   readonly identity: (req: { headers: Record<string, unknown> }) => Promise<{
     userId: string;
     tenantId: string;
@@ -107,28 +107,21 @@ async function ensureCached(
       accounts,
       credentials: deps.credentials,
     });
-    let bytes: Buffer;
-    if (account.provider === "google-mail") {
-      if (!row.providerAttachmentId) {
-        throw new Error(`gmail attachment ${row.id} has no providerAttachmentId`);
-      }
-      bytes = await fetchGmailAttachmentBytes({
-        accessToken,
-        messageId: row.providerMessageId,
-        attachmentId: row.providerAttachmentId,
-      });
-    } else if (account.provider === "outlook") {
-      if (!row.providerAttachmentId) {
-        throw new Error(`graph attachment ${row.id} has no providerAttachmentId`);
-      }
-      bytes = await fetchGraphAttachmentBytes({
-        accessToken,
-        messageId: row.providerMessageId,
-        attachmentId: row.providerAttachmentId,
-      });
-    } else {
-      throw new Error(`unknown provider for attachment ${row.id}`);
+    if (!row.providerAttachmentId) {
+      throw new Error(`attachment ${row.id} has no providerAttachmentId`);
     }
+    const bytes = await deps.providers.for(account.provider).fetchAttachmentBytes({
+      accessToken,
+      providerMessageId: row.providerMessageId,
+      attachment: {
+        providerAttachmentId: row.providerAttachmentId,
+        filename: row.filename ?? "attachment",
+        mime: row.mime,
+        sizeBytes: row.sizeBytes,
+        contentId: row.contentId ?? null,
+        isInline: row.isInline,
+      },
+    });
     await deps.objectStore.put(row.objectKey, bytes, row.mime);
     await attRepo.markCached(tenantId, row.id);
   });

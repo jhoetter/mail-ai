@@ -363,17 +363,20 @@ function EventComposer({
   const [err, setErr] = useState<string | null>(null);
 
   // Switching calendars can move us between providers; if the new
-  // calendar can't host the currently-selected meeting type, fall back
-  // to "none" instead of letting the server reject the create.
+  // calendar's adapter doesn't advertise the currently-selected
+  // conference capability, fall back to "none" instead of letting the
+  // server reject the create. Capability set comes from the
+  // CalendarProvider port — we never check provider strings here.
   const selectedCalendar = calendars.find((c) => c.id === calendarId);
+  const supportsGmeet =
+    selectedCalendar?.capabilities.conferences.includes("google") ?? false;
+  const supportsTeams =
+    selectedCalendar?.capabilities.conferences.includes("microsoft") ?? false;
   useEffect(() => {
     if (!selectedCalendar) return;
-    if (meeting === "gmeet" && selectedCalendar.provider !== "google-mail") {
-      setMeeting("none");
-    } else if (meeting === "teams" && selectedCalendar.provider !== "outlook") {
-      setMeeting("none");
-    }
-  }, [selectedCalendar, meeting]);
+    if (meeting === "gmeet" && !supportsGmeet) setMeeting("none");
+    else if (meeting === "teams" && !supportsTeams) setMeeting("none");
+  }, [selectedCalendar, meeting, supportsGmeet, supportsTeams]);
 
   const submit = async () => {
     setBusy(true);
@@ -437,16 +440,10 @@ function EventComposer({
           className="h-9 rounded-md border border-divider bg-background px-2 text-sm"
         >
           <option value="none">{t("calendar.meetingNone")}</option>
-          <option
-            value="gmeet"
-            disabled={selectedCalendar?.provider !== "google-mail"}
-          >
+          <option value="gmeet" disabled={!supportsGmeet}>
             {t("calendar.meetingGmeet")}
           </option>
-          <option
-            value="teams"
-            disabled={selectedCalendar?.provider !== "outlook"}
-          >
+          <option value="teams" disabled={!supportsTeams}>
             {t("calendar.meetingTeams")}
           </option>
         </select>

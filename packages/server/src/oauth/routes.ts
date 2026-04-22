@@ -32,6 +32,7 @@ import {
   loadProviderCredentialsFromEnv,
   type ProviderCredentials,
 } from "@mailai/oauth-tokens";
+import type { MailProviderRegistry } from "@mailai/providers";
 import { NangoClient } from "./nango-client.js";
 import { syncOauthAccount } from "./sync.js";
 
@@ -53,6 +54,9 @@ export interface OauthRoutesDeps {
   // OAuth client credentials for direct token refresh + REST sync.
   // When omitted we read from env so existing callers don't break.
   readonly credentials?: ProviderCredentials;
+  // Registry of mail provider adapters. Required so syncOauthAccount
+  // can dispatch to the right adapter without an if/else here.
+  readonly providers: MailProviderRegistry;
 }
 
 const ProviderSchema = z.enum(["google-mail", "outlook"]);
@@ -149,12 +153,23 @@ export function registerOauthRoutes(app: FastifyInstance, deps: OauthRoutesDeps)
     // access token we just received, so it can't go stale.
     let resolvedEmail: string | null = null;
     try {
-      if (parsed.data.provider === "google-mail") {
-        const u = await fetchGoogleUserInfo({ accessToken: creds.access_token });
-        resolvedEmail = u.email;
-      } else {
-        const u = await fetchMicrosoftUserInfo({ accessToken: creds.access_token });
-        resolvedEmail = u.email;
+      switch (parsed.data.provider) {
+        case "google-mail": {
+          const u = await fetchGoogleUserInfo({ accessToken: creds.access_token });
+          resolvedEmail = u.email;
+          break;
+        }
+        case "outlook": {
+          const u = await fetchMicrosoftUserInfo({ accessToken: creds.access_token });
+          resolvedEmail = u.email;
+          break;
+        }
+        default: {
+          // Forces a TS error if MailProviderId grows another
+          // variant — adding a provider has to extend this switch.
+          const _exhaustive: never = parsed.data.provider;
+          throw new Error(`unhandled oauth provider ${String(_exhaustive)}`);
+        }
       }
     } catch (err) {
       app.log.warn({ err }, "userinfo lookup failed; falling back to Nango fields");
@@ -211,7 +226,12 @@ export function registerOauthRoutes(app: FastifyInstance, deps: OauthRoutesDeps)
       const messages = new OauthMessagesRepository(tx);
       const fresh = await accounts.byId(ident.tenantId, saved.id);
       if (!fresh) return null;
-      return syncOauthAccount(fresh, { accounts, messages, credentials });
+      return syncOauthAccount(fresh, {
+        accounts,
+        messages,
+        credentials,
+        providers: deps.providers,
+      });
     });
     let syncResult: Awaited<typeof syncPromise> | null = null;
     try {
@@ -242,13 +262,30 @@ export function registerOauthRoutes(app: FastifyInstance, deps: OauthRoutesDeps)
     if (!id || !id.startsWith("oa_")) {
       return reply.code(400).send({ error: "bad_id" });
     }
+    // Optional knobs for the Settings backfill button. The sync
+    // call falls back to its built-in defaults (inbox + sent +
+    // drafts, page size 100, 5 pages) when these are absent.
+    const q = (req.query as { folders?: string; backfill?: string }) ?? {};
+    const requestedFolders = parseFolders(q.folders);
+    const backfillPages = parsePositiveInt(q.backfill);
     try {
       const result = await withTenant(deps.pool, ident.tenantId, async (tx) => {
         const accounts = new OauthAccountsRepository(tx);
         const messages = new OauthMessagesRepository(tx);
         const account = await accounts.byId(ident.tenantId, id);
         if (!account) return { notFound: true as const };
-        const r = await syncOauthAccount(account, { accounts, messages, credentials });
+        const r = await syncOauthAccount(account, {
+          accounts,
+          messages,
+          credentials,
+          providers: deps.providers,
+          ...(requestedFolders ? { folders: requestedFolders } : {}),
+          ...(backfillPages ? { maxPagesPerFolder: backfillPages } : {}),
+          // The Backfill button passes `backfill=N`; that intent is
+          // "walk listMessages, ignore any delta watermark". Encode it
+          // here so the UI doesn't have to know the column model.
+          ...(backfillPages ? { forceFull: true } : {}),
+        });
         return { notFound: false as const, ...r };
       });
       if (result.notFound) {
@@ -343,6 +380,38 @@ interface AccountSummary {
   readonly createdAt: string;
   readonly lastSyncedAt: string | null;
   readonly lastSyncError: string | null;
+}
+
+// Parse the comma-separated `folders` query param into a typed
+// well-known folder list. Anything we don't recognize is dropped
+// (the registry would skip it anyway).
+function parseFolders(
+  raw: string | undefined,
+): ReadonlyArray<"inbox" | "sent" | "drafts" | "trash" | "spam" | "archive"> | null {
+  if (!raw) return null;
+  const allowed = new Set([
+    "inbox",
+    "sent",
+    "drafts",
+    "trash",
+    "spam",
+    "archive",
+  ]);
+  const parts = raw
+    .split(",")
+    .map((s) => s.trim().toLowerCase())
+    .filter((s): s is "inbox" | "sent" | "drafts" | "trash" | "spam" | "archive" =>
+      allowed.has(s),
+    );
+  return parts.length > 0 ? parts : null;
+}
+
+function parsePositiveInt(raw: string | undefined): number | null {
+  if (!raw) return null;
+  const n = Number.parseInt(raw, 10);
+  if (!Number.isFinite(n) || n <= 0) return null;
+  // Hard cap so a misclick can't ask for 10_000 pages.
+  return Math.min(n, 50);
 }
 
 function toSummary(

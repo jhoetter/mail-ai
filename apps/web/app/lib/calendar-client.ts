@@ -3,6 +3,15 @@
 import { baseUrl } from "./api";
 import { dispatchCommand } from "./commands-client";
 
+// Conferencing types this calendar's provider can mint. Read off
+// CalendarProvider.capabilities.conferences on the server so the UI
+// doesn't have to map provider strings to features.
+export type CalendarConferenceCapability = "google" | "microsoft";
+
+export interface CalendarCapabilities {
+  conferences: CalendarConferenceCapability[];
+}
+
 export interface CalendarSummary {
   id: string;
   name: string;
@@ -10,6 +19,9 @@ export interface CalendarSummary {
   provider: "google-mail" | "outlook";
   isPrimary: boolean;
   isVisible: boolean;
+  // Always present; defaults to an empty set on calendars without a
+  // registered adapter so the UI degrades to "no conferences".
+  capabilities: CalendarCapabilities;
 }
 
 export interface EventAttendee {
@@ -46,8 +58,17 @@ export type MeetingChoice = "gmeet" | "teams" | "none";
 export async function listCalendars(): Promise<CalendarSummary[]> {
   const res = await fetch(`${baseUrl()}/api/calendars`);
   if (!res.ok) throw new Error(`/api/calendars ${res.status}`);
-  const data = (await res.json()) as { calendars: CalendarSummary[] };
-  return data.calendars;
+  const data = (await res.json()) as {
+    calendars: ReadonlyArray<Omit<CalendarSummary, "capabilities"> & {
+      capabilities?: Partial<CalendarCapabilities>;
+    }>;
+  };
+  // Normalize any older server response that hasn't shipped
+  // capabilities yet so the rest of the UI can treat it as required.
+  return data.calendars.map((c) => ({
+    ...c,
+    capabilities: { conferences: c.capabilities?.conferences ?? [] },
+  }));
 }
 
 export async function syncCalendars(): Promise<void> {

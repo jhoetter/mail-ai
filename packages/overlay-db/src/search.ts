@@ -77,6 +77,7 @@ export async function searchOauthMessages(
                ) AS rank
         FROM oauth_messages
         WHERE tenant_id = ${opts.tenantId}
+          AND deleted_at IS NULL
           AND to_tsvector('simple',
                 coalesce(subject,'') || ' ' ||
                 coalesce(snippet,'') || ' ' ||

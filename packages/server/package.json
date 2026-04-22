@@ -20,6 +20,7 @@
     "@mailai/mime": "workspace:*",
     "@mailai/oauth-tokens": "workspace:*",
     "@mailai/overlay-db": "workspace:*",
+    "@mailai/providers": "workspace:*",
     "fastify": "^5.1.0",
     "ws": "^8.18.0",
     "zod": "^3.23.8"

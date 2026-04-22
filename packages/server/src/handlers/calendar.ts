@@ -36,26 +36,25 @@ import {
   type IcsPartstat,
 } from "@mailai/mime";
 import {
-  createGoogleEvent,
-  createGraphEvent,
-  deleteGoogleEvent,
-  deleteGraphEvent,
-  getGoogleEvent,
-  getGraphEvent,
   getValidAccessToken,
-  patchGoogleEvent,
-  patchGraphEvent,
-  respondGoogleEvent,
-  respondGraphEvent,
-  sendGmail,
-  sendGraphRawMime,
   type ProviderCredentials,
 } from "@mailai/oauth-tokens";
+import type {
+  CalendarProvider,
+  CalendarProviderRegistry,
+  MailProviderRegistry,
+} from "@mailai/providers";
+import type { NormalizedEventPatch } from "@mailai/providers/calendar";
 
 export interface CalendarHandlerDeps {
   readonly pool: Pool;
   readonly tenantId: string;
   readonly credentials: ProviderCredentials;
+  readonly calendarProviders: CalendarProviderRegistry;
+  // The iTIP envelope is delivered over the mail surface, so the
+  // calendar handler also needs the MailProviderRegistry to fan out
+  // REQUEST / REPLY / CANCEL.
+  readonly mailProviders: MailProviderRegistry;
 }
 
 // 'gmeet' / 'teams' force a provider-side conference; 'none' skips it.
@@ -103,53 +102,27 @@ export function buildCalendarCreateEventHandler(
     const startsAt = new Date(cmd.payload.startsAt);
     const endsAt = new Date(cmd.payload.endsAt);
     const meeting: MeetingChoice = cmd.payload.meeting ?? "none";
-    assertMeetingCompatible(meeting, ctx.account.provider);
+    assertMeetingCompatible(meeting, ctx.account.provider, ctx.calendarAdapter);
     const attendees = cmd.payload.attendees ?? [];
 
-    let providerEventId: string;
-    let icalUid: string;
-    let joinUrl: string | null = null;
-    let sequence = 0;
-    if (ctx.account.provider === "google-mail") {
-      const r = await createGoogleEvent({
-        accessToken: ctx.accessToken,
-        calendarId: ctx.calendar.providerCalendarId,
-        summary: cmd.payload.summary,
-        ...(cmd.payload.description ? { description: cmd.payload.description } : {}),
-        ...(cmd.payload.location ? { location: cmd.payload.location } : {}),
-        startsAt,
-        endsAt,
-        ...(cmd.payload.allDay !== undefined ? { allDay: cmd.payload.allDay } : {}),
-        ...(attendees.length > 0 ? { attendees } : {}),
-        withGoogleMeet: meeting === "gmeet",
-        sendUpdates: "none",
-      });
-      providerEventId = r.providerEventId;
-      icalUid = r.icalUid;
-      joinUrl = r.joinUrl;
-      sequence = r.sequence;
-    } else if (ctx.account.provider === "outlook") {
-      const r = await createGraphEvent({
-        accessToken: ctx.accessToken,
-        calendarId: ctx.calendar.providerCalendarId,
-        summary: cmd.payload.summary,
-        ...(cmd.payload.description ? { description: cmd.payload.description } : {}),
-        ...(cmd.payload.location ? { location: cmd.payload.location } : {}),
-        startsAt,
-        endsAt,
-        ...(attendees.length > 0 ? { attendees } : {}),
-        withMicrosoftTeams: meeting === "teams",
-      });
-      providerEventId = r.providerEventId;
-      icalUid = r.icalUid;
-      joinUrl = r.joinUrl;
-      sequence = r.sequence;
-    } else {
-      throw new MailaiError(
-        "validation_error",
-        `unsupported provider ${ctx.account.provider}`,
-      );
-    }
+    const created = await ctx.calendarAdapter.createEvent({
+      accessToken: ctx.accessToken,
+      calendarId: ctx.calendar.providerCalendarId,
+      summary: cmd.payload.summary,
+      ...(cmd.payload.description !== undefined
+        ? { description: cmd.payload.description }
+        : {}),
+      ...(cmd.payload.location !== undefined ? { location: cmd.payload.location } : {}),
+      startsAt,
+      endsAt,
+      ...(cmd.payload.allDay !== undefined ? { allDay: cmd.payload.allDay } : {}),
+      ...(attendees.length > 0 ? { attendees } : {}),
+      conference: meetingChoiceToConference(meeting),
+    });
+    const providerEventId = created.providerEventId;
+    const icalUid = created.icalUid;
+    const joinUrl: string | null = created.joinUrl;
+    const sequence = created.sequence;
 
     const meetingProvider: EventMeetingProvider | null =
       meeting === "gmeet" ? "google-meet" : meeting === "teams" ? "ms-teams" : null;
@@ -217,51 +190,22 @@ export function buildCalendarUpdateEventHandler(
       throw new MailaiError("not_found", `event ${cmd.payload.eventId} not found`);
     }
     const ctx = await loadCalendar(deps, event.calendarId);
-    const patch: Record<string, unknown> = {};
-    if (cmd.payload.summary !== undefined) patch["summary"] = cmd.payload.summary;
-    if (cmd.payload.description !== undefined) patch["description"] = cmd.payload.description;
-    if (cmd.payload.location !== undefined) patch["location"] = cmd.payload.location;
-    if (cmd.payload.startsAt) {
-      patch["start"] = { dateTime: new Date(cmd.payload.startsAt).toISOString() };
-    }
-    if (cmd.payload.endsAt) {
-      patch["end"] = { dateTime: new Date(cmd.payload.endsAt).toISOString() };
-    }
-
-    if (ctx.account.provider === "google-mail") {
-      await patchGoogleEvent({
-        accessToken: ctx.accessToken,
-        calendarId: ctx.calendar.providerCalendarId,
-        providerEventId: event.providerEventId,
-        patch,
-      });
-    } else if (ctx.account.provider === "outlook") {
-      const graphPatch: Record<string, unknown> = {};
-      if (cmd.payload.summary !== undefined) graphPatch["subject"] = cmd.payload.summary;
-      if (cmd.payload.description !== undefined) {
-        graphPatch["body"] = { contentType: "text", content: cmd.payload.description };
-      }
-      if (cmd.payload.location !== undefined) {
-        graphPatch["location"] = { displayName: cmd.payload.location };
-      }
-      if (cmd.payload.startsAt) {
-        graphPatch["start"] = {
-          dateTime: new Date(cmd.payload.startsAt).toISOString(),
-          timeZone: "UTC",
-        };
-      }
-      if (cmd.payload.endsAt) {
-        graphPatch["end"] = {
-          dateTime: new Date(cmd.payload.endsAt).toISOString(),
-          timeZone: "UTC",
-        };
-      }
-      await patchGraphEvent({
-        accessToken: ctx.accessToken,
-        providerEventId: event.providerEventId,
-        patch: graphPatch,
-      });
-    }
+    // Build a normalized patch — every set field flows into a
+    // provider-shaped body inside the adapter so this handler stays
+    // free of provider branching.
+    const patch: NormalizedEventPatch = {
+      ...(cmd.payload.summary !== undefined ? { summary: cmd.payload.summary } : {}),
+      ...(cmd.payload.description !== undefined ? { description: cmd.payload.description } : {}),
+      ...(cmd.payload.location !== undefined ? { location: cmd.payload.location } : {}),
+      ...(cmd.payload.startsAt ? { startsAt: new Date(cmd.payload.startsAt) } : {}),
+      ...(cmd.payload.endsAt ? { endsAt: new Date(cmd.payload.endsAt) } : {}),
+    };
+    await ctx.calendarAdapter.patchEvent({
+      accessToken: ctx.accessToken,
+      calendarId: ctx.calendar.providerCalendarId,
+      providerEventId: event.providerEventId,
+      patch,
+    });
 
     const startsAt = cmd.payload.startsAt ? new Date(cmd.payload.startsAt) : event.startsAt;
     const endsAt = cmd.payload.endsAt ? new Date(cmd.payload.endsAt) : event.endsAt;
@@ -373,18 +317,11 @@ export function buildCalendarDeleteEventHandler(
       });
     }
 
-    if (ctx.account.provider === "google-mail") {
-      await deleteGoogleEvent({
-        accessToken: ctx.accessToken,
-        calendarId: ctx.calendar.providerCalendarId,
-        providerEventId: event.providerEventId,
-      });
-    } else if (ctx.account.provider === "outlook") {
-      await deleteGraphEvent({
-        accessToken: ctx.accessToken,
-        providerEventId: event.providerEventId,
-      });
-    }
+    await ctx.calendarAdapter.deleteEvent({
+      accessToken: ctx.accessToken,
+      calendarId: ctx.calendar.providerCalendarId,
+      providerEventId: event.providerEventId,
+    });
     await withTenant(deps.pool, deps.tenantId, (tx) =>
       new CalendarRepository(tx).deleteEvent(deps.tenantId, event.id),
     );
@@ -410,22 +347,14 @@ export function buildCalendarRespondHandler(
     }
     const ctx = await loadCalendar(deps, event.calendarId);
 
-    if (ctx.account.provider === "google-mail") {
-      await respondGoogleEvent({
-        accessToken: ctx.accessToken,
-        calendarId: ctx.calendar.providerCalendarId,
-        providerEventId: event.providerEventId,
-        attendeeEmail: ctx.account.email,
-        response: cmd.payload.response,
-      });
-    } else if (ctx.account.provider === "outlook") {
-      await respondGraphEvent({
-        accessToken: ctx.accessToken,
-        providerEventId: event.providerEventId,
-        response: cmd.payload.response,
-        ...(cmd.payload.comment ? { comment: cmd.payload.comment } : {}),
-      });
-    }
+    await ctx.calendarAdapter.respondEvent({
+      accessToken: ctx.accessToken,
+      calendarId: ctx.calendar.providerCalendarId,
+      providerEventId: event.providerEventId,
+      attendeeEmail: ctx.account.email,
+      response: cmd.payload.response,
+      ...(cmd.payload.comment ? { comment: cmd.payload.comment } : {}),
+    });
 
     // Send the iTIP REPLY back to the organizer over SMTP. We
     // deliberately do NOT bump SEQUENCE here — RFC 5546 §3.2.3 says
@@ -472,9 +401,18 @@ export function buildCalendarRespondHandler(
 }
 
 interface CalendarContext {
-  readonly account: { id: string; email: string; provider: string };
+  readonly account: {
+    id: string;
+    email: string;
+    provider: "google-mail" | "outlook";
+  };
   readonly calendar: { id: string; providerCalendarId: string };
   readonly accessToken: string;
+  // Pre-resolved adapter so handlers don't have to look it up on
+  // every operation. The MailProviderRegistry counterpart is held on
+  // CalendarHandlerDeps because the iTIP fan-out is global, not
+  // per-context.
+  readonly calendarAdapter: CalendarProvider;
 }
 
 async function loadCalendar(
@@ -501,6 +439,13 @@ async function loadCalendar(
       accounts: accountsRepo,
       credentials: deps.credentials,
     });
+    const adapter = deps.calendarProviders.for(account.provider);
+    if (!adapter) {
+      throw new MailaiError(
+        "validation_error",
+        `no calendar adapter registered for provider ${account.provider}`,
+      );
+    }
     return {
       account: { id: account.id, email: account.email, provider: account.provider },
       calendar: {
@@ -508,29 +453,60 @@ async function loadCalendar(
         providerCalendarId: calendar.providerCalendarId,
       },
       accessToken,
+      calendarAdapter: adapter,
     };
   });
 }
 
-// `gmeet` only makes sense on Google accounts, `teams` only on Outlook.
-// Surface a clean validation error before we ever hit the provider so
-// the UI / agent gets a `validation_error` rather than a 4xx from
-// Google or Graph.
-function assertMeetingCompatible(meeting: MeetingChoice, provider: string): void {
+// Map the UI-facing meeting choice onto the CalendarProvider's
+// `conference` shape. Kept narrow + total so a new MeetingChoice
+// variant becomes a TypeScript error here.
+function meetingChoiceToConference(
+  meeting: MeetingChoice,
+): "google" | "microsoft" | null {
   switch (meeting) {
     case "gmeet":
-      if (provider !== "google-mail") {
+      return "google";
+    case "teams":
+      return "microsoft";
+    case "none":
+      return null;
+    default: {
+      const _exhaustive: never = meeting;
+      void _exhaustive;
+      return null;
+    }
+  }
+}
+
+// Translate the Google-shaped patch we already build into the
+// Graph-shaped equivalent. Kept tight so the only thing the calendar
+// handler has to know about Graph's quirks is the field renames.
+// `gmeet` only makes sense on adapters that advertise the "google"
+// conference capability; `teams` only on adapters that advertise
+// "microsoft". We read the support set off the adapter so a future
+// CalDAV / Fastmail / etc. adapter advertising both (or neither)
+// works without touching this function.
+function assertMeetingCompatible(
+  meeting: MeetingChoice,
+  provider: "google-mail" | "outlook",
+  adapter: CalendarProvider,
+): void {
+  void provider;
+  switch (meeting) {
+    case "gmeet":
+      if (!adapter.capabilities.conferences.includes("google")) {
         throw new MailaiError(
           "validation_error",
-          "google-meet requires a Google account",
+          "google-meet requires a calendar adapter that supports Google Meet",
         );
       }
       return;
     case "teams":
-      if (provider !== "outlook") {
+      if (!adapter.capabilities.conferences.includes("microsoft")) {
         throw new MailaiError(
           "validation_error",
-          "ms-teams requires an Outlook account",
+          "ms-teams requires a calendar adapter that supports Microsoft Teams",
         );
       }
       return;
@@ -599,16 +575,27 @@ async function sendInvite(args: SendInviteArgs): Promise<void> {
     calendar: { method: args.method, ics: ics.body },
   });
 
-  if (args.ctx.account.provider === "google-mail") {
-    await sendGmail({ accessToken: args.ctx.accessToken, raw: composed.raw });
-  } else if (args.ctx.account.provider === "outlook") {
-    await sendGraphRawMime({ accessToken: args.ctx.accessToken, raw: composed.raw });
-  } else {
+  // Fan out the iTIP envelope through MailProvider.send so we don't
+  // have to know the provider's RFC 822 transport. We intentionally
+  // skip `mail-send.sendAndSnapshot` because iTIP messages aren't
+  // visible in the Sent view — they're system mail.
+  const mailAdapter = args.deps.mailProviders.for(args.ctx.account.provider);
+  if (!mailAdapter) {
     throw new MailaiError(
       "validation_error",
-      `cannot send iTIP from provider ${args.ctx.account.provider}`,
+      `no mail adapter registered for provider ${args.ctx.account.provider}`,
     );
   }
+  await mailAdapter.send({
+    accessToken: args.ctx.accessToken,
+    message: {
+      raw: composed.raw,
+      // iTIP envelopes carry their own RFC 822 Message-ID inside
+      // composeMessage's output; the send result Message-ID is fine
+      // to discard since we never persist these.
+      rfc822MessageId: `imip-${args.icalUid}`,
+    },
+  });
 }
 
 function subjectFor(method: IcsMethod, summary: string): string {
@@ -656,12 +643,6 @@ function textBodyFor(method: IcsMethod, ev: IcsEvent, joinUrl: string | null): s
   }
   return lines.join("\n");
 }
-
-// Two getters retained from the previous file's import set; if a future
-// caller needs SEQUENCE-aware reads on the provider side, these are
-// already wired and handle the per-provider differences.
-void getGoogleEvent;
-void getGraphEvent;
 
 function wrap(
   id: string,

@@ -43,8 +43,6 @@
     "loadError": "Couldn't load inbox: {error}",
     "selectThread": "Select a thread.",
     "nothingToShow": "No mail to display.",
-    "emptyTitle": "No mail synced yet.",
-    "emptyHint": "Connect a Gmail or Outlook account to start syncing mail into mail-ai. We pull recent inbox metadata over OAuth so you can triage without leaving the page.",
     "goToAccounts": "Go to Accounts →",
     "columnSubject": "Subject",
     "columnFrom": "From",
@@ -52,6 +50,43 @@
     "star": "Star",
     "unstar": "Remove star",
     "hasAttachment": "Has attachment"
+  },
+  "emptyView": {
+    "noAccountsTitle": "Connect a mailbox to get started.",
+    "noAccountsHint": "Connect a Gmail or Outlook account so mail-ai can sync your mail. We pull metadata over OAuth so you can triage without leaving the page.",
+    "goToAccounts": "Go to Accounts →",
+    "syncErrorTitle": "Sync isn't running.",
+    "syncErrorHint": "We couldn't sync this account on the last attempt. Re-authorise it in Accounts to resume.",
+    "syncErrorDetails": "Last error: {error}",
+    "openAccounts": "Open Accounts",
+    "default": {
+      "title": "Inbox is empty.",
+      "hint": "Nothing has landed in your inbox yet. New mail shows up here automatically once it syncs."
+    },
+    "drafts": {
+      "title": "No drafts.",
+      "hint": "Drafts you start show up here. Hit Compose to write a new one."
+    },
+    "sent": {
+      "title": "Nothing sent yet.",
+      "hint": "Messages you send through mail-ai show up here, and so does mail you sent from another client once it syncs."
+    },
+    "trash": {
+      "title": "Trash is empty.",
+      "hint": "Messages you delete show up here. They're permanently removed by your provider after a while."
+    },
+    "spam": {
+      "title": "Spam is empty.",
+      "hint": "Messages your provider flagged as junk show up here. Mark anything legitimate as not-spam to move it back."
+    },
+    "all": {
+      "title": "No mail yet.",
+      "hint": "All synced mail shows up here. Wait for the next sync or hit Sync now in Accounts."
+    },
+    "filtered": {
+      "title": "Nothing matches this view.",
+      "hint": "Loosen the filters or pick a different view to see more mail."
+    }
   },
   "thread": {
     "loading": "Loading thread…",
@@ -272,7 +307,11 @@
     "saved": "Saved"
   },
   "toast": {
-    "commandFailed": "Couldn't save {command}"
+    "commandFailed": "Couldn't save {command}",
+    "authTitle": "Reconnect required",
+    "authBody": "We couldn't run {command} because the connected account isn't authorized.",
+    "authCta": "Open accounts",
+    "authDetails": "Server said: {message}"
   },
   "settings": {
     "signature": {

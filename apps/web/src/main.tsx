@@ -13,6 +13,7 @@ import {
 import "../app/globals.css";
 
 import { I18nProvider } from "../app/lib/i18n";
+import { RealtimeProvider } from "../app/lib/realtime";
 import { AppShell } from "../app/lib/shell";
 import { ThemeProvider } from "../app/lib/theme-provider";
 
@@ -55,11 +56,13 @@ createRoot(rootEl).render(
   <StrictMode>
     <ThemeProvider>
       <I18nProvider>
-        <BrowserRouter>
-          <AppShell>
-            <AppRoutes />
-          </AppShell>
-        </BrowserRouter>
+        <RealtimeProvider>
+          <BrowserRouter>
+            <AppShell>
+              <AppRoutes />
+            </AppShell>
+          </BrowserRouter>
+        </RealtimeProvider>
       </I18nProvider>
     </ThemeProvider>
   </StrictMode>,

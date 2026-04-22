@@ -54,7 +54,70 @@ const SCOPED = {
   ioredis: ["imap-sync", "server"],
 };
 
+// Provider-specific transport modules inside @mailai/oauth-tokens.
+// They live behind the MailProvider/CalendarProvider/ContactsProvider/
+// PushProvider ports in @mailai/providers; only the adapter layer
+// (packages/oauth-tokens/src/adapters) and oauth-tokens' own internal
+// helpers may import them. Server handlers, routes, and the web app
+// must go through the registry.
+//
+// We match BOTH the package-relative spec (`@mailai/oauth-tokens/...`)
+// and source-relative specs (`./gmail.js`, `../graph.js`) used inside
+// oauth-tokens itself.
+const PROVIDER_INTERNAL_BARE = [
+  "@mailai/oauth-tokens/dist/gmail",
+  "@mailai/oauth-tokens/dist/graph",
+  "@mailai/oauth-tokens/dist/send",
+  "@mailai/oauth-tokens/dist/calendar",
+  "@mailai/oauth-tokens/dist/contacts",
+];
+const PROVIDER_INTERNAL_RELATIVE_RE =
+  /(^|\/)(?:gmail|graph|send|calendar|contacts)(?:\.[a-z]+)?$/;
+
+// Files that *are* allowed to import the provider internals. The
+// adapters are the boundary; the legacy oauth-tokens internal modules
+// (refresher, helpers) and any oauth-tokens test that exercises the
+// transport directly are also exempted. Any other file is a
+// violation.
+function isProviderInternalsAllowed(file) {
+  const rel = relative(ROOT, file);
+  if (rel.startsWith("packages/oauth-tokens/src/adapters/")) return true;
+  // oauth-tokens internal cross-imports (e.g. send.ts → gmail.ts).
+  // We allow anything inside oauth-tokens/src that isn't a server- or
+  // app-level consumer. The package itself owns these helpers.
+  if (rel.startsWith("packages/oauth-tokens/src/")) return true;
+  return false;
+}
+
 const IMPORT_RE = /(?:from\s+["']([^"']+)["'])|(?:require\(\s*["']([^"']+)["']\s*\))/g;
+
+// Catches the failure mode the port model exists to prevent: a server
+// handler / web route / scheduler that branches on a provider id
+// instead of asking the adapter via capabilities or a port method.
+//
+// Matches `<expr>.provider === "google-mail"` and the symmetric
+// `=== "outlook"`/`=== "imap"` plus `!==` variants. We only flag
+// equality comparisons so type narrowings via `if (x.provider) {}`
+// or string interpolations that legitimately serialize the id stay
+// allowed.
+const PROVIDER_BRANCH_RE =
+  /\bprovider\s*(?:===|!==|==|!=)\s*["'](?:google-mail|outlook|imap)["']/;
+
+// Files that legitimately branch on provider id:
+//   - Adapters (the boundary itself).
+//   - oauth-tokens internals (refresher picks the OAuth refresh URL).
+//   - Provider-specific webhook handlers (the route exists *because*
+//     it is the Gmail/Graph webhook).
+//   - This check script (it lists ids in its own pattern).
+//   - Vitest specs that exercise per-provider behaviour.
+function isProviderBranchAllowed(file) {
+  const rel = relative(ROOT, file);
+  if (rel.startsWith("packages/oauth-tokens/")) return true;
+  if (rel === "scripts/check-architecture.mjs") return true;
+  if (/\.test\.(ts|tsx|mts|cts|js|jsx)$/.test(rel)) return true;
+  if (rel.startsWith("packages/server/src/routes/webhooks.")) return true;
+  return false;
+}
 
 function walk(dir, files = []) {
   for (const entry of readdirSync(dir)) {
@@ -103,6 +166,14 @@ for (const base of [packagesDir, appsDir]) {
     for (const file of files) {
       const name = packageName(file);
       if (!name) continue;
+      if (!isProviderBranchAllowed(file)) {
+        const src = readFileSync(file, "utf8");
+        if (PROVIDER_BRANCH_RE.test(src)) {
+          errors.push(
+            `${relative(ROOT, file)}: branches on a provider id literal; use a capability flag on the adapter or add a port method instead`,
+          );
+        }
+      }
       const imps = imports(file);
       for (const spec of imps) {
         if (HEADLESS.has(name)) {
@@ -120,6 +191,23 @@ for (const base of [packagesDir, appsDir]) {
               );
             }
           }
+        }
+
+        // Provider-internals boundary: only the adapter layer (and
+        // oauth-tokens' own internals) may import the concrete REST
+        // clients. Everything else has to go through @mailai/providers.
+        //
+        // We only match the package-relative spec here — relative
+        // imports like `./calendar.js` are scoped to oauth-tokens by
+        // construction (TypeScript wouldn't resolve them across
+        // packages anyway), so checking package boundary is enough.
+        const isInternalBare = PROVIDER_INTERNAL_BARE.some(
+          (p) => spec === p || spec.startsWith(p + "."),
+        );
+        if (isInternalBare && !isProviderInternalsAllowed(file)) {
+          errors.push(
+            `${relative(ROOT, file)}: import "${spec}" reaches into provider internals; route through a @mailai/providers port + registry instead`,
+          );
         }
       }
     }

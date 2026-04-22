@@ -82,6 +82,14 @@ export const oauthAccounts = pgTable(
     lastRefreshedAt: timestamp("last_refreshed_at", { withTimezone: true }),
     lastSyncedAt: timestamp("last_synced_at", { withTimezone: true }),
     lastSyncError: text("last_sync_error"),
+    // Provider-side delta watermarks. Populated by `pullDelta` after
+    // each incremental run (Phase 6). `historyId` is Gmail's monotonic
+    // counter; `deltaLink` is Microsoft Graph's opaque resume URL.
+    // Both are NULL on freshly-connected accounts and after a watermark
+    // expiry (404/410) — the scheduler then falls back to a full sync
+    // and captures a fresh value.
+    historyId: text("history_id"),
+    deltaLink: text("delta_link"),
     // Per-account email signature. We store both an HTML rendition
     // (the canonical version edited via RichEditor) and a plain-text
     // mirror so the multipart/alternative envelope keeps a faithful
@@ -130,6 +138,16 @@ export const oauthMessages = pgTable(
     // `labels_json`. Kept in sync by the sync worker.
     hasAttachments: boolean("has_attachments").notNull().default(false),
     starred: boolean("starred").notNull().default(false),
+    // Provider-neutral folder bucket. Populated by each adapter's
+    // normalize() — see WellKnownFolder in @mailai/providers. The
+    // views layer filters on this column so it never has to look
+    // inside labels_json for system-folder semantics.
+    wellKnownFolder: text("well_known_folder").notNull().default("inbox"),
+    // Soft-delete column written by `pullDelta` when the provider
+    // signals a remote deletion. The views compiler hides rows where
+    // this is non-null; a future janitor hard-deletes after the
+    // configured retention window.
+    deletedAt: timestamp("deleted_at", { withTimezone: true }),
   },
   (t) => ({
     msgIdx: uniqueIndex("oauth_messages_account_msg_idx").on(
@@ -138,6 +156,11 @@ export const oauthMessages = pgTable(
     ),
     dateIdx: index("oauth_messages_tenant_date_idx").on(t.tenantId, t.internalDate),
     threadIdx: index("oauth_messages_thread_idx").on(t.tenantId, t.providerThreadId),
+    folderIdx: index("oauth_messages_tenant_folder_date_idx").on(
+      t.tenantId,
+      t.wellKnownFolder,
+      t.internalDate,
+    ),
   }),
 );
 
@@ -176,6 +199,43 @@ export const oauthAttachments = pgTable(
       t.providerMessageId,
     ),
     cidIdx: index("oauth_attachments_cid_idx").on(t.tenantId, t.contentId),
+  }),
+);
+
+// Push-notification subscriptions managed by the SyncScheduler.
+// One row per OAuth account, holding the opaque
+// providerSubscriptionId + the TTL we have to renew within. See
+// migration 0019_push_subscriptions for the SQL shape.
+export const oauthPushSubscriptions = pgTable(
+  "oauth_push_subscriptions",
+  {
+    id: text("id").primaryKey(),
+    tenantId: text("tenant_id").notNull(),
+    oauthAccountId: text("oauth_account_id")
+      .references(() => oauthAccounts.id, { onDelete: "cascade" })
+      .notNull(),
+    provider: text("provider").notNull(),
+    providerSubscriptionId: text("provider_subscription_id").notNull(),
+    notificationUrl: text("notification_url").notNull(),
+    clientState: text("client_state").notNull(),
+    opaqueState: text("opaque_state"),
+    expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+    lastRenewedAt: timestamp("last_renewed_at", { withTimezone: true }),
+    lastError: text("last_error"),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => ({
+    accountIdx: uniqueIndex("oauth_push_subscriptions_account_idx").on(
+      t.tenantId,
+      t.oauthAccountId,
+    ),
+    clientStateIdx: index("oauth_push_subscriptions_client_state_idx").on(t.clientState),
+    providerSubIdx: index("oauth_push_subscriptions_provider_sub_idx").on(
+      t.provider,
+      t.providerSubscriptionId,
+    ),
+    expiresIdx: index("oauth_push_subscriptions_expires_idx").on(t.expiresAt),
   }),
 );
 

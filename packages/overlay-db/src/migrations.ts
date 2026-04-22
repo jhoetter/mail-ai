@@ -645,6 +645,176 @@ export const MIGRATIONS: Array<{ id: string; up: string }> = [
       DO $$ BEGIN CREATE POLICY tenant_iso ON oauth_contacts USING (tenant_id = current_setting('mailai.tenant_id', true)); EXCEPTION WHEN duplicate_object THEN NULL; END $$;
     `,
   },
+  {
+    // Provider-neutral folder bucket for every synced message.
+    //
+    // Pre-Phase-3, the views layer answered "is this Sent?" by
+    // searching `labels_json` for the magic string 'SENT' (Gmail) or
+    // 'SentItems' (Graph). That coupling broke any time an adapter's
+    // wire format changed and forced views.ts to know provider
+    // internals. Phase 3 adds a normalized column populated by each
+    // adapter's normalize() so the query for Sent / Trash / Spam /
+    // Drafts is one indexed equality regardless of provider.
+    //
+    // Allowed values match WellKnownFolder in @mailai/providers.
+    // Backfill: existing rows get 'inbox' as a safe default — the
+    // initial sync only ever pulled the inbox. Sent-mirror rows
+    // inserted after this migration use 'sent' directly via the
+    // Phase 3 schema/repo updates.
+    id: "0017_well_known_folder",
+    up: `
+      ALTER TABLE oauth_messages
+        ADD COLUMN IF NOT EXISTS well_known_folder text NOT NULL DEFAULT 'inbox'
+          CHECK (well_known_folder IN ('inbox','sent','drafts','trash','spam','archive','other'));
+
+      -- Backfill historic rows from the labels_json that the old
+      -- adapters were writing, so the "Sent" view immediately picks
+      -- up locally-mirrored sent messages.
+      UPDATE oauth_messages SET well_known_folder = 'sent'
+        WHERE well_known_folder = 'inbox'
+          AND (labels_json ? 'SENT' OR labels_json ? 'SentItems');
+      UPDATE oauth_messages SET well_known_folder = 'drafts'
+        WHERE well_known_folder = 'inbox'
+          AND (labels_json ? 'DRAFT' OR labels_json ? 'Drafts');
+      UPDATE oauth_messages SET well_known_folder = 'trash'
+        WHERE well_known_folder = 'inbox'
+          AND (labels_json ? 'TRASH' OR labels_json ? 'DeletedItems');
+      UPDATE oauth_messages SET well_known_folder = 'spam'
+        WHERE well_known_folder = 'inbox'
+          AND (labels_json ? 'SPAM' OR labels_json ? 'JunkEmail');
+
+      CREATE INDEX IF NOT EXISTS oauth_messages_tenant_folder_date_idx
+        ON oauth_messages(tenant_id, well_known_folder, internal_date DESC);
+    `,
+  },
+  {
+    // Provider watermarks for incremental sync.
+    //
+    // - oauth_accounts.history_id: Gmail's monotonic per-account
+    //   history pointer. Captured from `users.messages.list`'s
+    //   `historyId` after a full sync, then used as
+    //   `users.history.list?startHistoryId=…` for delta pulls. Reset
+    //   to NULL on 404/410 to trigger a full re-sync.
+    // - oauth_accounts.delta_link: Microsoft Graph's opaque deltaLink
+    //   url returned by `mailFolders/.../messages/delta`. Same idea
+    //   as Gmail's history_id, but per-folder semantics are baked
+    //   into the URL.
+    // - oauth_messages.deleted_at: soft-delete column. Delta pulls
+    //   that observe a remote message disappear set this; the views
+    //   compiler skips deleted rows so the inbox reflects the
+    //   provider truth without a separate audit table. A future
+    //   janitor can hard-delete after retention.
+    id: "0018_provider_watermarks",
+    up: `
+      ALTER TABLE oauth_accounts
+        ADD COLUMN IF NOT EXISTS history_id text,
+        ADD COLUMN IF NOT EXISTS delta_link text;
+
+      ALTER TABLE oauth_messages
+        ADD COLUMN IF NOT EXISTS deleted_at timestamptz;
+
+      -- Partial index so the views compiler's "deleted_at IS NULL"
+      -- predicate stays cheap as the soft-deleted set grows.
+      CREATE INDEX IF NOT EXISTS oauth_messages_tenant_folder_active_idx
+        ON oauth_messages(tenant_id, well_known_folder, internal_date DESC)
+        WHERE deleted_at IS NULL;
+    `,
+  },
+  {
+    // Push-notification subscriptions for the SyncScheduler. One row
+    // per (account, transport) — Gmail issues a single users.watch
+    // per mailbox; Graph issues a per-folder /me/subscriptions row.
+    // We model both uniformly: opaque providerSubscriptionId +
+    // expiresAt + opaque state for Graph's clientState handshake.
+    id: "0019_push_subscriptions",
+    up: `
+      CREATE TABLE IF NOT EXISTS oauth_push_subscriptions (
+        id text PRIMARY KEY,
+        tenant_id text NOT NULL,
+        oauth_account_id text NOT NULL REFERENCES oauth_accounts(id) ON DELETE CASCADE,
+        provider text NOT NULL CHECK (provider IN ('google-mail','outlook')),
+        provider_subscription_id text NOT NULL,
+        notification_url text NOT NULL,
+        client_state text NOT NULL,
+        opaque_state text,
+        expires_at timestamptz NOT NULL,
+        last_renewed_at timestamptz,
+        last_error text,
+        created_at timestamptz NOT NULL DEFAULT now(),
+        updated_at timestamptz NOT NULL DEFAULT now()
+      );
+      -- One active row per account; renewals UPDATE in place rather
+      -- than INSERT a new row so the webhook router never has to
+      -- disambiguate between "real" and "leftover" subscriptions.
+      CREATE UNIQUE INDEX IF NOT EXISTS oauth_push_subscriptions_account_idx
+        ON oauth_push_subscriptions(tenant_id, oauth_account_id);
+      -- The webhook router looks subscriptions up by clientState
+      -- (Graph) or by providerSubscriptionId (Gmail Pub/Sub history
+      -- pings). Both lookups need to be O(log n).
+      CREATE INDEX IF NOT EXISTS oauth_push_subscriptions_client_state_idx
+        ON oauth_push_subscriptions(client_state);
+      CREATE INDEX IF NOT EXISTS oauth_push_subscriptions_provider_sub_idx
+        ON oauth_push_subscriptions(provider, provider_subscription_id);
+      -- Renewal tick uses this to find subscriptions inside the
+      -- renewal window without scanning the whole table.
+      CREATE INDEX IF NOT EXISTS oauth_push_subscriptions_expires_idx
+        ON oauth_push_subscriptions(expires_at);
+
+      -- Enable RLS so push subscriptions are scoped to their tenant
+      -- exactly like the rest of the OAuth surface.
+      ALTER TABLE oauth_push_subscriptions ENABLE ROW LEVEL SECURITY;
+      DROP POLICY IF EXISTS oauth_push_subscriptions_isolation
+        ON oauth_push_subscriptions;
+      CREATE POLICY oauth_push_subscriptions_isolation
+        ON oauth_push_subscriptions
+        USING (tenant_id = current_setting('mailai.tenant_id', true));
+    `,
+  },
+  {
+    // Migration 0020 — `labels_json` cleanup.
+    //
+    // Pre-Phase 3, both adapters wrote system-folder strings into
+    // `labels_json` (Gmail wrote 'INBOX'/'SENT'/'DRAFT'/'TRASH'/'SPAM',
+    // Graph wrote 'SentItems'/'Drafts'/'DeletedItems'/'JunkEmail').
+    // The Phase 3 migration introduced `well_known_folder` as the
+    // single source of truth and the adapters stopped writing those
+    // strings on new rows. This migration removes the legacy entries
+    // from any pre-existing rows so the column matches its new
+    // contract: "user labels (Gmail) + Graph categories only".
+    //
+    // Idempotent: rows already cleaned up are no-ops because the
+    // jsonb minus operator returns the same array. The set of strings
+    // we strip is the closed set adapters used to write — anything
+    // else in `labels_json` is by definition a user label / Graph
+    // category and is preserved.
+    id: "0020_label_cleanup",
+    up: `
+      UPDATE oauth_messages
+      SET labels_json = COALESCE(
+        (
+          SELECT jsonb_agg(elem)
+          FROM jsonb_array_elements(labels_json) AS elem
+          WHERE elem NOT IN (
+            to_jsonb('INBOX'::text),
+            to_jsonb('SENT'::text),
+            to_jsonb('DRAFT'::text),
+            to_jsonb('TRASH'::text),
+            to_jsonb('SPAM'::text),
+            to_jsonb('SentItems'::text),
+            to_jsonb('Drafts'::text),
+            to_jsonb('DeletedItems'::text),
+            to_jsonb('JunkEmail'::text),
+            to_jsonb('Inbox'::text)
+          )
+        ),
+        '[]'::jsonb
+      )
+      WHERE labels_json ?| ARRAY[
+        'INBOX','SENT','DRAFT','TRASH','SPAM',
+        'SentItems','Drafts','DeletedItems','JunkEmail','Inbox'
+      ];
+    `,
+  },
 ];
 
 export async function runMigrations(pool: Pool): Promise<void> {

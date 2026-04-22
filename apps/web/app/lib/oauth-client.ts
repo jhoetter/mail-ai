@@ -24,11 +24,31 @@ export interface AccountSummary {
   lastSyncError: string | null;
 }
 
+export type SyncFolder =
+  | "inbox"
+  | "sent"
+  | "drafts"
+  | "trash"
+  | "spam"
+  | "archive";
+
 export interface SyncResult {
   fetched: number;
   inserted: number;
   updated: number;
   durationMs: number;
+  // Per-folder breakdown returned by the multi-folder sync. Always
+  // non-empty in v0.4+; older servers omit it (we treat that as
+  // [{ folder: 'inbox', fetched }] for back-compat).
+  perFolder?: { folder: SyncFolder; fetched: number }[];
+}
+
+export interface SyncOptions {
+  // Comma-listed folders. Omitted = server default
+  // (inbox + sent + drafts).
+  folders?: ReadonlyArray<SyncFolder>;
+  // Backfill depth in pages per folder. Omitted = server default (5).
+  backfillPages?: number;
 }
 
 export interface FinalizeResponse extends AccountSummary {
@@ -103,9 +123,19 @@ export async function deleteAccount(id: string): Promise<void> {
   await jsonOrThrow<{ ok: true }>(res);
 }
 
-export async function syncAccount(id: string): Promise<SyncResult> {
-  const res = await fetch(`${baseUrl()}/api/accounts/${encodeURIComponent(id)}/sync`, {
-    method: "POST",
-  });
+export async function syncAccount(
+  id: string,
+  opts: SyncOptions = {},
+): Promise<SyncResult> {
+  const params = new URLSearchParams();
+  if (opts.folders && opts.folders.length > 0) {
+    params.set("folders", opts.folders.join(","));
+  }
+  if (opts.backfillPages) {
+    params.set("backfill", String(opts.backfillPages));
+  }
+  const qs = params.toString();
+  const url = `${baseUrl()}/api/accounts/${encodeURIComponent(id)}/sync${qs ? `?${qs}` : ""}`;
+  const res = await fetch(url, { method: "POST" });
   return jsonOrThrow<SyncResult>(res);
 }

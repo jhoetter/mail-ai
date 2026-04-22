@@ -24,6 +24,7 @@ import {
   type Pool,
 } from "@mailai/overlay-db";
 import { type ProviderCredentials } from "@mailai/oauth-tokens";
+import type { ContactsProviderRegistry } from "@mailai/providers";
 import {
   CONTACT_FRESHNESS_MS,
   hasRequiredContactScopes,
@@ -37,6 +38,10 @@ export interface ContactsRoutesDeps {
     tenantId: string;
   }>;
   readonly credentials?: ProviderCredentials;
+  // Required when `credentials` is supplied (we'd otherwise have
+  // tokens but no surface to call). Optional overall so the routes
+  // can still mount in test harnesses that skip provider wiring.
+  readonly contactsProviders?: ContactsProviderRegistry;
 }
 
 export function registerContactsRoutes(
@@ -72,8 +77,9 @@ export function registerContactsRoutes(
     // freshness window AND have the required scope. We fire a
     // background sync for those — no await — and return immediately
     // with whatever was cached.
-    if (deps.credentials) {
+    if (deps.credentials && deps.contactsProviders) {
       const credentials = deps.credentials;
+      const contactsProviders = deps.contactsProviders;
       const now = Date.now();
       for (const account of result.accounts) {
         if (!hasRequiredContactScopes(account)) continue;
@@ -95,6 +101,7 @@ export function registerContactsRoutes(
             accounts: accountsRepo,
             contacts: contactsRepo,
             credentials,
+            contactsProviders,
           });
         }).catch((err) => {
           app.log.warn({ err, accountId: account.id }, "background contacts sync failed");
@@ -124,10 +131,11 @@ export function registerContactsRoutes(
 
   app.post("/api/contacts/sync", async (req) => {
     const ident = await deps.identity({ headers: req.headers as Record<string, unknown> });
-    if (!deps.credentials) {
+    if (!deps.credentials || !deps.contactsProviders) {
       return { synced: 0, skipped: "no provider credentials configured" };
     }
     const credentials = deps.credentials;
+    const contactsProviders = deps.contactsProviders;
     return withTenant(deps.pool, ident.tenantId, async (tx) => {
       const accountsRepo = new OauthAccountsRepository(tx);
       const contactsRepo = new OauthContactsRepository(tx);
@@ -152,6 +160,7 @@ export function registerContactsRoutes(
             accounts: accountsRepo,
             contacts: contactsRepo,
             credentials,
+            contactsProviders,
           });
           synced += r.perSource.reduce((n, s) => n + s.fetched, 0);
           accountsResults.push({ accountId: account.id, ok: true });

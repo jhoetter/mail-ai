@@ -4,13 +4,17 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { ThreadView } from "./ThreadView";
 import { Composer } from "./Composer";
 import { AppNav } from "./AppNav";
+import { EmptyView } from "./EmptyView";
 import { listThreads, type ThreadSummary, type TagSummary } from "../lib/threads-client";
 import { useTranslator } from "../lib/i18n/useTranslator";
 import { useRegisterPaletteCommands } from "../lib/shell";
 import { dispatchCommand } from "../lib/commands-client";
 import { ReadOnlyChips } from "./TagChips";
-import { ViewTabs, useActiveView } from "./ViewTabs";
-import { listViewThreads } from "../lib/views-client";
+import { useActiveView } from "./ViewTabs";
+import { listViewThreads, listViews, type ViewSummary } from "../lib/views-client";
+import { listAccounts, type AccountSummary } from "../lib/oauth-client";
+import { firstSyncError, resolveEmptyKind } from "../lib/empty-view";
+import { useSyncEvents } from "../lib/realtime";
 
 interface ThreadRow {
   id: string;
@@ -43,7 +47,9 @@ export function Inbox() {
   const [selected, setSelected] = useState<ThreadRow | null>(null);
   const [composing, setComposing] = useState(false);
   const [refreshTick, setRefreshTick] = useState(0);
-  const { viewId, setViewId } = useActiveView();
+  const { viewId } = useActiveView();
+  const [views, setViews] = useState<ViewSummary[] | null>(null);
+  const [accounts, setAccounts] = useState<AccountSummary[] | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -67,7 +73,45 @@ export function Inbox() {
     };
   }, [refreshTick, viewId]);
 
+  // Load accounts state once per refresh tick. The empty-state branch
+  // needs to know (a) whether the user has any connected accounts at
+  // all, and (b) whether the most recent sync failed — both of which
+  // change the call to action drastically.
+  useEffect(() => {
+    let cancelled = false;
+    listAccounts()
+      .then((rows) => {
+        if (!cancelled) setAccounts(rows);
+      })
+      .catch(() => {
+        if (!cancelled) setAccounts([]);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [refreshTick]);
+
   const refresh = useCallback(() => setRefreshTick((n) => n + 1), []);
+
+  // Background SyncScheduler publishes a `sync` event on the realtime
+  // ws after each successful provider pull. We just bump the same
+  // refresh tick that the manual `Aktualisieren` button uses, so any
+  // newly-arrived rows show up without the user clicking anything.
+  useSyncEvents(refresh);
+
+  // Inbox needs the view set to (a) resolve the active id back to a
+  // ViewSummary for the empty-state branch and (b) keep the data
+  // fresh after the SyncScheduler creates new ones. The sidebar
+  // (AppNav → MailViewsNav) does its own fetch for the nav links.
+  useEffect(() => {
+    let cancelled = false;
+    listViews()
+      .then((rows) => !cancelled && setViews(rows))
+      .catch(() => !cancelled && setViews([]));
+    return () => {
+      cancelled = true;
+    };
+  }, [refreshTick]);
 
   // Contribute Inbox-scoped palette commands. When the page unmounts
   // these vanish from Cmd+K automatically.
@@ -155,7 +199,6 @@ export function Inbox() {
           </div>
         }
       />
-      <ViewTabs activeId={viewId} onChange={setViewId} />
       {/*
         Two-pane layout on desktop (≥ md), single-pane on phones/tablets.
         On mobile the list and the thread are mutually exclusive: tapping
@@ -181,7 +224,11 @@ export function Inbox() {
               <p className="px-4 py-3 text-sm text-secondary">{t("inbox.loading")}</p>
             ) : rows.length === 0 ? (
               <div className="px-4 py-3">
-                <EmptyInbox />
+                <EmptyView
+                  kind={resolveEmptyKind(viewId, views)}
+                  hasAccounts={(accounts?.length ?? 0) > 0}
+                  lastSyncError={firstSyncError(accounts)}
+                />
               </div>
             ) : (
               <ul className="flex flex-col gap-px p-1">
@@ -315,35 +362,17 @@ export function Inbox() {
   );
 }
 
-function EmptyInbox() {
-  const { t } = useTranslator();
-  return (
-    <div className="flex flex-col items-start gap-3 py-6">
-      <p className="text-sm font-medium">{t("inbox.emptyTitle")}</p>
-      <p className="text-sm text-secondary max-w-md">{t("inbox.emptyHint")}</p>
-      <a
-        href="/settings/account"
-        className="inline-flex h-8 items-center rounded-md bg-accent px-3 text-sm text-background hover:opacity-90"
-      >
-        {t("inbox.goToAccounts")}
-      </a>
-    </div>
-  );
-}
-
 function isSystemLabel(label: string): boolean {
-  // Gmail's system labels (and Graph well-known categories) are noisy
-  // chips for end users. We surface them as flags via Unread / Starred
-  // already, so hide the label form.
+  // Phase 3 moved Inbox / Sent / Drafts / Trash / Spam out of
+  // labels_json and into oauth_messages.well_known_folder, so they
+  // no longer appear here as labels. What remains are provider-side
+  // flags and Gmail's CATEGORY_* meta-labels — we surface unread /
+  // starred via dedicated chips already, and the categories are
+  // noise for end users, so hide all of them.
   const sys = new Set([
-    "INBOX",
     "UNREAD",
     "STARRED",
     "IMPORTANT",
-    "SENT",
-    "DRAFT",
-    "TRASH",
-    "SPAM",
     "CHAT",
     "CATEGORY_PERSONAL",
     "CATEGORY_SOCIAL",

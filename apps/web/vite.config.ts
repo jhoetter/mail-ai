@@ -22,7 +22,13 @@ export default defineConfig({
     tsconfigPaths(),
     tailwindcss(),
   ],
+  // host pinned to IPv4 loopback so `make dev`'s health probe
+  // (curl http://127.0.0.1:3200/) and Playwright's default baseURL
+  // (apps/web/playwright.config.ts) both connect. Without this Vite
+  // can bind IPv6-only on macOS, leaving 127.0.0.1 unreachable even
+  // though `localhost` works in the browser.
   server: {
+    host: "127.0.0.1",
     port: 3200,
     strictPort: true,
     proxy: {
@@ -33,6 +39,7 @@ export default defineConfig({
     },
   },
   preview: {
+    host: "127.0.0.1",
     port: 3200,
     strictPort: true,
   },

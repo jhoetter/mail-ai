@@ -13,23 +13,30 @@
 // labeled "coming soon") page at the same path, and it'll appear in
 // the sidebar across every screen automatically.
 
-import { Link, useLocation } from "react-router";
-import type { ReactNode } from "react";
+import { Link, useLocation, useSearchParams } from "react-router";
+import { useEffect, useState, type ReactNode } from "react";
 import { ThemeToggle, useSidebar } from "@mailai/ui";
 import {
+  Archive,
+  Ban,
   Calendar,
+  CheckCircle2,
   FileText,
   Inbox as InboxIcon,
   Mailbox,
+  Moon,
   ScrollText,
   Search,
+  Send,
   Tag,
+  Trash2,
   User,
   type LucideIcon,
 } from "lucide-react";
 import { LocaleToggle } from "../lib/i18n/LocaleToggle";
 import { useTranslator } from "../lib/i18n/useTranslator";
 import { usePaletteRegistry } from "../lib/shell";
+import { listViews, type ViewSummary } from "../lib/views-client";
 
 interface NavItem {
   href: string;
@@ -53,8 +60,6 @@ const SECTIONS: NavSection[] = [
   {
     labelKey: "nav.workspace",
     items: [
-      { href: "/inbox", labelKey: "nav.inbox", icon: InboxIcon },
-      { href: "/drafts", labelKey: "nav.drafts", icon: FileText },
       { href: "/calendar", labelKey: "nav.calendar", icon: Calendar },
       { href: "/search", labelKey: "nav.search", icon: Search },
     ],
@@ -69,6 +74,21 @@ const SECTIONS: NavSection[] = [
     ],
   },
 ];
+
+// View name → lucide icon. The server stores an emoji per view but
+// the rest of the sidebar uses lucide outline icons; mapping by name
+// keeps the look consistent. Custom views (any name not in this
+// table) fall back to InboxIcon.
+const VIEW_ICONS: Record<string, LucideIcon> = {
+  Inbox: InboxIcon,
+  Drafts: FileText,
+  Sent: Send,
+  Snoozed: Moon,
+  Done: CheckCircle2,
+  Trash: Trash2,
+  Spam: Ban,
+  "All Mail": Archive,
+};
 
 export function AppNav({ onNavigate }: { onNavigate?: () => void } = {}) {
   // React Router's useLocation gives us the current pathname so we can
@@ -104,6 +124,7 @@ export function AppNav({ onNavigate }: { onNavigate?: () => void } = {}) {
         </button>
       </div>
       <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto px-2 py-2">
+        <MailViewsNav onNavigate={handleNavigate} />
         {SECTIONS.map((section) => (
           <div key={section.labelKey} className="flex flex-col gap-0.5">
             <div className="px-2 pb-0.5 pt-1 text-[11px] font-semibold uppercase tracking-wider text-tertiary">
@@ -187,4 +208,58 @@ function NavLink({
 function isActive(pathname: string, href: string): boolean {
   if (href === "/") return pathname === "/";
   return pathname === href || pathname.startsWith(href + "/");
+}
+
+// Mail views ("Inbox", "Drafts", "Sent", "Snoozed", "Done", "Trash",
+// "Spam", "All Mail" by default) live in the sidebar so the inbox
+// surface itself stays focused on the thread list. Each entry
+// navigates to /inbox?view=<id>.
+//
+// There is intentionally no "all threads" entry here — pick one of
+// the views to see anything. /inbox without a view param still works
+// for direct links, but isn't surfaced in navigation.
+//
+// We fetch views once per mount; they change rarely (settings page
+// is the only producer) and a stale entry just means a slightly
+// out-of-date label until the next route change.
+function MailViewsNav({ onNavigate }: { onNavigate: () => void }) {
+  const { t } = useTranslator();
+  const pathname = useLocation().pathname;
+  const [params] = useSearchParams();
+  const [views, setViews] = useState<ViewSummary[] | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    listViews()
+      .then((rows) => !cancelled && setViews(rows))
+      .catch(() => !cancelled && setViews([]));
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const onInbox = pathname === "/inbox" || pathname.startsWith("/inbox/");
+  const activeViewId = onInbox ? params.get("view") : null;
+  const sorted = (views ?? []).slice().sort((a, b) => a.position - b.position);
+
+  return (
+    <div className="flex flex-col gap-0.5">
+      <div className="px-2 pb-0.5 pt-1 text-[11px] font-semibold uppercase tracking-wider text-tertiary">
+        {t("nav.views")}
+      </div>
+      {sorted.map((view) => {
+        const Icon = VIEW_ICONS[view.name] ?? InboxIcon;
+        return (
+          <NavLink
+            key={view.id}
+            href={`/inbox?view=${encodeURIComponent(view.id)}`}
+            label={view.name}
+            icon={Icon}
+            active={onInbox && activeViewId === view.id}
+            onNavigate={onNavigate}
+          />
+        );
+      })}
+    </div>
+  );
 }

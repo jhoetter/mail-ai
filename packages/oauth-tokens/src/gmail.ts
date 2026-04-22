@@ -82,17 +82,47 @@ interface GmailGetResponse {
 }
 
 // Lists the most recent N message ids in INBOX. Cheap (one HTTP call,
-// returns just ids + threadIds).
+// returns just ids + threadIds). Kept as a thin convenience wrapper
+// over `listGmailMessageIds` so existing callers keep working.
 export async function listGmailInboxIds(args: {
   accessToken: string;
   maxResults?: number;
   fetchImpl?: typeof fetch;
 }): Promise<{ id: string; threadId: string }[]> {
+  const page = await listGmailMessageIds({
+    accessToken: args.accessToken,
+    labelIds: ["INBOX"],
+    ...(typeof args.maxResults === "number" ? { maxResults: args.maxResults } : {}),
+    ...(args.fetchImpl ? { fetchImpl: args.fetchImpl } : {}),
+  });
+  return page.messages;
+}
+
+// Provider-neutral page primitive. The adapter calls this with a
+// specific labelId per folder (INBOX / SENT / DRAFT / TRASH / SPAM)
+// and threads the pageToken through its own cursor.
+export interface GmailMessageIdPage {
+  readonly messages: { id: string; threadId: string }[];
+  readonly nextPageToken: string | null;
+}
+
+export async function listGmailMessageIds(args: {
+  accessToken: string;
+  labelIds: ReadonlyArray<string>;
+  maxResults?: number;
+  pageToken?: string;
+  fetchImpl?: typeof fetch;
+}): Promise<GmailMessageIdPage> {
   const f = args.fetchImpl ?? fetch;
-  const max = Math.min(Math.max(args.maxResults ?? 30, 1), 100);
-  const url =
-    `${GMAIL_BASE}/users/me/messages` +
-    `?labelIds=INBOX&maxResults=${max}`;
+  // Gmail caps `maxResults` at 500 but the realistic safe page size
+  // is 100 — anything more risks downstream metadata fan-out timing
+  // out. Mirrors the Graph cap so callers can pass the same value.
+  const max = Math.min(Math.max(args.maxResults ?? 100, 1), 100);
+  const params = new URLSearchParams();
+  params.set("maxResults", String(max));
+  for (const l of args.labelIds) params.append("labelIds", l);
+  if (args.pageToken) params.set("pageToken", args.pageToken);
+  const url = `${GMAIL_BASE}/users/me/messages?${params.toString()}`;
   const res = await f(url, {
     headers: { authorization: `Bearer ${args.accessToken}` },
   });
@@ -101,7 +131,10 @@ export async function listGmailInboxIds(args: {
     throw new Error(`gmail list failed: ${res.status} ${body.slice(0, 200)}`);
   }
   const json = (await res.json()) as GmailListResponse;
-  return json.messages ?? [];
+  return {
+    messages: json.messages ?? [],
+    nextPageToken: json.nextPageToken ?? null,
+  };
 }
 
 // Fetch one message in `metadata` format with just the headers we need.
@@ -334,6 +367,106 @@ export async function fetchGmailRawMessage(args: {
   return Buffer.from(std + pad, "base64");
 }
 
+// users.history.list response. Each history record has *one* event
+// type populated (messagesAdded / messagesDeleted / labelsAdded /
+// labelsRemoved). We only model the fields the delta walker uses;
+// anything else stays untyped to keep the surface honest.
+export interface GmailHistoryEvent {
+  readonly id: string;
+  readonly messages?: ReadonlyArray<{ id: string; threadId?: string }>;
+  readonly messagesAdded?: ReadonlyArray<{ message: { id: string; threadId?: string; labelIds?: string[] } }>;
+  readonly messagesDeleted?: ReadonlyArray<{ message: { id: string; threadId?: string } }>;
+  readonly labelsAdded?: ReadonlyArray<{ message: { id: string; threadId?: string; labelIds?: string[] } }>;
+  readonly labelsRemoved?: ReadonlyArray<{ message: { id: string; threadId?: string; labelIds?: string[] } }>;
+}
+
+export interface GmailHistoryPage {
+  readonly history: ReadonlyArray<GmailHistoryEvent>;
+  readonly historyId: string;
+  readonly nextPageToken: string | null;
+}
+
+// One page of Gmail history events since the supplied watermark.
+// Returns at most ~500 events per page; callers loop on
+// nextPageToken until exhausted.
+//
+// HTTP 404 is the documented signal that the watermark is older than
+// Gmail's retention window (~7 days). We surface it as a typed error
+// so the adapter can drop the watermark and fall back to a full
+// listMessages walk on the next sync.
+export class GmailHistoryExpiredError extends Error {
+  constructor(public readonly historyId: string) {
+    super(`gmail history watermark ${historyId} expired (404)`);
+    this.name = "GmailHistoryExpiredError";
+  }
+}
+
+export async function listGmailHistory(args: {
+  accessToken: string;
+  startHistoryId: string;
+  pageToken?: string;
+  maxResults?: number;
+  fetchImpl?: typeof fetch;
+}): Promise<GmailHistoryPage> {
+  const f = args.fetchImpl ?? fetch;
+  const max = Math.min(Math.max(args.maxResults ?? 500, 1), 500);
+  const params = new URLSearchParams();
+  params.set("startHistoryId", args.startHistoryId);
+  params.set("maxResults", String(max));
+  // We care about every flavour of change; missing types here would
+  // silently hide events and let the local mirror drift.
+  params.append("historyTypes", "messageAdded");
+  params.append("historyTypes", "messageDeleted");
+  params.append("historyTypes", "labelAdded");
+  params.append("historyTypes", "labelRemoved");
+  if (args.pageToken) params.set("pageToken", args.pageToken);
+  const url = `${GMAIL_BASE}/users/me/history?${params.toString()}`;
+  const res = await f(url, {
+    headers: { authorization: `Bearer ${args.accessToken}` },
+  });
+  if (res.status === 404) {
+    throw new GmailHistoryExpiredError(args.startHistoryId);
+  }
+  if (!res.ok) {
+    const body = await safeText(res);
+    throw new Error(`gmail history failed: ${res.status} ${body.slice(0, 200)}`);
+  }
+  const json = (await res.json()) as {
+    history?: GmailHistoryEvent[];
+    historyId?: string;
+    nextPageToken?: string;
+  };
+  return {
+    history: json.history ?? [],
+    historyId: json.historyId ?? args.startHistoryId,
+    nextPageToken: json.nextPageToken ?? null,
+  };
+}
+
+// Cheapest way to get the current historyId without listing any
+// messages: GET /users/me returns the mailbox's current historyId.
+// Used to baseline a freshly-connected account so the *next* sync
+// can pull a real delta.
+export async function getGmailMailboxHistoryId(args: {
+  accessToken: string;
+  fetchImpl?: typeof fetch;
+}): Promise<string> {
+  const f = args.fetchImpl ?? fetch;
+  const url = `${GMAIL_BASE}/users/me/profile`;
+  const res = await f(url, {
+    headers: { authorization: `Bearer ${args.accessToken}` },
+  });
+  if (!res.ok) {
+    const body = await safeText(res);
+    throw new Error(`gmail profile failed: ${res.status} ${body.slice(0, 200)}`);
+  }
+  const json = (await res.json()) as { historyId?: string };
+  if (!json.historyId) {
+    throw new Error("gmail profile response missing 'historyId'");
+  }
+  return json.historyId;
+}
+
 // Modify Gmail labels on a single message. Used by mark-read and star.
 export async function modifyGmailMessageLabels(args: {
   accessToken: string;
@@ -360,6 +493,79 @@ export async function modifyGmailMessageLabels(args: {
   if (!res.ok) {
     const text = await safeText(res);
     throw new Error(`gmail modify failed: ${res.status} ${text.slice(0, 200)}`);
+  }
+}
+
+// users.watch — register a Cloud Pub/Sub topic to receive history
+// notifications. Gmail caps the watch lifetime at 7 days; the
+// returned `expiration` is the UTC ms-since-epoch deadline by which
+// we have to call watch() again to keep notifications flowing.
+//
+// `topicName` is the fully-qualified Pub/Sub topic
+// (`projects/<project>/topics/<topic>`); `labelIds` is optional and
+// when present scopes notifications to those labels. We default to
+// INBOX so the scheduler doesn't get woken up by every CHAT message.
+export interface GmailWatchResponse {
+  readonly historyId: string;
+  // Milliseconds since epoch (Gmail returns it as a string).
+  readonly expiration: number;
+}
+
+export async function watchGmailMailbox(args: {
+  accessToken: string;
+  topicName: string;
+  labelIds?: readonly string[];
+  fetchImpl?: typeof fetch;
+}): Promise<GmailWatchResponse> {
+  const f = args.fetchImpl ?? fetch;
+  const url = `${GMAIL_BASE}/users/me/watch`;
+  const body: Record<string, unknown> = {
+    topicName: args.topicName,
+    // labelFilterAction defaults to INCLUDE in v1; we set it
+    // explicitly so the request semantics survive an API default
+    // flip.
+    labelFilterAction: "include",
+    labelIds: args.labelIds && args.labelIds.length > 0 ? args.labelIds : ["INBOX"],
+  };
+  const res = await f(url, {
+    method: "POST",
+    headers: {
+      authorization: `Bearer ${args.accessToken}`,
+      "content-type": "application/json",
+    },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) {
+    const text = await safeText(res);
+    throw new Error(`gmail watch failed: ${res.status} ${text.slice(0, 200)}`);
+  }
+  const json = (await res.json()) as { historyId?: string; expiration?: string };
+  if (!json.historyId || !json.expiration) {
+    throw new Error("gmail watch response missing historyId/expiration");
+  }
+  const expiration = Number(json.expiration);
+  if (!Number.isFinite(expiration)) {
+    throw new Error(`gmail watch returned non-numeric expiration: ${json.expiration}`);
+  }
+  return { historyId: json.historyId, expiration };
+}
+
+// users.stop — tear down an active watch. Idempotent: a 404 means
+// the watch already lapsed, which is the same outcome we wanted.
+export async function stopGmailMailboxWatch(args: {
+  accessToken: string;
+  fetchImpl?: typeof fetch;
+}): Promise<void> {
+  const f = args.fetchImpl ?? fetch;
+  const url = `${GMAIL_BASE}/users/me/stop`;
+  const res = await f(url, {
+    method: "POST",
+    headers: { authorization: `Bearer ${args.accessToken}` },
+  });
+  if (res.status === 404 || res.status === 410) return;
+  if (!res.ok) {
+    const text = await safeText(res);
+    throw new Error(`gmail stop failed: ${res.status} ${text.slice(0, 200)}`);
   }
 }
 

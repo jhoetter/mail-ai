@@ -31,18 +31,16 @@ import {
   type Pool,
 } from "@mailai/overlay-db";
 import {
-  getGmailMessageBody,
-  getGraphMessageBody,
   getValidAccessToken,
-  type GmailAttachmentMeta,
-  type GraphAttachmentMeta,
   type ProviderCredentials,
 } from "@mailai/oauth-tokens";
+import type { MailProviderRegistry, NormalizedAttachment } from "@mailai/providers";
 import { randomId } from "@mailai/core";
 
 export interface ThreadRoutesDeps {
   readonly pool: Pool;
   readonly credentials: ProviderCredentials;
+  readonly providers: MailProviderRegistry;
   readonly identity: (req: { headers: Record<string, unknown> }) => Promise<{
     userId: string;
     tenantId: string;
@@ -164,16 +162,17 @@ async function fillBodiesIfMissing(
     }
   });
 
-  // Fetch in parallel, capped concurrency.
-  type Fetched = {
+  // Fetch in parallel, capped concurrency. The registry lookup
+  // means this loop is provider-agnostic — adding IMAP later only
+  // requires a new MailProvider implementation, not a new branch.
+  interface Fetched {
     id: string;
     text: string | null;
     html: string | null;
-    attachments: GmailAttachmentMeta[] | GraphAttachmentMeta[];
+    attachments: NormalizedAttachment[];
     providerMessageId: string;
     oauthAccountId: string;
-    provider: "google-mail" | "outlook" | "unknown";
-  };
+  }
   const fetched: Fetched[] = await mapWithConcurrency(missing, 6, async (m) => {
     const tok = tokensByAccount.get(m.oauthAccountId);
     const base = {
@@ -182,39 +181,23 @@ async function fillBodiesIfMissing(
       oauthAccountId: m.oauthAccountId,
     };
     if (!tok) {
-      return { ...base, text: null, html: null, attachments: [], provider: "unknown" as const };
+      return { ...base, text: null, html: null, attachments: [] };
     }
     try {
-      if (tok.account.provider === "google-mail") {
-        const b = await getGmailMessageBody({
+      const body = await deps.providers
+        .for(tok.account.provider)
+        .fetchMessageBody({
           accessToken: tok.accessToken,
-          messageId: m.providerMessageId,
+          providerMessageId: m.providerMessageId,
         });
-        return {
-          ...base,
-          text: b.text,
-          html: b.html,
-          attachments: [...b.attachments],
-          provider: "google-mail" as const,
-        };
-      }
-      if (tok.account.provider === "outlook") {
-        const b = await getGraphMessageBody({
-          accessToken: tok.accessToken,
-          messageId: m.providerMessageId,
-        });
-        return {
-          ...base,
-          text: b.text,
-          html: b.html,
-          attachments: [...b.attachments],
-          provider: "outlook" as const,
-        };
-      }
-      return { ...base, text: null, html: null, attachments: [], provider: "unknown" as const };
+      return {
+        ...base,
+        text: body.text,
+        html: body.html,
+        attachments: [...body.attachments],
+      };
     } catch {
-      // One bad message shouldn't sink the whole thread render.
-      return { ...base, text: null, html: null, attachments: [], provider: "unknown" as const };
+      return { ...base, text: null, html: null, attachments: [] };
     }
   });
 
@@ -230,11 +213,6 @@ async function fillBodiesIfMissing(
       let hasAtts = false;
       for (const att of r.attachments) {
         const id = `att_${randomId()}`;
-        const providerAttachmentId =
-          r.provider === "google-mail"
-            ? (att as GmailAttachmentMeta).attachmentId
-            : (att as GraphAttachmentMeta).providerAttachmentId;
-        const filename = att.filename;
         const objectKey = attachmentKeys.accountMessageAtt(
           r.oauthAccountId,
           r.providerMessageId,
@@ -245,12 +223,12 @@ async function fillBodiesIfMissing(
           tenantId,
           oauthAccountId: r.oauthAccountId,
           providerMessageId: r.providerMessageId,
-          providerAttachmentId: providerAttachmentId ?? null,
+          providerAttachmentId: att.providerAttachmentId,
           objectKey,
-          filename: filename ?? null,
+          filename: att.filename.length > 0 ? att.filename : null,
           mime: att.mime,
           sizeBytes: att.sizeBytes,
-          contentId: att.contentId ?? null,
+          contentId: att.contentId,
           isInline: att.isInline,
         });
         hasAtts = true;
