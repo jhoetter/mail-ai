@@ -25,39 +25,18 @@ describe("CommandBus", () => {
     expect(m.diffs[0]!.ops).toEqual([{ op: "set", path: "unread", value: false }]);
   });
 
-  it("stages agent-source commands for approval-required types", async () => {
+  it("runs agent-source commands immediately (no staging)", async () => {
     const bus = new CommandBus();
-    bus.register("mail:send", async () => ({ before: [], after: [] }));
+    let calls = 0;
+    bus.register("mail:send", async () => {
+      calls++;
+      return { before: [], after: [] };
+    });
     const m = await bus.dispatch(
       mkCmd({ type: "mail:send", payload: { body: "hi" }, source: "agent", actorId: "agent:bot" }),
     );
-    expect(m.status).toBe("pending");
-    const pending = await bus.listPending();
-    expect(pending).toHaveLength(1);
-  });
-
-  it("auto-applies agent commands flagged as 'auto' policy", async () => {
-    const bus = new CommandBus();
-    bus.register("mail:mark-read", async () => ({ before: [], after: [] }));
-    const m = await bus.dispatch(
-      mkCmd({ type: "mail:mark-read", payload: {}, source: "agent", actorId: "agent:bot" }),
-    );
     expect(m.status).toBe("applied");
-  });
-
-  it("approve runs the handler and marks mutation applied", async () => {
-    const bus = new CommandBus();
-    bus.register("mail:send", async () => ({
-      before: [{ kind: "thread", id: "t1", version: 1, data: { sent: false } }],
-      after: [{ kind: "thread", id: "t1", version: 2, data: { sent: true } }],
-    }));
-    const staged = await bus.dispatch(
-      mkCmd({ type: "mail:send", payload: { to: "x@x" }, source: "agent", actorId: "agent:bot" }),
-    );
-    const approved = await bus.approve(staged.id, "u_human");
-    expect(approved.status).toBe("applied");
-    expect(approved.approvedBy).toBe("u_human");
-    expect(approved.diffs[0]!.ops).toContainEqual({ op: "set", path: "sent", value: true });
+    expect(calls).toBe(1);
   });
 
   it("captures handler failure as a failed mutation", async () => {
@@ -68,5 +47,23 @@ describe("CommandBus", () => {
     const m = await bus.dispatch(mkCmd({ type: "mail:reply", payload: {} }));
     expect(m.status).toBe("failed");
     expect(m.error?.message).toBe("imap down");
+  });
+
+  it("returns the cached mutation for a repeat idempotency key", async () => {
+    const bus = new CommandBus();
+    let calls = 0;
+    bus.register("mail:mark-read", async () => {
+      calls++;
+      return { before: [], after: [] };
+    });
+    const cmd = mkCmd({
+      type: "mail:mark-read",
+      payload: {},
+      idempotencyKey: "k1",
+    });
+    const a = await bus.dispatch(cmd);
+    const b = await bus.dispatch(cmd);
+    expect(a.id).toBe(b.id);
+    expect(calls).toBe(1);
   });
 });

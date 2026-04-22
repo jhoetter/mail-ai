@@ -1,34 +1,10 @@
-import { Button, Card, PageHeader, Shell } from "@mailai/ui";
-import Link from "next/link";
+import { redirect } from "next/navigation";
 
-export default function Home() {
-  return (
-    <Shell
-      sidebar={
-        <nav className="flex flex-col gap-2 text-sm">
-          <Link href="/inbox" className="hover:underline">Inbox</Link>
-          <Link href="/assigned" className="hover:underline">Assigned to me</Link>
-          <Link href="/pending" className="hover:underline">Pending review</Link>
-        </nav>
-      }
-    >
-      <PageHeader
-        title="mail-ai"
-        subtitle="AI-native email collaboration — IMAP overlay"
-        actions={
-          <Link href="/settings/account">
-            <Button variant="primary">Connect account</Button>
-          </Link>
-        }
-      />
-      <Card>
-        <h2 className="text-base font-semibold">Welcome</h2>
-        <p className="text-sm text-muted mt-2">
-          This is the standalone reference shell. Backend wiring (mailbox sync, command bus,
-          collaboration features) is exposed via the headless agent SDK and HTTP API; see the
-          spec under <code>/spec</code>.
-        </p>
-      </Card>
-    </Shell>
-  );
+// Root URL is a redirect, not a page. There's no useful "home" view in
+// a mail product — the inbox IS the home. Sending users to a "Welcome"
+// stub on every visit makes them think the app is broken / unfinished.
+// First-time users with zero connected accounts still land on /inbox;
+// the empty state there walks them to /settings/account.
+export default function RootRedirect(): never {
+  redirect("/inbox");
 }

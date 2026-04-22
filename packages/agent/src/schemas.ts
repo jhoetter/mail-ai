@@ -44,8 +44,11 @@ export const CommandPayloadSchema = z.discriminatedUnion("type", [
   z.object({ type: z.literal("mail:mark-read"), payload: z.object({ threadId: z.string() }) }),
   z.object({ type: z.literal("mail:mark-unread"), payload: z.object({ threadId: z.string() }) }),
   z.object({ type: z.literal("mail:archive"), payload: z.object({ threadId: z.string() }) }),
-  z.object({ type: z.literal("mail:reply"), payload: z.object({ threadId: z.string(), body: z.string() }) }),
-  z.object({ type: z.literal("mail:send"), payload: DraftSchema }),
+  z.object({
+    type: z.literal("mail:reply"),
+    payload: z.object({ threadId: z.string(), body: z.string(), accountId: z.string().optional() }),
+  }),
+  z.object({ type: z.literal("mail:send"), payload: DraftSchema.extend({ accountId: z.string().optional() }) }),
   z.object({ type: z.literal("thread:assign"), payload: z.object({ threadId: z.string(), assigneeId: z.string() }) }),
   z.object({
     type: z.literal("thread:set-status"),
@@ -53,6 +56,14 @@ export const CommandPayloadSchema = z.discriminatedUnion("type", [
       threadId: z.string(),
       status: z.enum(["open", "snoozed", "resolved", "archived"]),
     }),
+  }),
+  z.object({
+    type: z.literal("thread:add-tag"),
+    payload: z.object({ threadId: z.string(), tag: z.string() }),
+  }),
+  z.object({
+    type: z.literal("thread:remove-tag"),
+    payload: z.object({ threadId: z.string(), tag: z.string() }),
   }),
   z.object({
     type: z.literal("comment:add"),

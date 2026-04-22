@@ -124,6 +124,58 @@ function toMetadata(m: GraphMessage): GraphMessageMetadata {
   };
 }
 
+// Full body for a single Graph message. Microsoft returns ONE body,
+// either `text` or `html`, controlled by the `Prefer:
+// outlook.body-content-type=...` header. We ask for HTML (the
+// reader's preferred shape) and let the API caller derive a
+// text fallback if needed.
+//
+// Note: Graph also exposes `uniqueBody` which strips the quoted
+// reply chain; we use the full `body` so the reader can decide
+// whether to collapse quoted text itself.
+export interface GraphMessageBody {
+  readonly id: string;
+  readonly threadId: string;
+  readonly text: string | null;
+  readonly html: string | null;
+}
+
+interface GraphMessageBodyResponse {
+  id: string;
+  conversationId: string;
+  body?: { contentType?: "text" | "html"; content?: string | null };
+}
+
+export async function getGraphMessageBody(args: {
+  accessToken: string;
+  messageId: string;
+  fetchImpl?: typeof fetch;
+}): Promise<GraphMessageBody> {
+  const f = args.fetchImpl ?? fetch;
+  const url =
+    `https://graph.microsoft.com/v1.0/me/messages/${encodeURIComponent(args.messageId)}` +
+    `?$select=id,conversationId,body`;
+  const res = await f(url, {
+    headers: {
+      authorization: `Bearer ${args.accessToken}`,
+      prefer: 'outlook.body-content-type="html"',
+    },
+  });
+  if (!res.ok) {
+    const body = await safeText(res);
+    throw new Error(`graph get ${args.messageId} failed: ${res.status} ${body.slice(0, 200)}`);
+  }
+  const json = (await res.json()) as GraphMessageBodyResponse;
+  const ct = json.body?.contentType ?? "text";
+  const content = json.body?.content ?? null;
+  return {
+    id: json.id,
+    threadId: json.conversationId,
+    text: ct === "text" ? content : null,
+    html: ct === "html" ? content : null,
+  };
+}
+
 async function safeText(res: Response): Promise<string> {
   try {
     return await res.text();

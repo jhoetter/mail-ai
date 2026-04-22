@@ -4,6 +4,7 @@ import { Card, DataTable, PageHeader, Shell, Button } from "@mailai/ui";
 import { useCallback, useEffect, useState } from "react";
 import { ThreadView } from "./ThreadView";
 import { Composer } from "./Composer";
+import { AppNav } from "./AppNav";
 import { listThreads, type ThreadSummary } from "../lib/threads-client";
 
 interface ThreadRow {
@@ -64,18 +65,7 @@ export function Inbox() {
     })) ?? [];
 
   return (
-    <Shell
-      sidebar={
-        <nav className="flex flex-col gap-2 text-sm">
-          <a href="/inbox" className="font-medium">
-            Inbox
-          </a>
-          <a href="/settings/account" className="text-muted">
-            Accounts
-          </a>
-        </nav>
-      }
-    >
+    <Shell sidebar={<AppNav />}>
       <PageHeader
         title="Inbox"
         actions={

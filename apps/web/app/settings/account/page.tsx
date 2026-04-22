@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { Button, Card, DataTable, PageHeader, Shell } from "@mailai/ui";
 import { ConnectAccountDialog } from "../../components/connect-account-dialog";
+import { AppNav } from "../../components/AppNav";
 import {
   type AccountSummary,
   deleteAccount,
@@ -82,7 +83,7 @@ export default function AccountSettingsPage() {
   const rows: AccountRow[] = accounts;
 
   return (
-    <Shell sidebar={<SettingsSidebar />}>
+    <Shell sidebar={<AppNav />}>
       <PageHeader
         title="Accounts"
         subtitle="Connected mail accounts. mail-ai never modifies what it didn't ask for."
@@ -224,14 +225,3 @@ function statusLabel(s: AccountSummary["status"]): string {
   return "Revoked";
 }
 
-function SettingsSidebar() {
-  return (
-    <nav className="flex flex-col gap-2 text-sm">
-      <a href="/inbox" className="text-muted">Inbox</a>
-      <a href="/settings/account" className="font-medium">Accounts</a>
-      <a href="/settings/inboxes" className="text-muted">Inboxes</a>
-      <a href="/settings/agents" className="text-muted">Agents</a>
-      <a href="/settings/audit" className="text-muted">Audit</a>
-    </nav>
-  );
-}

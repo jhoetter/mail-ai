@@ -4,21 +4,56 @@
 
 import { WebSocketServer } from "ws";
 import { CommandBus } from "@mailai/core";
-import { createPool, runMigrations } from "@mailai/overlay-db";
+import { AuditRepository, createPool, runMigrations, withTenant } from "@mailai/overlay-db";
 import { loadProviderCredentialsFromEnv } from "@mailai/oauth-tokens";
 import { buildApp } from "./app.js";
 import { EventBroadcaster } from "./events.js";
 import { NangoClient } from "./oauth/nango-client.js";
+import {
+  buildMailReplyHandler,
+  buildMailSendHandler,
+} from "./handlers/mail-send.js";
 
 async function main() {
-  const bus = new CommandBus();
-  const broadcaster = new EventBroadcaster();
 
   const pool = createPool({
     connectionString:
       process.env["DATABASE_URL"] ??
       "postgres://mailai:mailai@localhost:5532/mailai",
   });
+  // Single dev tenant for now — production will derive this from the
+  // authenticated identity. Audit fan-out runs inside a tenant tx so
+  // RLS sees the right tenant_id for inserts.
+  const DEV_TENANT = "t_dev";
+
+  const broadcaster = new EventBroadcaster();
+  const bus = new CommandBus({
+    audit: async (mutation) => {
+      try {
+        await withTenant(pool, DEV_TENANT, (tx) => {
+          const repo = new AuditRepository(tx);
+          return repo.append(DEV_TENANT, mutation);
+        });
+      } catch (err) {
+        // The audit log is the durable copy; failure to record is a
+        // serious operational issue. We log and continue rather than
+        // failing the mutation — the in-memory mutation store still
+        // has the row, so the operator can retry-apply once the DB
+        // recovers without losing the request.
+        console.error("audit append failed:", err);
+      }
+    },
+  });
+
+  const credentials = loadProviderCredentialsFromEnv();
+  bus.register(
+    "mail:send",
+    buildMailSendHandler({ pool, tenantId: DEV_TENANT, credentials }),
+  );
+  bus.register(
+    "mail:reply",
+    buildMailReplyHandler({ pool, tenantId: DEV_TENANT, credentials }),
+  );
   // Best-effort: don't crash the server if Postgres isn't up (the dev
   // stack might be starting in parallel). OAuth routes will return 500
   // until migrations land — acceptable for dev, and explicit in logs.
@@ -64,7 +99,7 @@ async function main() {
       // Provider client credentials for direct refresh / REST sync.
       // Empty object is fine — sync routes will surface a clear
       // "no GOOGLE_OAUTH_CLIENT_ID" auth_error in that case.
-      credentials: loadProviderCredentialsFromEnv(),
+      credentials,
       ...(nango ? { nango } : {}),
     },
   });

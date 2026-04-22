@@ -27,6 +27,9 @@ export interface OauthMessageRow {
   readonly labelsJson: string[];
   readonly unread: boolean;
   readonly fetchedAt: Date;
+  readonly bodyText: string | null;
+  readonly bodyHtml: string | null;
+  readonly bodyFetchedAt: Date | null;
 }
 
 export interface OauthMessageInsert {
@@ -131,5 +134,50 @@ export class OauthMessagesRepository {
     `);
     const n = (result.rows?.[0] as { n?: number } | undefined)?.n;
     return typeof n === "number" ? n : 0;
+  }
+
+  async byId(tenantId: string, id: string): Promise<OauthMessageRow | null> {
+    const rows = await this.db
+      .select()
+      .from(oauthMessages)
+      .where(and(eq(oauthMessages.tenantId, tenantId), eq(oauthMessages.id, id)));
+    return (rows[0] as OauthMessageRow | undefined) ?? null;
+  }
+
+  // Persist a body we just pulled from the provider. We always stamp
+  // body_fetched_at even when both columns are null so the reader can
+  // tell "we tried, the message genuinely has no body" apart from
+  // "we never asked yet".
+  async setBody(
+    tenantId: string,
+    id: string,
+    body: { text: string | null; html: string | null },
+  ): Promise<void> {
+    await this.db.execute(sql`
+      UPDATE oauth_messages
+      SET body_text = ${body.text},
+          body_html = ${body.html},
+          body_fetched_at = now()
+      WHERE tenant_id = ${tenantId} AND id = ${id}
+    `);
+  }
+
+  // List every message in the same provider thread, oldest first so
+  // the reader UI can render the conversation in chronological order.
+  async listByProviderThread(
+    tenantId: string,
+    providerThreadId: string,
+  ): Promise<OauthMessageRow[]> {
+    const rows = await this.db
+      .select()
+      .from(oauthMessages)
+      .where(
+        and(
+          eq(oauthMessages.tenantId, tenantId),
+          eq(oauthMessages.providerThreadId, providerThreadId),
+        ),
+      )
+      .orderBy(oauthMessages.internalDate);
+    return rows as OauthMessageRow[];
   }
 }

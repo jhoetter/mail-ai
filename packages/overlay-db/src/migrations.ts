@@ -310,6 +310,43 @@ export const MIGRATIONS: Array<{ id: string; up: string }> = [
         ADD COLUMN IF NOT EXISTS last_sync_error text;
     `,
   },
+  {
+    // Body storage for the OAuth-message store.
+    //
+    // We deliberately keep the columns nullable: the initial INBOX
+    // sync only fetches metadata (one HTTP roundtrip per page) so the
+    // user sees their list immediately. Bodies are filled in lazily
+    // — either when the reader UI opens a message and calls
+    // /api/messages/:id/body, or by a background backfill pass.
+    //
+    // We store both text/plain and text/html when the provider gives
+    // us both; the reader prefers HTML and falls back to text. HTML
+    // is sanitized at render time, never on write, so we can always
+    // re-sanitize as the policy evolves.
+    //
+    // body_fetched_at lets the API tell "we tried and it has no body"
+    // (NULL → never tried) apart from "it has no body" (set, but
+    // body_text and body_html are both NULL).
+    id: "0007_oauth_message_bodies",
+    up: `
+      ALTER TABLE oauth_messages
+        ADD COLUMN IF NOT EXISTS body_text text,
+        ADD COLUMN IF NOT EXISTS body_html text,
+        ADD COLUMN IF NOT EXISTS body_fetched_at timestamptz;
+    `,
+  },
+  {
+    // The pending_mutations table backed the human-review queue at
+    // /pending. The Notion-Mail overhaul removed that surface — every
+    // command runs immediately now, audit_log is the durable trail —
+    // so the table and its RLS policy are no longer reachable from
+    // application code. We drop it (idempotent on fresh installs) so
+    // dev databases stay in sync with the new schema.
+    id: "0008_drop_pending_mutations",
+    up: `
+      DROP TABLE IF EXISTS pending_mutations CASCADE;
+    `,
+  },
 ];
 
 export async function runMigrations(pool: Pool): Promise<void> {

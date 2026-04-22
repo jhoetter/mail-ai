@@ -13,7 +13,6 @@ export * from "./repositories/audit.js";
 export * from "./repositories/comments.js";
 export * from "./repositories/tags.js";
 export * from "./repositories/attachments.js";
-export * from "./repositories/pending-mutations.js";
 export * from "./repositories/inboxes.js";
 export * from "./migrations.js";
 export * from "./threading.js";

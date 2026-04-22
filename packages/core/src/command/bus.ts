@@ -3,19 +3,23 @@
 // Architecture invariant (enforced by scripts/check-architecture.mjs +
 // reviewed in PR): no overlay-db repository, no imap-sync method, no
 // HTTP route may write state outside of a CommandHandler registered
-// here. The bus owns approval staging, audit fan-out, and the in-memory
-// pending queue (durable copy lives in overlay-db.audit_log).
+// here. The bus owns audit fan-out and idempotency caching.
+//
+// History note: this module used to own a staging / approve / reject
+// flow that paused agent-source commands until a human approved them
+// in /pending. That review surface was removed in the Notion-Mail
+// overhaul — every dispatched command now runs its handler eagerly.
+// External agents that want a human-in-the-loop must build that on
+// their side before they call us.
 
 import { randomUUID } from "node:crypto";
 import { MailaiError } from "../errors.js";
-import { shouldStage, type PolicyOverrides } from "./policy.js";
 import type {
   Command,
   CommandTypeString,
   EntitySnapshot,
   ImapSideEffect,
   Mutation,
-  MutationStatus,
 } from "./types.js";
 
 export interface HandlerContext {
@@ -39,8 +43,6 @@ export type AuditSink = (mutation: Mutation) => Promise<void> | void;
 export interface MutationStore {
   save(mutation: Mutation): Promise<void>;
   get(id: string): Promise<Mutation | null>;
-  listPending(filter?: { actorId?: string; type?: CommandTypeString }): Promise<Mutation[]>;
-  update(id: string, patch: Partial<Mutation>): Promise<Mutation>;
 }
 
 export class InMemoryMutationStore implements MutationStore {
@@ -51,27 +53,11 @@ export class InMemoryMutationStore implements MutationStore {
   async get(id: string) {
     return this.map.get(id) ?? null;
   }
-  async listPending(filter?: { actorId?: string; type?: CommandTypeString }) {
-    const all = Array.from(this.map.values()).filter((m) => m.status === "pending");
-    return all.filter(
-      (m) =>
-        (!filter?.actorId || m.command.actorId === filter.actorId) &&
-        (!filter?.type || m.command.type === filter.type),
-    );
-  }
-  async update(id: string, patch: Partial<Mutation>) {
-    const cur = this.map.get(id);
-    if (!cur) throw new MailaiError("not_found", `mutation ${id} not found`);
-    const next = { ...cur, ...patch } as Mutation;
-    this.map.set(id, next);
-    return next;
-  }
 }
 
 export interface CommandBusOptions {
   readonly store?: MutationStore;
   readonly audit?: AuditSink;
-  readonly overrides?: PolicyOverrides;
   readonly now?: () => number;
 }
 
@@ -79,7 +65,6 @@ export class CommandBus {
   private readonly handlers = new Map<string, CommandHandler>();
   private readonly store: MutationStore;
   private readonly audit?: AuditSink;
-  private readonly overrides: PolicyOverrides;
   private readonly now: () => number;
   private readonly idempotencyCache = new Map<string, string>();
 
@@ -90,7 +75,6 @@ export class CommandBus {
   constructor(opts: CommandBusOptions = {}) {
     this.store = opts.store ?? new InMemoryMutationStore();
     if (opts.audit !== undefined) this.audit = opts.audit;
-    this.overrides = opts.overrides ?? {};
     this.now = opts.now ?? (() => Date.now());
   }
 
@@ -119,65 +103,11 @@ export class CommandBus {
       }
     }
 
-    const stage = shouldStage(cmd, this.overrides, ctx.inboxId);
     const id = randomUUID();
     const createdAt = this.now();
     if (cmd.idempotencyKey) this.idempotencyCache.set(this.idempotencyId(cmd), id);
 
-    if (stage) {
-      // Staged mutations do NOT execute the handler. They store the
-      // command and the projection is computed by overlaying pending
-      // diffs over authoritative state in the agent SDK.
-      const m: Mutation = {
-        id,
-        command: cmd,
-        before: [],
-        after: [],
-        diffs: [],
-        imapSideEffects: [],
-        status: "pending",
-        createdAt,
-      };
-      await this.store.save(m);
-      await this.audit?.(m);
-      return m;
-    }
-
     return this.executeHandler(id, cmd, handler, ctx, createdAt);
-  }
-
-  async approve(mutationId: string, approvedBy: string): Promise<Mutation> {
-    const m = await this.store.get(mutationId);
-    if (!m) throw new MailaiError("not_found", `mutation ${mutationId} not found`);
-    if (m.status !== "pending") {
-      throw new MailaiError("conflict_error", `mutation ${mutationId} is ${m.status}, not pending`);
-    }
-    const handler = this.handlers.get(m.command.type);
-    if (!handler) throw new MailaiError("validation_error", `no handler for ${m.command.type}`);
-    const executed = await this.executeHandler(m.id, m.command, handler, {}, this.now());
-    return this.store.update(m.id, {
-      ...executed,
-      approvedBy,
-      approvedAt: this.now(),
-    });
-  }
-
-  async reject(mutationId: string, reason?: string): Promise<Mutation> {
-    const m = await this.store.get(mutationId);
-    if (!m) throw new MailaiError("not_found", `mutation ${mutationId} not found`);
-    if (m.status !== "pending") {
-      throw new MailaiError("conflict_error", `mutation ${mutationId} is ${m.status}, not pending`);
-    }
-    const updated = await this.store.update(mutationId, {
-      status: "rejected" as MutationStatus,
-      ...(reason !== undefined ? { rejectedReason: reason } : {}),
-    });
-    await this.audit?.(updated);
-    return updated;
-  }
-
-  listPending(filter?: { actorId?: string; type?: CommandTypeString }): Promise<Mutation[]> {
-    return this.store.listPending(filter);
   }
 
   getMutation(id: string): Promise<Mutation | null> {

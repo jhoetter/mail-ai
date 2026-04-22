@@ -174,6 +174,90 @@ function decodeEntities(s: string): string {
     .replace(/&nbsp;/g, " ");
 }
 
+// Full message bodies for the reader UI. Returns the best available
+// text/plain and text/html parts, walking nested multipart bodies
+// (multipart/alternative inside multipart/mixed inside …) so we don't
+// mistake an attachment-laden message for an empty one.
+//
+// Gmail returns each part body as URL-safe base64 in `data`. We
+// decode here so the API layer just hands strings to the UI.
+export interface GmailMessageBody {
+  readonly id: string;
+  readonly threadId: string;
+  readonly text: string | null;
+  readonly html: string | null;
+}
+
+interface GmailPart {
+  partId?: string;
+  mimeType?: string;
+  filename?: string;
+  headers?: { name: string; value: string }[];
+  body?: { size?: number; data?: string; attachmentId?: string };
+  parts?: GmailPart[];
+}
+
+interface GmailGetFullResponse {
+  id: string;
+  threadId: string;
+  payload?: GmailPart;
+}
+
+export async function getGmailMessageBody(args: {
+  accessToken: string;
+  messageId: string;
+  fetchImpl?: typeof fetch;
+}): Promise<GmailMessageBody> {
+  const f = args.fetchImpl ?? fetch;
+  const url =
+    `${GMAIL_BASE}/users/me/messages/${encodeURIComponent(args.messageId)}` +
+    `?format=full`;
+  const res = await f(url, {
+    headers: { authorization: `Bearer ${args.accessToken}` },
+  });
+  if (!res.ok) {
+    const body = await safeText(res);
+    throw new Error(`gmail get-full ${args.messageId} failed: ${res.status} ${body.slice(0, 200)}`);
+  }
+  const json = (await res.json()) as GmailGetFullResponse;
+  const collected = { text: null as string | null, html: null as string | null };
+  if (json.payload) walkParts(json.payload, collected);
+  return {
+    id: json.id,
+    threadId: json.threadId,
+    text: collected.text,
+    html: collected.html,
+  };
+}
+
+function walkParts(part: GmailPart, out: { text: string | null; html: string | null }): void {
+  const mt = (part.mimeType ?? "").toLowerCase();
+  // Skip explicit attachment parts — those have a filename and either
+  // an attachmentId or no inline body data we'd want as the message
+  // body. (Inline images come through with no filename and we just
+  // ignore them; the reader degrades gracefully to text.)
+  const isAttachment = !!part.filename && part.filename.length > 0;
+  if (!isAttachment && part.body?.data) {
+    const decoded = decodeBase64Url(part.body.data);
+    if (mt === "text/plain" && out.text === null) out.text = decoded;
+    else if (mt === "text/html" && out.html === null) out.html = decoded;
+  }
+  for (const child of part.parts ?? []) walkParts(child, out);
+}
+
+function decodeBase64Url(s: string): string {
+  // Gmail uses base64url with no padding. Convert to standard base64
+  // and re-pad before letting Buffer decode it. Wrapping in a try
+  // keeps a single malformed part from poisoning the whole message.
+  try {
+    const std = s.replace(/-/g, "+").replace(/_/g, "/");
+    const pad = std.length % 4 === 0 ? "" : "=".repeat(4 - (std.length % 4));
+    return Buffer.from(std + pad, "base64").toString("utf8");
+  } catch {
+    return "";
+  }
+}
+
 async function safeText(res: Response): Promise<string> {
   try {
     return await res.text();

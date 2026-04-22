@@ -115,6 +115,9 @@ export const oauthMessages = pgTable(
     labelsJson: jsonb("labels_json").notNull(),
     unread: boolean("unread").notNull().default(false),
     fetchedAt: timestamp("fetched_at", { withTimezone: true }).defaultNow().notNull(),
+    bodyText: text("body_text"),
+    bodyHtml: text("body_html"),
+    bodyFetchedAt: timestamp("body_fetched_at", { withTimezone: true }),
   },
   (t) => ({
     msgIdx: uniqueIndex("oauth_messages_account_msg_idx").on(
@@ -278,22 +281,9 @@ export const inboxMembers = pgTable(
   (t) => ({ pk: uniqueIndex("inbox_members_pk").on(t.inboxId, t.userId) }),
 );
 
-export const pendingMutations = pgTable(
-  "pending_mutations",
-  {
-    id: text("id").primaryKey(),
-    tenantId: text("tenant_id").notNull(),
-    commandType: text("command_type").notNull(),
-    actorId: text("actor_id").notNull(),
-    source: text("source").notNull(),
-    payloadJson: jsonb("payload_json").notNull(),
-    targetThreadId: text("target_thread_id"),
-    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
-    rejectedReason: text("rejected_reason"),
-    status: text("status").default("pending").notNull(),
-  },
-  (t) => ({
-    threadIdx: index("pending_thread_idx").on(t.tenantId, t.targetThreadId),
-    statusIdx: index("pending_status_idx").on(t.tenantId, t.status),
-  }),
-);
+// pending_mutations was the durable backing for the human-review queue
+// at /pending. The Notion-Mail overhaul removed that flow entirely
+// (commands run immediately; audit_log is the durable trail), so the
+// table is dropped in migration 0008. The Drizzle definition is kept
+// off the schema on purpose — re-adding it would let new code reach
+// for a queue we no longer support.

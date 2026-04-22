@@ -31,3 +31,37 @@ export async function listThreads(opts: { limit?: number } = {}): Promise<Thread
   const data = (await res.json()) as { threads: ThreadSummary[] };
   return data.threads;
 }
+
+export interface ThreadMessage {
+  id: string;
+  providerMessageId: string;
+  from: string;
+  fromName: string | null;
+  fromEmail: string | null;
+  to: string | null;
+  date: string;
+  snippet: string;
+  unread: boolean;
+  bodyText: string | null;
+  bodyHtml: string | null;
+  bodyFetchedAt: string | null;
+}
+
+export interface ThreadDetail {
+  id: string;
+  subject: string;
+  providerThreadId: string;
+  provider: "google-mail" | "outlook";
+  unreadCount: number;
+  messages: ThreadMessage[];
+}
+
+export async function getThread(id: string): Promise<ThreadDetail> {
+  const url = `${baseUrl()}/api/threads/${encodeURIComponent(id)}`;
+  const res = await fetch(url);
+  if (!res.ok) {
+    const text = await res.text().catch(() => "");
+    throw new Error(`/api/threads/${id} ${res.status}: ${text.slice(0, 200)}`);
+  }
+  return (await res.json()) as ThreadDetail;
+}

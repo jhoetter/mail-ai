@@ -86,4 +86,85 @@ export class InboxesRepository {
     const r = rows[0] as unknown as InboxMemberRow | undefined;
     return r?.role ?? null;
   }
+
+  async byId(tenantId: string, id: string): Promise<InboxRow | null> {
+    const rows = await this.db
+      .select()
+      .from(inboxes)
+      .where(and(eq(inboxes.tenantId, tenantId), eq(inboxes.id, id)))
+      .limit(1);
+    return (rows[0] as unknown as InboxRow | undefined) ?? null;
+  }
+
+  async update(
+    tenantId: string,
+    id: string,
+    patch: {
+      name?: string | undefined;
+      description?: string | null | undefined;
+      config?: Record<string, unknown> | undefined;
+    },
+  ): Promise<void> {
+    const set: Record<string, unknown> = {};
+    if (patch.name !== undefined) set["name"] = patch.name;
+    if (patch.description !== undefined) set["description"] = patch.description;
+    if (patch.config !== undefined) set["config"] = patch.config;
+    if (Object.keys(set).length === 0) return;
+    await this.db
+      .update(inboxes)
+      .set(set)
+      .where(and(eq(inboxes.tenantId, tenantId), eq(inboxes.id, id)));
+  }
+
+  async delete(tenantId: string, id: string): Promise<void> {
+    // The schema doesn't declare ON DELETE CASCADE on the child FKs,
+    // so we clean them up manually inside one transaction.
+    await this.db
+      .delete(inboxMembers)
+      .where(and(eq(inboxMembers.tenantId, tenantId), eq(inboxMembers.inboxId, id)));
+    await this.db
+      .delete(inboxMailboxes)
+      .where(and(eq(inboxMailboxes.tenantId, tenantId), eq(inboxMailboxes.inboxId, id)));
+    await this.db
+      .delete(inboxes)
+      .where(and(eq(inboxes.tenantId, tenantId), eq(inboxes.id, id)));
+  }
+
+  async listMailboxes(tenantId: string, inboxId: string): Promise<InboxMailboxRow[]> {
+    const rows = await this.db
+      .select()
+      .from(inboxMailboxes)
+      .where(and(eq(inboxMailboxes.tenantId, tenantId), eq(inboxMailboxes.inboxId, inboxId)));
+    return rows as unknown as InboxMailboxRow[];
+  }
+
+  async removeMember(tenantId: string, inboxId: string, userId: string): Promise<void> {
+    await this.db
+      .delete(inboxMembers)
+      .where(
+        and(
+          eq(inboxMembers.tenantId, tenantId),
+          eq(inboxMembers.inboxId, inboxId),
+          eq(inboxMembers.userId, userId),
+        ),
+      );
+  }
+
+  async removeMailbox(
+    tenantId: string,
+    inboxId: string,
+    accountId: string,
+    mailboxPath: string,
+  ): Promise<void> {
+    await this.db
+      .delete(inboxMailboxes)
+      .where(
+        and(
+          eq(inboxMailboxes.tenantId, tenantId),
+          eq(inboxMailboxes.inboxId, inboxId),
+          eq(inboxMailboxes.accountId, accountId),
+          eq(inboxMailboxes.mailboxPath, mailboxPath),
+        ),
+      );
+  }
 }

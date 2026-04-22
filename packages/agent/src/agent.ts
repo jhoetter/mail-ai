@@ -108,7 +108,7 @@ export class MailAgent {
         const m = await this.applyCommand(input);
         results.push({ status: m.status, mutation: m });
         if (m.status === "applied") appliedCount++;
-        if ((m.status === "failed" || m.status === "rolled-back") && failedAt === undefined) {
+        if (m.status === "failed" && failedAt === undefined) {
           failedAt = i;
           if (stopOnError) abortedRest = true;
         }
@@ -128,16 +128,4 @@ export class MailAgent {
     };
   }
 
-  async getPendingMutations(filter?: { actorId?: string; type?: CommandTypeString }): Promise<Mutation[]> {
-    return this.bus.listPending(filter);
-  }
-
-  async approveMutation(mutationId: string): Promise<Mutation> {
-    return this.bus.approve(mutationId, this.identity.userId);
-  }
-
-  async rejectMutation(mutationId: string, reason?: string): Promise<Mutation> {
-    if (reason !== undefined) return this.bus.reject(mutationId, reason);
-    return this.bus.reject(mutationId);
-  }
 }

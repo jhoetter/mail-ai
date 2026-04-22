@@ -50,7 +50,13 @@ export type ImapSideEffect =
   | { readonly kind: "append"; readonly accountId: string; readonly mailbox: string; readonly bytes: number; readonly messageId: string }
   | { readonly kind: "smtp-submit"; readonly accountId: string; readonly messageId: string };
 
-export type MutationStatus = "pending" | "applied" | "failed" | "rolled-back" | "rejected";
+// `applied` and `failed` are the only end states. The pending /
+// rejected / rolled-back path was removed when we deleted the
+// human-review queue: every command that reaches the bus now runs
+// its handler immediately and either succeeds (applied) or throws
+// (failed). External agents are trusted to make their own approval
+// decisions before they call us.
+export type MutationStatus = "applied" | "failed";
 
 export interface Mutation {
   readonly id: string;
@@ -61,8 +67,5 @@ export interface Mutation {
   readonly imapSideEffects: readonly ImapSideEffect[];
   readonly status: MutationStatus;
   readonly error?: { code: string; message: string };
-  readonly approvedBy?: string;
-  readonly approvedAt?: number;
-  readonly rejectedReason?: string;
   readonly createdAt: number;
 }
