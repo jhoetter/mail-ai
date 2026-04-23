@@ -30,10 +30,12 @@ COPY apps ./apps
 
 RUN pnpm install --frozen-lockfile --prefer-offline
 
-# Build everything the server transitively depends on. Building the
-# whole workspace is cheaper to reason about than tracking the exact
-# dep graph, and tsc is fast enough that the cost is negligible.
-RUN pnpm build
+# Build only the server and its workspace deps. Building the whole
+# workspace would also build `@mailai/embed-host`, whose Vite bundle
+# imports `@officeai/react-editors/*` — a tarball-staged optional dep
+# that lives outside the Docker build context (it's hydrated by
+# `scripts/ensure-officeai-react-editors.cjs` only on dev installs).
+RUN pnpm --filter '@mailai/server...' build
 
 # Bundle the server (and only the server) into a self-contained dir
 # under /out/server. This resolves all workspace:* deps to real files,
