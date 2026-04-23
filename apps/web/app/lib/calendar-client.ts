@@ -1,6 +1,6 @@
 // Calendar list + range read + RSVP / event mutation helpers.
 
-import { baseUrl } from "./api";
+import { apiFetch } from "./api";
 import { dispatchCommand } from "./commands-client";
 
 // Conferencing types this calendar's provider can mint. Read off
@@ -72,7 +72,7 @@ export interface EventSummary {
 export type MeetingChoice = "gmeet" | "teams" | "none";
 
 export async function listCalendars(): Promise<CalendarSummary[]> {
-  const res = await fetch(`${baseUrl()}/api/calendars`);
+  const res = await apiFetch(`/api/calendars`);
   if (!res.ok) throw new Error(`/api/calendars ${res.status}`);
   const data = (await res.json()) as {
     calendars: ReadonlyArray<
@@ -96,11 +96,11 @@ export async function listCalendars(): Promise<CalendarSummary[]> {
 }
 
 export async function syncCalendars(): Promise<void> {
-  await fetch(`${baseUrl()}/api/calendars/sync`, { method: "POST" });
+  await apiFetch(`/api/calendars/sync`, { method: "POST" });
 }
 
 export async function setCalendarVisibility(id: string, isVisible: boolean): Promise<void> {
-  const res = await fetch(`${baseUrl()}/api/calendars/${encodeURIComponent(id)}`, {
+  const res = await apiFetch(`/api/calendars/${encodeURIComponent(id)}`, {
     method: "PATCH",
     headers: { "content-type": "application/json" },
     body: JSON.stringify({ isVisible }),
@@ -113,13 +113,13 @@ export async function listEvents(
   from: Date,
   to: Date,
 ): Promise<EventSummary[]> {
-  const u = new URL(
-    `${baseUrl()}/api/calendars/${encodeURIComponent(calendarId)}/events`,
-    typeof window === "undefined" ? "http://localhost" : window.location.href,
+  const params = new URLSearchParams({
+    from: from.toISOString(),
+    to: to.toISOString(),
+  });
+  const res = await apiFetch(
+    `/api/calendars/${encodeURIComponent(calendarId)}/events?${params.toString()}`,
   );
-  u.searchParams.set("from", from.toISOString());
-  u.searchParams.set("to", to.toISOString());
-  const res = await fetch(u.pathname + u.search);
   if (!res.ok) throw new Error(`/api/calendars events ${res.status}`);
   const data = (await res.json()) as { events: EventSummary[] };
   return data.events;
@@ -138,13 +138,11 @@ export interface EventsRangeResponse {
 }
 
 export async function listEventsRange(from: Date, to: Date): Promise<EventsRangeResponse> {
-  const u = new URL(
-    `${baseUrl()}/api/calendars/events`,
-    typeof window === "undefined" ? "http://localhost" : window.location.href,
-  );
-  u.searchParams.set("from", from.toISOString());
-  u.searchParams.set("to", to.toISOString());
-  const res = await fetch(u.pathname + u.search);
+  const params = new URLSearchParams({
+    from: from.toISOString(),
+    to: to.toISOString(),
+  });
+  const res = await apiFetch(`/api/calendars/events?${params.toString()}`);
   if (!res.ok) throw new Error(`/api/calendars/events ${res.status}`);
   return (await res.json()) as EventsRangeResponse;
 }
@@ -216,13 +214,11 @@ export interface ContactsSuggestItem {
 
 export async function suggestContacts(q: string): Promise<ContactsSuggestItem[]> {
   if (q.trim().length === 0) return [];
-  const u = new URL(
-    `${baseUrl()}/api/contacts/suggest`,
-    typeof window === "undefined" ? "http://localhost" : window.location.href,
-  );
-  u.searchParams.set("q", q.trim());
-  u.searchParams.set("limit", "8");
-  const res = await fetch(u.pathname + u.search);
+  const params = new URLSearchParams({
+    q: q.trim(),
+    limit: "8",
+  });
+  const res = await apiFetch(`/api/contacts/suggest?${params.toString()}`);
   if (!res.ok) return [];
   const data = (await res.json()) as {
     items: ReadonlyArray<{ id: string; email: string; name?: string; source?: string }>;

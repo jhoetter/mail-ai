@@ -16,6 +16,7 @@
 
 import { createContext, useContext, useEffect, useMemo, useRef } from "react";
 import type { ReactNode } from "react";
+import { runtimeWsBase } from "./runtime-config";
 
 // Mirrors `MailaiEvent` from packages/server/src/events.ts. Kept as
 // a local type so the web app doesn't pull a server dep into the
@@ -75,6 +76,11 @@ const RealtimeContext = createContext<RealtimeContextValue | null>(null);
 const BACKOFF_MS = [500, 1000, 2000, 4000, 8000, 15_000, 30_000];
 
 function defaultRealtimeUrl(): string {
+  // Embed mode wins: when the host (hof-os) wired up a wsBase via
+  // RuntimeConfig, the realtime WS goes through the host's proxy
+  // (`/api/mail/ws`), not the standalone realtime port.
+  const runtime = runtimeWsBase();
+  if (runtime) return runtime;
   // Vite-injected env. When unset, point at the dev WS server on the
   // same host the browser was served from. Production sets
   // VITE_MAILAI_RT_URL to the externally-reachable wss:// origin.

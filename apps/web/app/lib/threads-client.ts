@@ -3,7 +3,7 @@
 // page a typed shape. Server returns the array under `threads` so we
 // stay forward-compatible with paging/cursors later.
 
-import { baseUrl } from "./api";
+import { apiFetch } from "./api";
 
 export interface ThreadSummary {
   id: string;
@@ -32,8 +32,8 @@ export interface TagSummary {
 export async function listThreads(opts: { limit?: number } = {}): Promise<ThreadSummary[]> {
   const params = new URLSearchParams();
   if (opts.limit) params.set("limit", String(opts.limit));
-  const url = `${baseUrl()}/api/threads${params.toString() ? `?${params}` : ""}`;
-  const res = await fetch(url);
+  const url = `/api/threads${params.toString() ? `?${params}` : ""}`;
+  const res = await apiFetch(url);
   if (!res.ok) {
     const text = await res.text().catch(() => "");
     throw new Error(`/api/threads ${res.status}: ${text.slice(0, 200)}`);
@@ -86,8 +86,8 @@ export interface ThreadDetail {
 }
 
 export async function getThread(id: string): Promise<ThreadDetail> {
-  const url = `${baseUrl()}/api/threads/${encodeURIComponent(id)}`;
-  const res = await fetch(url);
+  const url = `/api/threads/${encodeURIComponent(id)}`;
+  const res = await apiFetch(url);
   if (!res.ok) {
     const text = await res.text().catch(() => "");
     throw new Error(`/api/threads/${id} ${res.status}: ${text.slice(0, 200)}`);

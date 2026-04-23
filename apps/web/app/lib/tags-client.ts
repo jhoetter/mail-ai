@@ -1,7 +1,7 @@
 // Browser-side tag CRUD + per-thread tag listing.
 // Mutations route through /api/commands so they hit the audit log.
 
-import { baseUrl } from "./api";
+import { apiFetch } from "./api";
 import { dispatchCommand } from "./commands-client";
 
 export interface TagDefinition {
@@ -12,14 +12,14 @@ export interface TagDefinition {
 }
 
 export async function listTags(): Promise<TagDefinition[]> {
-  const res = await fetch(`${baseUrl()}/api/tags`);
+  const res = await apiFetch(`/api/tags`);
   if (!res.ok) throw new Error(`/api/tags ${res.status}`);
   const data = (await res.json()) as { tags: TagDefinition[] };
   return data.tags;
 }
 
 export async function createTag(name: string, color?: string): Promise<TagDefinition> {
-  const res = await fetch(`${baseUrl()}/api/tags`, {
+  const res = await apiFetch(`/api/tags`, {
     method: "POST",
     headers: { "content-type": "application/json" },
     body: JSON.stringify({ name, color }),
@@ -30,14 +30,14 @@ export async function createTag(name: string, color?: string): Promise<TagDefini
 }
 
 export async function deleteTag(id: string): Promise<void> {
-  const res = await fetch(`${baseUrl()}/api/tags/${encodeURIComponent(id)}`, {
+  const res = await apiFetch(`/api/tags/${encodeURIComponent(id)}`, {
     method: "DELETE",
   });
   if (!res.ok) throw new Error(`/api/tags delete ${res.status}`);
 }
 
 export async function listThreadTags(threadId: string): Promise<TagDefinition[]> {
-  const res = await fetch(`${baseUrl()}/api/threads/${encodeURIComponent(threadId)}/tags`);
+  const res = await apiFetch(`/api/threads/${encodeURIComponent(threadId)}/tags`);
   if (!res.ok) throw new Error(`/api/threads/${threadId}/tags ${res.status}`);
   const data = (await res.json()) as { tags: TagDefinition[] };
   return data.tags;

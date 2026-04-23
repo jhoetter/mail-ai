@@ -14,7 +14,7 @@
 // in a row should produce ONE network call, not three.
 
 import { useEffect, useRef, useState } from "react";
-import { baseUrl } from "./api";
+import { apiFetch } from "./api";
 
 export type ContactSource = "my" | "other" | "people";
 
@@ -53,7 +53,7 @@ export async function suggestContacts(
   if (opts.accountId) u.searchParams.set("accountId", opts.accountId);
   if (opts.limit) u.searchParams.set("limit", String(opts.limit));
   const path = u.pathname + u.search;
-  const res = await fetch(`${baseUrl()}${path}`, {
+  const res = await apiFetch(path, {
     ...(opts.signal ? { signal: opts.signal } : {}),
   });
   if (!res.ok) {

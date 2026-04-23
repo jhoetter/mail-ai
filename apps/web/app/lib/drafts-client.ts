@@ -1,6 +1,6 @@
 // Drafts list + get. Mutations route through /api/commands.
 
-import { baseUrl } from "./api";
+import { apiFetch } from "./api";
 import { dispatchCommand } from "./commands-client";
 
 export interface DraftSummary {
@@ -17,14 +17,14 @@ export interface DraftSummary {
 }
 
 export async function listDrafts(): Promise<DraftSummary[]> {
-  const res = await fetch(`${baseUrl()}/api/drafts`);
+  const res = await apiFetch(`/api/drafts`);
   if (!res.ok) throw new Error(`/api/drafts ${res.status}`);
   const data = (await res.json()) as { drafts: DraftSummary[] };
   return data.drafts;
 }
 
 export async function getDraft(id: string): Promise<DraftSummary | null> {
-  const res = await fetch(`${baseUrl()}/api/drafts/${encodeURIComponent(id)}`);
+  const res = await apiFetch(`/api/drafts/${encodeURIComponent(id)}`);
   if (res.status === 404) return null;
   if (!res.ok) throw new Error(`/api/drafts/${id} ${res.status}`);
   const data = (await res.json()) as { draft: DraftSummary };

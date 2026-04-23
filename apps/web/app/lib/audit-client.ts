@@ -1,7 +1,7 @@
 // Browser wrapper for /api/audit. Same shape as the other clients.
 // Pagination is opaque: pass back nextCursor verbatim.
 
-import { baseUrl } from "./api";
+import { apiFetch } from "./api";
 
 export interface AuditEntry {
   seq: string;
@@ -35,7 +35,7 @@ export async function listAudit(q: AuditQuery = {}): Promise<AuditPage> {
   for (const [k, v] of Object.entries(q)) {
     if (v !== undefined && v !== "") params.set(k, String(v));
   }
-  const res = await fetch(`${baseUrl()}/api/audit?${params}`);
+  const res = await apiFetch(`/api/audit?${params}`);
   if (!res.ok) {
     const t = await res.text().catch(() => "");
     throw new Error(`/api/audit ${res.status}: ${t.slice(0, 200)}`);

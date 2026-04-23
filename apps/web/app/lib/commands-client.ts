@@ -57,7 +57,7 @@ export class CommandFailedError extends MailaiError {
 }
 
 export async function dispatchCommand(input: CommandInput): Promise<Mutation> {
-  const m = await client().applyCommand({
+  const m = await (await client()).applyCommand({
     type: input.type,
     payload: input.payload,
     ...(input.idempotencyKey ? { idempotencyKey: input.idempotencyKey } : {}),

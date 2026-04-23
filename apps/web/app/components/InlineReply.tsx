@@ -207,7 +207,7 @@ export function InlineReply({ thread, onSent, autoExpand, autoExpandKey, forward
         if (!forwardMessage) {
           throw new Error("forward source missing");
         }
-        await client().applyCommand({
+        await (await client()).applyCommand({
           type: "mail:forward",
           payload: {
             providerMessageId: forwardMessage.providerMessageId,
@@ -226,7 +226,7 @@ export function InlineReply({ thread, onSent, autoExpand, autoExpandKey, forward
         // Reply / Reply All collapse to the same backend command —
         // the difference is purely in which recipients the UI
         // pre-fills. The server honours whatever lists we ship.
-        await client().applyCommand({
+        await (await client()).applyCommand({
           type: "mail:reply",
           payload: {
             threadId: thread.id,

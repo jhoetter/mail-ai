@@ -33,7 +33,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useNavigate } from "react-router";
 import { Search, FileText, Mail, User, Mailbox, Calendar } from "lucide-react";
-import { baseUrl } from "../lib/api";
+import { apiFetch, baseUrl } from "../lib/api";
 import { useTranslator } from "../lib/i18n/useTranslator";
 
 const SEARCH_DEBOUNCE_MS = 200;
@@ -198,7 +198,7 @@ function buildSearchUrl(parsed: ParsedQuery): string | null {
   if (parsed.hasAttachment) sp.set("hasAttachment", "1");
   if (parsed.hasLink) sp.set("hasLink", "1");
   if ([...sp.keys()].length === 0) return null;
-  return `${baseUrl()}/api/search?${sp.toString()}`;
+  return `/api/search?${sp.toString()}`;
 }
 
 // ---- Tabs --------------------------------------------------------------
@@ -295,7 +295,7 @@ export function TopBar() {
       abortRef.current?.abort();
       const ac = new AbortController();
       abortRef.current = ac;
-      void fetch(url, { signal: ac.signal })
+      void apiFetch(url, { signal: ac.signal })
         .then(async (res) => {
           if (!res.ok) throw new Error(`/api/search ${res.status}`);
           return (await res.json()) as SearchResult;

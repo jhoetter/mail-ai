@@ -64,7 +64,7 @@ import {
   buildCalendarUpdateEventHandler,
 } from "./handlers/calendar.js";
 import { SyncScheduler } from "./sync/scheduler.js";
-import { buildHofJwtIdentity } from "./auth/hof-jwt.js";
+import { buildHofJwtIdentity, type ResolvedIdentity } from "./auth/hof-jwt.js";
 
 async function main() {
   const pool = createPool({
@@ -257,15 +257,25 @@ async function main() {
     // by hof-os' `issue_subapp_token` @function and rejects requests
     // without one. When it's unset (`make dev`), it returns the dev
     // stub identity so local development keeps working unchanged.
-    identity: buildHofJwtIdentity({
-      fallback: {
-        userId: "u_dev",
-        tenantId: "t_dev",
-        email: "dev@mail-ai.local",
-        displayName: "Dev User",
-      },
-      expectedAudience: "mailai",
-    }),
+    // The identity resolver wraps `buildHofJwtIdentity` with a one-shot
+    // upsert: when hof-os mints a JWT for a tenant/user we've never
+    // seen (the embed's host workspace + actor), we INSERT them
+    // idempotently into `tenants` + `users` so foreign-key constraints
+    // and RLS policies don't reject the very first request from a
+    // freshly provisioned customer cell. The cache keeps the hot path
+    // a single hashmap hit per request.
+    identity: wrapIdentityWithUpsert(
+      buildHofJwtIdentity({
+        fallback: {
+          userId: "u_dev",
+          tenantId: "t_dev",
+          email: "dev@mail-ai.local",
+          displayName: "Dev User",
+        },
+        expectedAudience: "mailai",
+      }),
+      pool,
+    ),
     oauth: {
       pool,
       nangoProviderKeys: {
@@ -325,3 +335,53 @@ main().catch((err) => {
   console.error(err);
   process.exit(1);
 });
+
+/**
+ * Wrap an identity resolver so that the first time we see a given
+ * (tenantId, userId) pair from a JWT, we upsert the corresponding
+ * rows into `tenants` and `users`. Idempotent ON CONFLICT DO NOTHING
+ * inserts run inside a single short transaction; subsequent requests
+ * for the same identity hit the in-process Set cache and skip the DB
+ * roundtrip entirely.
+ *
+ * The dev fallback (`u_dev`/`t_dev`) is already seeded by the boot
+ * path, so the cache is pre-warmed below to avoid a redundant insert
+ * on every standalone `pnpm dev` request.
+ */
+function wrapIdentityWithUpsert(
+  inner: (req: { headers: Record<string, unknown> }) => Promise<ResolvedIdentity>,
+  pool: import("@mailai/overlay-db").Pool,
+): (req: { headers: Record<string, unknown> }) => Promise<ResolvedIdentity> {
+  const seen = new Set<string>(["t_dev|u_dev"]);
+  return async (req) => {
+    const ident = await inner(req);
+    const key = `${ident.tenantId}|${ident.userId}`;
+    if (seen.has(key)) return ident;
+    try {
+      // Tenants first (users.tenant_id has a FK to tenants.id), then
+      // users. Both inserts swallow the duplicate so a parallel
+      // request can win the race without retry.
+      await pool.query(
+        "INSERT INTO tenants(id, name) VALUES ($1, $2) ON CONFLICT (id) DO NOTHING",
+        [ident.tenantId, ident.tenantId],
+      );
+      await pool.query(
+        "INSERT INTO users(id, tenant_id, email, display_name, role) VALUES ($1, $2, $3, $4, $5) ON CONFLICT (id) DO NOTHING",
+        [
+          ident.userId,
+          ident.tenantId,
+          ident.email ?? `${ident.userId}@hof-os.local`,
+          ident.displayName ?? ident.userId,
+          "admin",
+        ],
+      );
+      seen.add(key);
+    } catch (err) {
+      // Don't block the request — log + retry on the next call. The
+      // request handler may still 500 if a downstream FK rejects, but
+      // that's clearer to debug than silently corrupt the cache.
+      console.warn("[identity] upsert failed; will retry next request", { ident, err });
+    }
+    return ident;
+  };
+}

@@ -2,7 +2,7 @@
 // purpose — Nango's frontend SDK does the actual popup work, this
 // module just talks to our server.
 
-import { baseUrl } from "./api";
+import { apiFetch } from "./api";
 
 export type ConnectProvider = "google-mail" | "outlook";
 
@@ -82,7 +82,7 @@ async function jsonOrThrow<T>(res: Response): Promise<T> {
 export async function createConnectSession(
   provider: ConnectProvider,
 ): Promise<ConnectSessionResponse> {
-  const res = await fetch(`${baseUrl()}/api/oauth/connect-session`, {
+  const res = await apiFetch(`/api/oauth/connect-session`, {
     method: "POST",
     headers: { "content-type": "application/json" },
     body: JSON.stringify({ provider }),
@@ -94,7 +94,7 @@ export async function finalizeConnection(args: {
   provider: ConnectProvider;
   connectionId: string;
 }): Promise<FinalizeResponse> {
-  const res = await fetch(`${baseUrl()}/api/oauth/finalize`, {
+  const res = await apiFetch(`/api/oauth/finalize`, {
     method: "POST",
     headers: { "content-type": "application/json" },
     body: JSON.stringify(args),
@@ -103,13 +103,13 @@ export async function finalizeConnection(args: {
 }
 
 export async function listAccounts(): Promise<AccountSummary[]> {
-  const res = await fetch(`${baseUrl()}/api/accounts`);
+  const res = await apiFetch(`/api/accounts`);
   const data = await jsonOrThrow<{ accounts: AccountSummary[] }>(res);
   return data.accounts;
 }
 
 export async function deleteAccount(id: string): Promise<void> {
-  const res = await fetch(`${baseUrl()}/api/accounts/${encodeURIComponent(id)}`, {
+  const res = await apiFetch(`/api/accounts/${encodeURIComponent(id)}`, {
     method: "DELETE",
   });
   await jsonOrThrow<{ ok: true }>(res);
@@ -124,7 +124,7 @@ export async function syncAccount(id: string, opts: SyncOptions = {}): Promise<S
     params.set("backfill", String(opts.backfillPages));
   }
   const qs = params.toString();
-  const url = `${baseUrl()}/api/accounts/${encodeURIComponent(id)}/sync${qs ? `?${qs}` : ""}`;
-  const res = await fetch(url, { method: "POST" });
+  const url = `/api/accounts/${encodeURIComponent(id)}/sync${qs ? `?${qs}` : ""}`;
+  const res = await apiFetch(url, { method: "POST" });
   return jsonOrThrow<SyncResult>(res);
 }

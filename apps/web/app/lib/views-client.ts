@@ -1,7 +1,7 @@
 // Browser-side wrapper around /api/views. Views are saved
 // (filter + sort + group) tabs across the inbox.
 
-import { baseUrl } from "./api";
+import { apiFetch } from "./api";
 import type { ThreadSummary } from "./threads-client";
 
 export interface ViewFilter {
@@ -27,7 +27,7 @@ export interface ViewSummary {
 }
 
 export async function listViews(): Promise<ViewSummary[]> {
-  const res = await fetch(`${baseUrl()}/api/views`);
+  const res = await apiFetch(`/api/views`);
   if (!res.ok) throw new Error(`/api/views ${res.status}`);
   const data = (await res.json()) as { views: ViewSummary[] };
   return data.views;
@@ -38,7 +38,7 @@ export async function createView(input: {
   icon?: string;
   filter?: ViewFilter;
 }): Promise<ViewSummary> {
-  const res = await fetch(`${baseUrl()}/api/views`, {
+  const res = await apiFetch(`/api/views`, {
     method: "POST",
     headers: { "content-type": "application/json" },
     body: JSON.stringify(input),
@@ -59,7 +59,7 @@ export async function updateView(
     position: number;
   }>,
 ): Promise<ViewSummary> {
-  const res = await fetch(`${baseUrl()}/api/views/${encodeURIComponent(id)}`, {
+  const res = await apiFetch(`/api/views/${encodeURIComponent(id)}`, {
     method: "PATCH",
     headers: { "content-type": "application/json" },
     body: JSON.stringify(patch),
@@ -70,7 +70,7 @@ export async function updateView(
 }
 
 export async function deleteView(id: string): Promise<void> {
-  const res = await fetch(`${baseUrl()}/api/views/${encodeURIComponent(id)}`, {
+  const res = await apiFetch(`/api/views/${encodeURIComponent(id)}`, {
     method: "DELETE",
   });
   if (!res.ok) throw new Error(`/api/views delete ${res.status}`);
@@ -87,10 +87,10 @@ export async function listViewThreads(
 ): Promise<ViewThreadsResult> {
   const params = new URLSearchParams();
   if (opts.limit) params.set("limit", String(opts.limit));
-  const url = `${baseUrl()}/api/views/${encodeURIComponent(id)}/threads${
+  const url = `/api/views/${encodeURIComponent(id)}/threads${
     params.toString() ? `?${params}` : ""
   }`;
-  const res = await fetch(url);
+  const res = await apiFetch(url);
   if (!res.ok) throw new Error(`/api/views threads ${res.status}`);
   return (await res.json()) as ViewThreadsResult;
 }

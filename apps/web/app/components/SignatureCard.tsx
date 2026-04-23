@@ -8,7 +8,7 @@
 
 import { Button, Card, RichEditor, type RichEditorChange, type RichEditorHandle } from "@mailai/ui";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { baseUrl } from "../lib/api";
+import { apiFetch } from "../lib/api";
 import { dispatchCommand } from "../lib/commands-client";
 import { useTranslator } from "../lib/i18n/useTranslator";
 
@@ -30,7 +30,7 @@ export function SignatureCard() {
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch(`${baseUrl()}/api/accounts/signatures`);
+      const res = await apiFetch(`/api/accounts/signatures`);
       if (!res.ok) throw new Error(`${res.status}`);
       const data = (await res.json()) as { accounts: AccountSignature[] };
       setAccounts(data.accounts);
