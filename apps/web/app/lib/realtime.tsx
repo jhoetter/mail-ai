@@ -78,20 +78,21 @@ const BACKOFF_MS = [500, 1000, 2000, 4000, 8000, 15_000, 30_000];
 function defaultRealtimeUrl(): string {
   // Embed mode wins: when the host (hof-os) wired up a wsBase via
   // RuntimeConfig, the realtime WS goes through the host's proxy
-  // (`/api/mail/ws`), not the standalone realtime port.
+  // (e.g. `/api/mail`), with `/ws` appended below — same path the
+  // server's upgrade handler listens on.
   const runtime = runtimeWsBase();
-  if (runtime) return runtime;
-  // Vite-injected env. When unset, point at the dev WS server on the
-  // same host the browser was served from. Production sets
-  // VITE_MAILAI_RT_URL to the externally-reachable wss:// origin.
+  if (runtime) return `${runtime.replace(/\/$/, "")}/ws`;
+  // Vite-injected env. When unset, target the same origin the page
+  // was served from at `/ws` — the new merged-port default. Vite's
+  // dev proxy (apps/web/vite.config.ts) forwards `/ws` to the
+  // Fastify port. Production sets VITE_MAILAI_RT_URL to an explicit
+  // wss:// origin only when the realtime tier is split out.
   const explicit = import.meta.env.VITE_MAILAI_RT_URL;
   if (typeof explicit === "string" && explicit.length > 0) return explicit;
-  if (typeof window === "undefined") return "ws://127.0.0.1:1235";
-  // Reuse the page's hostname but on the realtime port. Same-origin
-  // wss when the page is HTTPS so cert handling Just Works.
+  if (typeof window === "undefined") return "ws://127.0.0.1:8200/ws";
   const proto = window.location.protocol === "https:" ? "wss:" : "ws:";
-  const host = window.location.hostname || "127.0.0.1";
-  return `${proto}//${host}:1235`;
+  const host = window.location.host || "127.0.0.1";
+  return `${proto}//${host}/ws`;
 }
 
 export interface RealtimeProviderProps {

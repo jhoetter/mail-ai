@@ -298,16 +298,49 @@ async function main() {
   });
 
   const port = Number(process.env["API_PORT"] ?? process.env["PORT"] ?? 8200);
-  const wsPort = Number(process.env["MAILAI_RT_PORT"] ?? 1235);
+  // Legacy: a separate WS port was the default (1235). Embedded
+  // deployments (hof-os) can't proxy a second arbitrary port through
+  // the data-app's /api/mail/ws prefix, so the new default is to
+  // merge the WSS onto the Fastify HTTP server via an upgrade
+  // handler at /ws (same-origin, single-port, proxy-friendly).
+  // Operators who explicitly set MAILAI_RT_PORT keep the old
+  // behaviour — handy for split-process production deployments where
+  // the realtime tier scales independently of the HTTP API.
+  const explicitWsPort = process.env["MAILAI_RT_PORT"];
+  const wsMode: "merged" | "separate" = explicitWsPort ? "separate" : "merged";
 
   await app.listen({ host: "0.0.0.0", port });
-  const wss = new WebSocketServer({ port: wsPort });
+
+  let wss: WebSocketServer;
+  let wsPort: number | null = null;
+  if (wsMode === "separate") {
+    wsPort = Number(explicitWsPort);
+    wss = new WebSocketServer({ port: wsPort });
+  } else {
+    // Mounted on the same port the HTTP API already binds. Path
+    // gating keeps any future routes (or stray probes) from being
+    // upgraded — only `/ws` becomes a WebSocket; everything else
+    // gets the socket destroyed so Fastify's normal 404 path is
+    // not triggered with a half-upgraded request.
+    wss = new WebSocketServer({ noServer: true });
+    app.server.on("upgrade", (req, socket, head) => {
+      const reqUrl = req.url ?? "/";
+      const pathname = reqUrl.split("?", 1)[0] ?? "/";
+      if (pathname !== "/ws") {
+        socket.destroy();
+        return;
+      }
+      wss.handleUpgrade(req, socket, head, (ws) => {
+        wss.emit("connection", ws, req);
+      });
+    });
+  }
   broadcaster.attach(wss);
   app.log.info(
-    { port, wsPort, nango: !!nango },
+    { port, wsPort, wsMode, nango: !!nango },
     nango
-      ? "mail-ai server listening (oauth ENABLED via Nango)"
-      : "mail-ai server listening (oauth DEMO MODE — set NANGO_SECRET_KEY)",
+      ? `mail-ai server listening (ws=${wsMode}, oauth ENABLED via Nango)`
+      : `mail-ai server listening (ws=${wsMode}, oauth DEMO MODE — set NANGO_SECRET_KEY)`,
   );
 
   // Background sync. Disabled with MAILAI_SYNC_DISABLED=1 (handy for

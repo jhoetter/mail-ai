@@ -59,10 +59,14 @@ WORKDIR /app
 COPY --from=builder /out/server /app
 
 ENV NODE_ENV=production \
-    API_PORT=8200 \
-    MAILAI_RT_PORT=1235
+    API_PORT=8200
 
-EXPOSE 8200 1235
+# Realtime WebSocket is merged onto the HTTP port at /ws since
+# v0.1.4 (see packages/server/src/server.ts). Operators who need
+# the legacy split-process layout can pass MAILAI_RT_PORT explicitly
+# at runtime; leaving it unset defaults to the proxy-friendly
+# single-port behaviour.
+EXPOSE 8200
 
 HEALTHCHECK --interval=15s --timeout=5s --retries=4 --start-period=20s \
     CMD curl -fsS http://localhost:${API_PORT}/api/health || exit 1

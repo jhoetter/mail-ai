@@ -31,6 +31,14 @@ export default defineConfig({
         target: API_ORIGIN,
         changeOrigin: true,
       },
+      // Realtime WebSocket lives on the same Fastify HTTP port as
+      // /api (since the merge in v0.1.4); ws: true is required for
+      // Vite to upgrade the connection rather than 502 the request.
+      "/ws": {
+        target: API_ORIGIN,
+        changeOrigin: true,
+        ws: true,
+      },
     },
   },
   preview: {

@@ -23,6 +23,13 @@ export
 
 WEB_PORT ?= 3200
 API_PORT ?= 8200
+# Realtime ws merged onto API_PORT/ws since v0.1.4. Operators who
+# need the legacy split-port layout can `export MAILAI_RT_PORT=1235`
+# before `make dev`; an unset value (the default) keeps everything
+# on a single port and works with the host-app proxy story. RT_PORT
+# is still kept as a Makefile var so kill-ports / dev-wait can poll
+# the legacy port for split-process deployments — harmless when no
+# one's listening on it.
 RT_PORT  ?= 1235
 PNPM     := pnpm
 COMPOSE  := docker compose -f infra/docker/compose.dev.yml
@@ -145,7 +152,7 @@ build-libs:
 dev: stack-up build-libs kill-ports
 	@rm -f $(DEV_LOG) $(DEV_PID)
 	@echo "→ Booting dev stack (detached; logs → $(DEV_LOG))..."
-	@( WEB_PORT=$(WEB_PORT) API_PORT=$(API_PORT) MAILAI_RT_PORT=$(RT_PORT) \
+	@( WEB_PORT=$(WEB_PORT) API_PORT=$(API_PORT) \
 	   nohup $(PNPM) turbo run dev --parallel \
 	     --filter @mailai/web \
 	     --filter @mailai/server \
@@ -162,20 +169,22 @@ dev: stack-up build-libs kill-ports
 	@echo ""
 	@echo "✅ web        http://localhost:$(WEB_PORT)"
 	@echo "✅ api        http://localhost:$(API_PORT)/api/health"
-	@echo "✅ realtime   ws://localhost:$(RT_PORT)"
+	@echo "✅ realtime   ws://localhost:$(API_PORT)/ws (merged) — set MAILAI_RT_PORT for legacy split"
 	@echo ""
 	@echo "Streaming logs. Ctrl-C / closing this terminal only stops the tail —"
 	@echo "the dev stack keeps running. Re-attach: \`make dev-logs\`. Stop: \`make dev-stop\`."
 	@echo ""
 	@exec tail -F "$(DEV_LOG)"
 
-# Polls the three local endpoints until each responds OR the deadline
+# Polls the local endpoints until each responds OR the deadline
 # (60s) elapses. Prints a tick per service as it comes up so the user
-# sees progress instead of a blank wait. Returns 0 only when ALL three
-# are green — the `dev` target uses that to gate its "healthy" banner.
+# sees progress instead of a blank wait. The realtime check is a
+# soft pass when the legacy split-port isn't set — the merged WS
+# rides on the API port and is implicitly green once /api/health is.
 dev-wait:
 	@deadline=$$(($$(date +%s) + 60)); \
 	api=0; web=0; rt=0; \
+	if [ -z "$$MAILAI_RT_PORT" ]; then rt=1; echo "  ✓ ws    merged on :$(API_PORT)/ws"; fi; \
 	while [ "$$(date +%s)" -lt "$$deadline" ]; do \
 	  if [ "$$api" = 0 ] && curl -fsS -o /dev/null --max-time 1 \
 	      http://127.0.0.1:$(API_PORT)/api/health 2>/dev/null; then \
