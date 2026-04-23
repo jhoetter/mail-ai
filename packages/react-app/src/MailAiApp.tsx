@@ -24,7 +24,7 @@
 import { useMemo } from "react";
 import { MemoryRouter, Navigate, Route, Routes } from "react-router";
 
-import { AppShell } from "@/lib/shell";
+import { AppShell, type AppShellChrome } from "@/lib/shell";
 import type { RuntimeConfig, RuntimeIdentity } from "@/lib/runtime-config";
 
 import InboxPage from "@/inbox/page";
@@ -42,6 +42,16 @@ export interface MailAiAppProps {
   readonly surface?: MailAiSurface;
   /** Optional deep-link to a specific thread (only meaningful for inbox). */
   readonly initialThreadId?: string;
+  /**
+   * Visual chrome mode forwarded to {@link AppShell}.
+   *
+   * - `"full"` (default) renders the standalone chrome (TopBar with
+   *   global search). Match the legacy v0.1 behaviour.
+   * - `"content"` drops the TopBar so a host (e.g. hof-os) can supply
+   *   its own sidebar / header without a duplicated search row.
+   *   Palette + ⌘K + error toast are still mounted.
+   */
+  readonly chrome?: AppShellChrome;
 }
 
 const SURFACE_ROUTES: Record<MailAiSurface, string> = {
@@ -50,7 +60,12 @@ const SURFACE_ROUTES: Record<MailAiSurface, string> = {
   drafts: "/drafts",
 };
 
-export function MailAiApp({ hooks, surface = "inbox", initialThreadId }: MailAiAppProps) {
+export function MailAiApp({
+  hooks,
+  surface = "inbox",
+  initialThreadId,
+  chrome = "full",
+}: MailAiAppProps) {
   const runtime = useMemo<RuntimeConfig>(
     () => runtimeConfigFromHooks(hooks),
     // hooks is a stable reference at the host (it's a `useMemo` over
@@ -64,7 +79,7 @@ export function MailAiApp({ hooks, surface = "inbox", initialThreadId }: MailAiA
   return (
     <AppProviders runtime={runtime}>
       <MemoryRouter initialEntries={[initialEntry]}>
-        <AppShell>
+        <AppShell chrome={chrome}>
           <Routes>
             <Route path="/inbox" element={<InboxPage />} />
             <Route path="/calendar" element={<CalendarPage />} />

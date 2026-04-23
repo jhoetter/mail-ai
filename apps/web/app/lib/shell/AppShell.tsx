@@ -15,18 +15,39 @@ import type { PaletteCommand } from "./types";
 import { CommandErrorToast } from "../../components/CommandErrorToast";
 import { TopBar } from "../../components/TopBar";
 
-export function AppShell({ children }: { children: ReactNode }) {
+/**
+ * Visual mode for the shell.
+ *
+ * - `"full"` (default) — renders the standalone chrome (TopBar with
+ *   global search). Used by the standalone `apps/web` and any host
+ *   that wants the full mail-ai UI.
+ * - `"content"` — drops the TopBar so a host can supply its own
+ *   sidebar/header. Palette registry, ⌘K keybind, CommandPalette
+ *   overlay and error-toast are preserved (they're functional
+ *   behaviour, not visual chrome). Used by hof-os, which already
+ *   owns the left nav and a host-level header.
+ */
+export type AppShellChrome = "full" | "content";
+
+export function AppShell({
+  children,
+  chrome = "full",
+}: {
+  children: ReactNode;
+  chrome?: AppShellChrome;
+}) {
   // Static commands are computed inside an inner component so the
   // memo identity is stable across renders of the page tree.
   //
-  // Layout: the TopBar (global search) is the first row, every page
-  // tree mounts inside the flex-1 region below it. Shell (used by
-  // each page) was switched from h-screen to h-full so it fills
-  // *this* container instead of overflowing past the search bar.
+  // Layout: the TopBar (global search) is the first row in "full"
+  // mode; in "content" mode it's omitted and the page tree fills
+  // the host's container directly. Shell (used by each page) was
+  // switched from h-screen to h-full so it fills *this* container
+  // instead of overflowing past the search bar.
   return (
     <ShellWithStaticCommands>
       <div className="flex h-screen min-h-0 flex-col">
-        <TopBar />
+        {chrome === "full" ? <TopBar /> : null}
         <div className="flex min-h-0 flex-1 flex-col">
           <KeybindLayer>{children}</KeybindLayer>
         </div>
