@@ -117,8 +117,23 @@ export interface RuntimeConfigProviderProps {
  * module-level `_config` so plain-function clients see it; unmounting
  * clears it so a tab can host both standalone + embed trees without
  * leaking state.
+ *
+ * IMPORTANT: the assignment runs *during render*, not in a `useEffect`.
+ * Children (e.g. `RealtimeProvider`, every `*-client.ts`) read the
+ * singleton during their own render via `runtimeApiBase()` /
+ * `runtimeWsBase()`. If we deferred the assignment to a mount effect,
+ * the first render would see `null` and resolve to the standalone
+ * defaults — producing `/api/threads` against hof-os's data-app
+ * (404 HTML, "Unexpected token '<'") and `ws://host/ws` instead of
+ * `ws://host/api/mail/ws` (proxy 404, retry storm). React allows
+ * synchronous module-level state writes during render as long as
+ * they're idempotent for a given input, which they are here.
+ * Cleanup still runs in `useEffect` to fire on unmount.
  */
 export function RuntimeConfigProvider({ runtime, children }: RuntimeConfigProviderProps) {
+  if (_config !== runtime) {
+    setRuntimeConfig(runtime);
+  }
   useEffect(() => {
     setRuntimeConfig(runtime);
     return () => {
