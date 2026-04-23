@@ -9,6 +9,7 @@
     "./components/inbox": "./src/components/inbox.ts",
     "./components/thread": "./src/components/thread.ts",
     "./components/compose": "./src/components/compose.ts",
+    "./components/attachment-viewer": "./src/components/AttachmentViewer.tsx",
     "./blanks": "./src/blanks.ts",
     "./styles.css": "./src/styles.css"
   },
@@ -24,7 +25,13 @@
   },
   "peerDependencies": {
     "react": "^19.0.0",
-    "react-dom": "^19.0.0"
+    "react-dom": "^19.0.0",
+    "@officeai/react-editors": "*"
+  },
+  "peerDependenciesMeta": {
+    "@officeai/react-editors": {
+      "optional": true
+    }
   },
   "dependencies": {
     "@mailai/ui": "workspace:*",

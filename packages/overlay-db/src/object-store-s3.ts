@@ -165,6 +165,34 @@ async function streamToBuffer(stream: Readable): Promise<Buffer> {
   return Buffer.concat(chunks);
 }
 
+/**
+ * Wrap an :class:`ObjectStore` so every key is transparently prefixed
+ * with ``prefix/`` before hitting the backing store.
+ *
+ * The hof-os deployer threads ``S3_KEY_PREFIX=tenants/<t>/mail`` into
+ * the mailai sidecar's container env so all attachments + raw EML
+ * cache live under the cell's tenant root and the data-app's
+ * ``ensure_key_under_tenant_prefix`` (functions/s3_tenant_keys.py) can
+ * reopen them in ``/edit-asset?key=…`` without per-product carve-outs.
+ *
+ * Empty prefix returns ``store`` unchanged so standalone ``pnpm dev``
+ * keeps writing under the bucket root the way it always has.
+ */
+export function withKeyPrefix(store: ObjectStore, prefix: string | undefined | null): ObjectStore {
+  const cleaned = (prefix ?? "").replace(/^\/+|\/+$/g, "");
+  if (!cleaned) return store;
+  const wrap = (k: string) => `${cleaned}/${k.replace(/^\/+/, "")}`;
+  return {
+    put: (k, body, ct) => store.put(wrap(k), body, ct),
+    get: (k) => store.get(wrap(k)),
+    getBytes: (k) => store.getBytes(wrap(k)),
+    delete: (k) => store.delete(wrap(k)),
+    exists: (k) => store.exists(wrap(k)),
+    presignPut: (k, opts) => store.presignPut(wrap(k), opts),
+    presignGet: (k, opts) => store.presignGet(wrap(k), opts),
+  };
+}
+
 // Read S3 settings from process.env. Returns null when not all required
 // values are present so callers can fall back to InMemoryObjectStore in
 // minimal dev/test environments.

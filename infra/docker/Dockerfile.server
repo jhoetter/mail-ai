@@ -1,0 +1,69 @@
+# Production Dockerfile for the @mailai/server Fastify process.
+#
+# Built and pushed to GHCR (`ghcr.io/jhoetter/mail-ai-server:vX.Y.Z`) by
+# .github/workflows/auto-release.yml on every release tag. hof-os'
+# Compose generator references the resulting image via
+# `infra/mailai.lock.json#app_image` (see hof-os
+# `backend/app/services/deployer/compose.py`).
+#
+# The image bundles the full deployable workspace under /app via
+# `pnpm deploy --filter @mailai/server --prod`, so all internal
+# `@mailai/*` workspace deps land as plain node_modules entries —
+# no pnpm needed at runtime.
+
+# ---------------------------------------------------------------------------
+# Stage 1 — builder
+# ---------------------------------------------------------------------------
+FROM node:20-bookworm-slim AS builder
+
+WORKDIR /workspace
+
+# pnpm via corepack — pinned to the version the repo's CI uses
+# (see .github/workflows/auto-release.yml `pnpm/action-setup`).
+RUN corepack enable && corepack prepare pnpm@9.15.4 --activate
+
+# Copy the workspace manifest first so pnpm install caches well.
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml turbo.json tsconfig.base.json tsconfig.json ./
+COPY scripts ./scripts
+COPY packages ./packages
+COPY apps ./apps
+
+RUN pnpm install --frozen-lockfile --prefer-offline
+
+# Build everything the server transitively depends on. Building the
+# whole workspace is cheaper to reason about than tracking the exact
+# dep graph, and tsc is fast enough that the cost is negligible.
+RUN pnpm build
+
+# Bundle the server (and only the server) into a self-contained dir
+# under /out/server. This resolves all workspace:* deps to real files,
+# leaving a node_modules tree node can run with no pnpm involvement.
+RUN pnpm --filter @mailai/server --prod deploy /out/server \
+    && test -f /out/server/dist/server.js
+
+
+# ---------------------------------------------------------------------------
+# Stage 2 — runtime
+# ---------------------------------------------------------------------------
+FROM node:20-bookworm-slim AS runtime
+
+# `tini` makes Node a well-behaved init (proper SIGTERM handling for
+# graceful sync-scheduler shutdown — see server.ts).
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends tini ca-certificates curl \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app
+COPY --from=builder /out/server /app
+
+ENV NODE_ENV=production \
+    API_PORT=8200 \
+    MAILAI_RT_PORT=1235
+
+EXPOSE 8200 1235
+
+HEALTHCHECK --interval=15s --timeout=5s --retries=4 --start-period=20s \
+    CMD curl -fsS http://localhost:${API_PORT}/api/health || exit 1
+
+ENTRYPOINT ["/usr/bin/tini", "--"]
+CMD ["node", "dist/server.js"]

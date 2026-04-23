@@ -14,6 +14,7 @@ import {
   AuditRepository,
   InMemoryObjectStore,
   S3ObjectStore,
+  withKeyPrefix,
   createPool,
   loadS3OptionsFromEnv,
   runMigrations,
@@ -66,6 +67,7 @@ import {
   buildCalendarUpdateEventHandler,
 } from "./handlers/calendar.js";
 import { SyncScheduler } from "./sync/scheduler.js";
+import { buildHofJwtIdentity } from "./auth/hof-jwt.js";
 
 async function main() {
 
@@ -121,6 +123,12 @@ async function main() {
     );
     objectStore = new InMemoryObjectStore();
   }
+  // When mail-ai runs as a hof-os sidecar, the data-app injects
+  // `S3_KEY_PREFIX=tenants/<t>/mail` so all attachments live under the
+  // cell's tenant root and the data-app can re-validate them via
+  // `ensure_key_under_tenant_prefix`. Standalone `pnpm dev` leaves the
+  // env unset and the wrapper becomes a no-op.
+  objectStore = withKeyPrefix(objectStore, process.env["S3_KEY_PREFIX"] ?? null);
 
   const mailSendDeps = {
     pool,
@@ -282,12 +290,19 @@ async function main() {
   const app = buildApp({
     bus,
     broadcaster,
-    // Stub identity: production uses JWT. Wire up in Phase 5.
-    identity: async () => ({
-      userId: "u_dev",
-      tenantId: "t_dev",
-      email: "dev@mail-ai.local",
-      displayName: "Dev User",
+    // Identity resolver. When `HOF_SUBAPP_JWT_SECRET` is set (the
+    // hof-os–embedded deployment), this requires a Bearer JWT issued
+    // by hof-os' `issue_subapp_token` @function and rejects requests
+    // without one. When it's unset (`make dev`), it returns the dev
+    // stub identity so local development keeps working unchanged.
+    identity: buildHofJwtIdentity({
+      fallback: {
+        userId: "u_dev",
+        tenantId: "t_dev",
+        email: "dev@mail-ai.local",
+        displayName: "Dev User",
+      },
+      expectedAudience: "mailai",
     }),
     oauth: {
       pool,

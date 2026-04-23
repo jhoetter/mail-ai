@@ -6,3 +6,5 @@ export { Inbox } from "./components/inbox.js";
 export { ThreadView } from "./components/thread.js";
 export { Composer } from "./components/compose.js";
 export { LoadingBlank, EmptyInboxBlank } from "./blanks.js";
+export { AttachmentViewer, attachmentKindFor } from "./components/AttachmentViewer.js";
+export type { AttachmentKind, AttachmentViewerProps } from "./components/AttachmentViewer.js";
