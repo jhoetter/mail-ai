@@ -43,7 +43,7 @@ function makeThreads(seed: FakeThread[]) {
 }
 
 function cmd(
-  type: string,
+  type: `${string}:${string}`,
   payload: Record<string, unknown>,
   actorId: string,
   source: Command["source"],

@@ -45,7 +45,9 @@ function verify(token: string, secret: Buffer): JwtClaims {
   if (parts.length !== 3) {
     throw new Error("malformed JWT");
   }
-  const [h, p, s] = parts;
+  const h = parts[0]!;
+  const p = parts[1]!;
+  const s = parts[2]!;
   const expected = createHmac("sha256", secret).update(`${h}.${p}`).digest();
   const actual = b64urlDecodeToBuffer(s);
   if (expected.length !== actual.length || !timingSafeEqual(expected, actual)) {
@@ -62,7 +64,7 @@ function extractToken(headers: Record<string, unknown>): string | null {
   const raw = headers["authorization"] ?? headers["Authorization"];
   if (typeof raw !== "string") return null;
   const m = /^Bearer\s+(.+)$/i.exec(raw);
-  return m ? m[1].trim() : null;
+  return m && m[1] ? m[1].trim() : null;
 }
 
 export interface HofJwtIdentityOptions {

@@ -87,7 +87,7 @@ describeIf("IMAP coexistence", () => {
     let uid: number | undefined;
     try {
       const search = await writer.search({ subject: "coexistence-read" });
-      uid = search?.[0];
+      uid = search ? search[0] : undefined;
       expect(uid).toBeTruthy();
       if (uid) await writer.messageFlagsAdd(uid, ["\\Seen"], { uid: true });
     } finally {
@@ -97,7 +97,7 @@ describeIf("IMAP coexistence", () => {
     try {
       if (uid) {
         const fetched = await witness.fetchOne(String(uid), { flags: true }, { uid: true });
-        const flags = Array.from(fetched?.flags ?? []);
+        const flags = fetched ? Array.from(fetched.flags ?? []) : [];
         expect(flags).toContain("\\Seen");
       }
     } finally {
@@ -134,7 +134,7 @@ describeIf("IMAP coexistence", () => {
       const lock = await conn.raw()!.getMailboxLock("INBOX");
       try {
         const search = await conn.raw()!.search({ subject: "coexistence-move" });
-        uid = (search?.[0] ?? 0) as number;
+        uid = (search && search[0]) || 0;
         expect(uid).toBeGreaterThan(0);
       } finally {
         lock.release();
@@ -149,7 +149,7 @@ describeIf("IMAP coexistence", () => {
     const lock = await witness.getMailboxLock("Archive");
     try {
       const search = await witness.search({ subject: "coexistence-move" });
-      expect(search?.length ?? 0).toBeGreaterThanOrEqual(1);
+      expect((search || []).length).toBeGreaterThanOrEqual(1);
     } finally {
       lock.release();
     }
@@ -176,7 +176,7 @@ describeIf("IMAP coexistence", () => {
     const lock = await witness.getMailboxLock("Sent");
     try {
       const search = await witness.search({ subject: "coexistence-sent" });
-      expect(search?.length ?? 0).toBeGreaterThanOrEqual(1);
+      expect((search || []).length).toBeGreaterThanOrEqual(1);
     } finally {
       lock.release();
     }

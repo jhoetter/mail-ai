@@ -155,7 +155,7 @@ describeIf("overlay isolation snapshot", () => {
       let target = 0;
       try {
         const search = await conn.raw()!.search({ all: true });
-        target = (search?.[search.length - 1] ?? 0) as number;
+        target = (search && search[search.length - 1]) || 0;
       } finally {
         lock.release();
       }

@@ -233,8 +233,10 @@ jobs:
     needs: release
     runs-on: ubuntu-latest
     timeout-minutes: 5
-    # Skip when the secret isn't configured (forks, fresh repos pre-setup).
-    if: needs.release.outputs.new_version != '' && vars.MAILAI_SYNC_ENABLED == 'true'
+    # Mirrors office-ai's notify-hof-os gate: runs whenever a new
+    # version was cut. The token check happens implicitly when the
+    # checkout step runs against jhoetter/hof-os.
+    if: needs.release.outputs.new_version != ''
     steps:
       - name: Checkout hof-os
         uses: actions/checkout@v4

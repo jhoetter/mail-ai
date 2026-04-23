@@ -42,7 +42,7 @@ describe("audit completeness", () => {
     });
     plugin.register(bus);
 
-    const baseCmd = (type: string, payload: Record<string, unknown>): Command => ({
+    const baseCmd = (type: `${string}:${string}`, payload: Record<string, unknown>): Command => ({
       type,
       payload,
       source: "human",
@@ -63,7 +63,9 @@ describe("audit completeness", () => {
       expect(m.command.actorId).toBe("user1");
     }
 
-    const ops = audit.flatMap((m) => m.diffs.flatMap((d) => d.ops as Array<{ path: string }>));
+    const ops = audit.flatMap((m) =>
+      m.diffs.flatMap((d) => d.ops as unknown as Array<{ path: string }>),
+    );
     const paths = ops.map((o) => o.path).sort();
     expect(paths).toContain("status");
     expect(paths).toContain("assignedTo");
