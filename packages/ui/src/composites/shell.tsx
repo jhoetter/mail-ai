@@ -108,20 +108,33 @@ export function Shell({ sidebar, children }: Props) {
 
   return (
     <SidebarContext.Provider value={api}>
-      <div className="flex h-full min-h-0 bg-background text-foreground md:grid md:grid-cols-[240px_1fr]">
+      {/*
+        IMPORTANT (Phase A headless contract):
+        The outer wrapper is `relative h-full w-full` so the mobile
+        drawer sidebar can be positioned `absolute` against THIS
+        container rather than the viewport. The previous version
+        used `position: fixed inset-y-0 left-0`, which broke the
+        moment the host (hof-os) embedded mail-ai inside its own
+        chrome — the rail jumped to the viewport's left edge,
+        sliding out from under the host's left nav. With
+        container-relative positioning the drawer animates from the
+        embed's own bounds and never escapes the host layout.
+      */}
+      <div className="relative flex h-full min-h-0 w-full bg-background text-foreground md:grid md:grid-cols-[240px_1fr]">
         {/*
           Sidebar
           ───────
           • Desktop: in-flow, takes the first grid column.
-          • Mobile: position fixed, slides in from the left. The
-            translate transition is GPU-friendly and avoids reflow.
+          • Mobile: absolute (NOT fixed), slides in from the left of
+            the embed's container. The translate transition is
+            GPU-friendly and avoids reflow.
           • The width on mobile uses min(85vw, 320px) so the rail
             never eats the entire screen on narrow phones, but
             also doesn't look cramped on tablets in portrait.
         */}
         <aside
           className={
-            "fixed inset-y-0 left-0 z-40 flex w-[min(85vw,320px)] min-h-0 flex-col overflow-y-auto border-r border-divider bg-surface " +
+            "absolute inset-y-0 left-0 z-40 flex w-[min(85vw,320px)] min-h-0 flex-col overflow-y-auto border-r border-divider bg-surface " +
             "transition-transform duration-200 ease-out " +
             (open ? "translate-x-0" : "-translate-x-full") +
             " md:static md:z-auto md:w-auto md:translate-x-0"
@@ -133,14 +146,15 @@ export function Shell({ sidebar, children }: Props) {
 
         {/*
           Backdrop scrim — only painted on mobile while the drawer is
-          open. Tapping it closes the drawer.
+          open. Tapping it closes the drawer. Container-relative
+          (absolute) for the same reason as the rail above.
         */}
         {open ? (
           <button
             type="button"
             aria-label="Close navigation"
             onClick={close}
-            className="fixed inset-0 z-30 bg-black/40 md:hidden"
+            className="absolute inset-0 z-30 bg-black/40 md:hidden"
           />
         ) : null}
 

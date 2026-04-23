@@ -22,6 +22,16 @@ const entries = [
   "src/blanks.ts",
   "src/contract.ts",
   "src/MailAiApp.tsx",
+  "src/MailAiProvider.ts",
+  "src/MailAiSearchInput.tsx",
+  "src/nav/MailAiViewNav.tsx",
+  "src/nav/MailAiSettingsNav.tsx",
+  "src/panes/EmbeddedPane.tsx",
+  "src/panes/MailAiInbox.tsx",
+  "src/panes/MailAiThread.tsx",
+  "src/panes/MailAiCompose.tsx",
+  "src/panes/MailAiCalendar.tsx",
+  "src/commands/mailaiCommands.ts",
   "src/index.ts",
 ];
 

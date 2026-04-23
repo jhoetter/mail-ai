@@ -34,3 +34,31 @@ export interface MailaiHostHooks {
     bodyHash: string;
   }): Promise<"allow" | "deny">;
 }
+
+// ──────────────────────────────────────────────────────────────────────
+// Command palette contract (Phase A)
+//
+// Hosts that build their own ⌘K palette can call `mailaiCommands(ctx)`
+// to get a flat list of mail-ai actions and merge them into their own
+// command index. The shape is intentionally framework-agnostic — `id`
+// is for de-dup, `group` drives section headers in the host's UI, and
+// `perform()` is the only side-effecting hook (so the host can wrap
+// it in its own analytics / undo stack).
+// ──────────────────────────────────────────────────────────────────────
+
+export interface CommandPaletteItem {
+  /** Stable identifier — used for React keys and host de-dup. */
+  readonly id: string;
+  /** Section header in the host palette ("Mail", "Navigation", ...). */
+  readonly group: string;
+  /** Localized label shown to the user. */
+  readonly label: string;
+  /** Optional muted secondary text (e.g. description, account email). */
+  readonly hint?: string;
+  /** Presentation-only shortcut hint (e.g. "g i"). Not bound globally. */
+  readonly shortcut?: string;
+  /** Action to run when the host invokes the command. */
+  perform(): void | Promise<void>;
+  /** Optional ranking score; higher floats above. Defaults to 0 in hosts. */
+  readonly score?: number;
+}

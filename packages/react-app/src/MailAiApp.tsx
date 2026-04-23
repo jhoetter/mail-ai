@@ -60,6 +60,15 @@ const SURFACE_ROUTES: Record<MailAiSurface, string> = {
   drafts: "/drafts",
 };
 
+/**
+ * @deprecated For embed use, prefer the headless composable exports
+ * (`MailAiProvider`, `MailAiViewNav`, `MailAiSettingsNav`,
+ * `MailAiInbox`, `MailAiThread`, `MailAiCompose`, `MailAiCalendar`,
+ * `MailAiSearchInput`, `mailaiCommands`) introduced in v0.2 of
+ * `@mailai/react-app`. `MailAiApp` is kept for the standalone
+ * `apps/web` shell and any host that still wants the v0.1 monolith,
+ * but new embeds should compose pieces into the host's own chrome.
+ */
 export function MailAiApp({
   hooks,
   surface = "inbox",
