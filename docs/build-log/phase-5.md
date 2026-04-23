@@ -66,7 +66,7 @@ The build for Phase 5 stays narrow on purpose:
 - `apps/embed-host/` — Vite host that consumes
   `@mailai/react-app`'s `MailAiApp` directly. Smoke-tests the
   embed contract from `spec/frontend/embed.md`: `pnpm --filter
-  @mailai/embed-host dev` brings the embed up against a pretend
+@mailai/embed-host dev` brings the embed up against a pretend
   host.
 - `scripts/release-tarballs.mjs` — produces the two artifacts
   documented in `docs/release-pipeline.md` plus a

@@ -28,5 +28,9 @@ export interface MailaiHostHooks {
   /** Returns a bearer token. Host owns refresh; mail-ai never persists. */
   onAuth(): Promise<AuthToken>;
   /** Optional: inspect every outbound mail before SMTP submit. */
-  onBeforeSend?(draft: { to: readonly string[]; subject: string; bodyHash: string }): Promise<"allow" | "deny">;
+  onBeforeSend?(draft: {
+    to: readonly string[];
+    subject: string;
+    bodyHash: string;
+  }): Promise<"allow" | "deny">;
 }

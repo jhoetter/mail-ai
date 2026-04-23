@@ -25,13 +25,7 @@ export interface ViewFilter {
   // Semantic view kinds. "drafts" pulls from its own table; the
   // others are filtered by oauth_messages.well_known_folder so the
   // views compiler never has to look inside provider labels.
-  readonly kind?:
-    | "default"
-    | "drafts"
-    | "sent"
-    | "trash"
-    | "spam"
-    | "all";
+  readonly kind?: "default" | "drafts" | "sent" | "trash" | "spam" | "all";
 }
 
 export interface ViewRow {
@@ -70,11 +64,29 @@ const BUILTINS: ReadonlyArray<{
   filter: ViewFilter;
   position: number;
 }> = [
-  { suffix: "inbox", name: "Inbox", icon: "📥", position: 0, filter: { kind: "default", status: ["open"] } },
+  {
+    suffix: "inbox",
+    name: "Inbox",
+    icon: "📥",
+    position: 0,
+    filter: { kind: "default", status: ["open"] },
+  },
   { suffix: "drafts", name: "Drafts", icon: "✏️", position: 1, filter: { kind: "drafts" } },
   { suffix: "sent", name: "Sent", icon: "📤", position: 2, filter: { kind: "sent" } },
-  { suffix: "snoozed", name: "Snoozed", icon: "💤", position: 3, filter: { kind: "default", status: ["snoozed"] } },
-  { suffix: "done", name: "Done", icon: "✓", position: 4, filter: { kind: "default", status: ["done"] } },
+  {
+    suffix: "snoozed",
+    name: "Snoozed",
+    icon: "💤",
+    position: 3,
+    filter: { kind: "default", status: ["snoozed"] },
+  },
+  {
+    suffix: "done",
+    name: "Done",
+    icon: "✓",
+    position: 4,
+    filter: { kind: "default", status: ["done"] },
+  },
   { suffix: "trash", name: "Trash", icon: "🗑️", position: 5, filter: { kind: "trash" } },
   { suffix: "spam", name: "Spam", icon: "🚫", position: 6, filter: { kind: "spam" } },
 ];
@@ -95,13 +107,7 @@ export class ViewsRepository {
     const rows = await this.db
       .select()
       .from(views)
-      .where(
-        and(
-          eq(views.tenantId, tenantId),
-          eq(views.userId, userId),
-          eq(views.id, id),
-        ),
-      );
+      .where(and(eq(views.tenantId, tenantId), eq(views.userId, userId), eq(views.id, id)));
     return (rows[0] as ViewRow | undefined) ?? null;
   }
 
@@ -131,13 +137,7 @@ export class ViewsRepository {
   async delete(tenantId: string, userId: string, id: string): Promise<void> {
     await this.db
       .delete(views)
-      .where(
-        and(
-          eq(views.tenantId, tenantId),
-          eq(views.userId, userId),
-          eq(views.id, id),
-        ),
-      );
+      .where(and(eq(views.tenantId, tenantId), eq(views.userId, userId), eq(views.id, id)));
   }
 
   // Seed the built-in defaults for a user on first read. Idempotent

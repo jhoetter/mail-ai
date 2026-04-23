@@ -12,7 +12,12 @@ export interface SlaEventSink {
 }
 
 export interface SlaCommandIssuer {
-  issue(cmd: { type: "thread:set-status"; threadId: string; status: "open"; actorId: string }): Promise<void>;
+  issue(cmd: {
+    type: "thread:set-status";
+    threadId: string;
+    status: "open";
+    actorId: string;
+  }): Promise<void>;
 }
 
 export interface SlaWorkerDeps {
@@ -36,7 +41,12 @@ export async function runSlaTick(deps: SlaWorkerDeps): Promise<{
   ]);
   const states = evaluateSla(threads, policies, now);
   for (const s of states) {
-    if (s.overdue) deps.events.emit({ type: "sla:overdue", threadId: s.threadId, minutesElapsed: s.minutesElapsed });
+    if (s.overdue)
+      deps.events.emit({
+        type: "sla:overdue",
+        threadId: s.threadId,
+        minutesElapsed: s.minutesElapsed,
+      });
   }
   const reopened: string[] = [];
   for (const row of snoozed) {

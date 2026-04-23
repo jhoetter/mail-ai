@@ -58,17 +58,9 @@ interface Props {
   readonly forwardMessage?: ThreadMessage;
 }
 
-export function InlineReply({
-  thread,
-  onSent,
-  autoExpand,
-  autoExpandKey,
-  forwardMessage,
-}: Props) {
+export function InlineReply({ thread, onSent, autoExpand, autoExpandKey, forwardMessage }: Props) {
   const { t } = useTranslator();
-  const [mode, setMode] = useState<ComposeMode | null>(
-    autoExpand ? "reply" : null,
-  );
+  const [mode, setMode] = useState<ComposeMode | null>(autoExpand ? "reply" : null);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
   const valueRef = useRef<RichEditorChange>({ html: "", text: "" });
@@ -105,9 +97,7 @@ export function InlineReply({
     const toOthers = parseAddressList(root?.to ?? "");
     const ccOthers = parseAddressList(root?.cc ?? "");
     const isMe = (addr: string) => myEmails.has(addr.toLowerCase());
-    const replyAllTo = dedupe(
-      [sender, ...toOthers].filter((s) => s.length > 0 && !isMe(s)),
-    );
+    const replyAllTo = dedupe([sender, ...toOthers].filter((s) => s.length > 0 && !isMe(s)));
     return {
       reply: { to: sender ? [sender] : [], cc: [] as string[], bcc: [] as string[] },
       "reply-all": {
@@ -329,11 +319,7 @@ export function InlineReply({
   const headerLabel =
     mode === "forward"
       ? t("thread.forwardingFrom", {
-          name:
-            forwardMessage?.fromName ??
-            forwardMessage?.fromEmail ??
-            forwardMessage?.from ??
-            "",
+          name: forwardMessage?.fromName ?? forwardMessage?.fromEmail ?? forwardMessage?.from ?? "",
         })
       : mode === "reply-all"
         ? t("thread.replyingAll")
@@ -443,11 +429,7 @@ export function InlineReply({
           onChange={onChange}
           onSubmit={() => void send()}
         />
-        <AttachmentTray
-          slots={uploads.slots}
-          onRemove={uploads.remove}
-          onPick={onPickFiles}
-        />
+        <AttachmentTray slots={uploads.slots} onRemove={uploads.remove} onPick={onPickFiles} />
         {err ? (
           <p className="border-t border-divider bg-error-bg/40 px-3 py-2 text-xs text-error-text">
             {t("composer.sendError", { error: err })}
@@ -533,7 +515,7 @@ function dedupe(addrs: string[]): string[] {
 function quoteForward(msg: ThreadMessage): RichEditorChange {
   const fromLine = msg.fromName
     ? `${msg.fromName} <${msg.fromEmail ?? ""}>`
-    : msg.fromEmail ?? msg.from ?? "";
+    : (msg.fromEmail ?? msg.from ?? "");
   const dateLine = msg.date ? new Date(msg.date).toLocaleString() : "";
   const subjectLine = msg.subject ?? "";
   const headerHtml = [
@@ -545,8 +527,7 @@ function quoteForward(msg: ThreadMessage): RichEditorChange {
     subjectLine ? `<div>Subject: ${escapeHtml(subjectLine)}</div>` : "",
     `</div>`,
   ].join("");
-  const bodyHtml =
-    msg.bodyHtml ?? (msg.bodyText ? `<pre>${escapeHtml(msg.bodyText)}</pre>` : "");
+  const bodyHtml = msg.bodyHtml ?? (msg.bodyText ? `<pre>${escapeHtml(msg.bodyText)}</pre>` : "");
   const html = `${headerHtml}<div>${bodyHtml}</div>`;
   const text = [
     "",

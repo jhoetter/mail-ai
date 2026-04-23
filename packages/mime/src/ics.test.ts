@@ -15,19 +15,14 @@ const baseEvent: IcsEvent = {
   dtend: new Date("2026-05-01T15:00:00Z"),
   summary: "Quarterly review",
   organizer: { email: "alice@example.com", name: "Alice" },
-  attendees: [
-    { email: "bob@example.com", name: "Bob" },
-    { email: "carol@example.com" },
-  ],
+  attendees: [{ email: "bob@example.com", name: "Bob" }, { email: "carol@example.com" }],
 };
 
 describe("composeIcs", () => {
   it("emits a well-formed REQUEST", () => {
     const { body, contentType } = composeIcs(baseEvent, "REQUEST");
     const u = unfold(body);
-    expect(contentType).toBe(
-      "text/calendar; charset=UTF-8; method=REQUEST",
-    );
+    expect(contentType).toBe("text/calendar; charset=UTF-8; method=REQUEST");
     expect(u).toContain("BEGIN:VCALENDAR");
     expect(u).toContain("METHOD:REQUEST");
     expect(u).toContain("BEGIN:VEVENT");
@@ -52,10 +47,7 @@ describe("composeIcs", () => {
   });
 
   it("emits CANCEL with bumped sequence and CANCELLED status", () => {
-    const { body } = composeIcs(
-      { ...baseEvent, sequence: 2 },
-      "CANCEL",
-    );
+    const { body } = composeIcs({ ...baseEvent, sequence: 2 }, "CANCEL");
     expect(body).toContain("METHOD:CANCEL");
     expect(body).toContain("SEQUENCE:2");
     expect(body).toContain("STATUS:CANCELLED");
@@ -115,13 +107,15 @@ describe("composeIcs", () => {
 
   it("folds long lines at 75 octets with leading space continuation", () => {
     const long = "x".repeat(200);
-    const { body } = composeIcs(
-      { ...baseEvent, summary: long },
-      "REQUEST",
-    );
+    const { body } = composeIcs({ ...baseEvent, summary: long }, "REQUEST");
     const summaryLines = body
       .split("\r\n")
-      .filter((l, i, all) => l.startsWith("SUMMARY:") || (i > 0 && all[i - 1]!.startsWith("SUMMARY:")) || l.startsWith(" "));
+      .filter(
+        (l, i, all) =>
+          l.startsWith("SUMMARY:") ||
+          (i > 0 && all[i - 1]!.startsWith("SUMMARY:")) ||
+          l.startsWith(" "),
+      );
     // Every line is ≤75 octets (the first SUMMARY line includes its property name).
     for (const l of body.split("\r\n")) {
       expect(Buffer.from(l, "utf8").length).toBeLessThanOrEqual(75);
@@ -134,10 +128,7 @@ describe("composeIcs", () => {
     const idx = body.split("\r\n").findIndex((l) => l.startsWith("SUMMARY:"));
     let collected = body.split("\r\n")[idx]!.slice("SUMMARY:".length);
     let j = idx + 1;
-    while (
-      j < body.split("\r\n").length &&
-      body.split("\r\n")[j]!.startsWith(" ")
-    ) {
+    while (j < body.split("\r\n").length && body.split("\r\n")[j]!.startsWith(" ")) {
       collected += body.split("\r\n")[j]!.slice(1);
       j += 1;
     }
@@ -158,9 +149,7 @@ describe("composeIcs", () => {
       "REQUEST",
     );
     expect(body).toContain("URL:https://meet.google.com/abc-defg-hij");
-    expect(body).toContain(
-      "X-GOOGLE-CONFERENCE:https://meet.google.com/abc-defg-hij",
-    );
+    expect(body).toContain("X-GOOGLE-CONFERENCE:https://meet.google.com/abc-defg-hij");
   });
 
   it("includes Teams X-properties when conference.provider is ms-teams", () => {

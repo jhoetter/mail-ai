@@ -4,13 +4,7 @@
 // / arrow-key navigation. The palette is rendered inside a portal
 // so its position is independent of whoever called it.
 
-import {
-  useCallback,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-} from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useTranslator } from "../i18n/useTranslator";
 import { usePaletteRegistry } from "./paletteRegistry";
@@ -132,9 +126,7 @@ export function CommandPalette() {
         </div>
         <div ref={listRef} className="max-h-[60vh] overflow-y-auto py-1">
           {filtered.length === 0 ? (
-            <p className="px-4 py-6 text-center text-sm text-secondary">
-              {t("palette.empty")}
-            </p>
+            <p className="px-4 py-6 text-center text-sm text-secondary">{t("palette.empty")}</p>
           ) : (
             grouped.map((g) => (
               <div key={g.section} className="mb-1">
@@ -152,7 +144,9 @@ export function CommandPalette() {
                       disabled={disabled}
                       className={
                         "flex w-full items-center justify-between gap-3 px-3 py-1.5 text-left text-sm " +
-                        (active ? "bg-surface text-foreground" : "text-foreground/90 hover:bg-surface/60") +
+                        (active
+                          ? "bg-surface text-foreground"
+                          : "text-foreground/90 hover:bg-surface/60") +
                         (disabled ? " opacity-50 cursor-not-allowed" : "")
                       }
                       onMouseEnter={() => setActiveIdx(idx)}

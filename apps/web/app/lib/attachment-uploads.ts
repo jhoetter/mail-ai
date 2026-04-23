@@ -49,14 +49,9 @@ export function useAttachmentUploads(opts: UploadHookOptions = {}) {
   const slotsRef = useRef<AttachmentSlot[]>([]);
   slotsRef.current = slots;
 
-  const updateSlot = useCallback(
-    (slotId: string, patch: Partial<AttachmentSlot>) => {
-      setSlots((prev) =>
-        prev.map((s) => (s.id === slotId ? { ...s, ...patch } : s)),
-      );
-    },
-    [],
-  );
+  const updateSlot = useCallback((slotId: string, patch: Partial<AttachmentSlot>) => {
+    setSlots((prev) => prev.map((s) => (s.id === slotId ? { ...s, ...patch } : s)));
+  }, []);
 
   const addFiles = useCallback(
     async (files: readonly File[]) => {
@@ -180,7 +175,9 @@ async function runUpload(
   }
 }
 
-function readInitData(mutation: { after: readonly { kind: string; data: Record<string, unknown> }[] }): InitResult | null {
+function readInitData(mutation: {
+  after: readonly { kind: string; data: Record<string, unknown> }[];
+}): InitResult | null {
   const after = mutation.after.find((s) => s.kind === "attachment");
   if (!after) return null;
   const d = after.data;

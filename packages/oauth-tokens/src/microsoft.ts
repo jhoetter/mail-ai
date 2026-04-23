@@ -32,9 +32,7 @@ export async function refreshMicrosoftAccessToken(args: {
   const fetchImpl = args.fetchImpl ?? fetch;
   const now = args.now ?? (() => new Date());
   const tenant = args.credentials.tenant ?? "common";
-  const url = `https://login.microsoftonline.com/${encodeURIComponent(
-    tenant,
-  )}/oauth2/v2.0/token`;
+  const url = `https://login.microsoftonline.com/${encodeURIComponent(tenant)}/oauth2/v2.0/token`;
   const params = new URLSearchParams({
     grant_type: "refresh_token",
     refresh_token: args.refreshToken,

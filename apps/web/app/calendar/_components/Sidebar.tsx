@@ -24,13 +24,7 @@ interface Props {
 // list with the calendar's color dot. Provider-agnostic: every
 // calendar lands here regardless of provider; the dot color falls
 // back to a neutral hue when the provider didn't ship one.
-export function Sidebar({
-  cursor,
-  onCursorChange,
-  calendars,
-  onToggleCalendar,
-  onCreate,
-}: Props) {
+export function Sidebar({ cursor, onCursorChange, calendars, onToggleCalendar, onCreate }: Props) {
   const { t } = useTranslator();
   return (
     <aside className="flex h-full w-60 flex-col gap-4 border-r border-divider bg-surface/40 px-3 py-4">

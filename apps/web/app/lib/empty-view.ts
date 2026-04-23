@@ -8,14 +8,7 @@
 import type { AccountSummary } from "./oauth-client";
 import type { ViewSummary } from "./views-client";
 
-export type EmptyViewKind =
-  | "default"
-  | "drafts"
-  | "sent"
-  | "trash"
-  | "spam"
-  | "all"
-  | "filtered";
+export type EmptyViewKind = "default" | "drafts" | "sent" | "trash" | "spam" | "all" | "filtered";
 
 export function resolveEmptyKind(
   viewId: string | null,
@@ -41,22 +34,20 @@ export function hasNarrowingFilters(view: ViewSummary): boolean {
   const f = view.filter;
   return Boolean(
     (f.tagsAny && f.tagsAny.length > 0) ||
-      (f.tagsNone && f.tagsNone.length > 0) ||
-      // Built-in views (Inbox / Snoozed / Done) all carry a status
-      // predicate; that's their defining identity rather than a
-      // user-applied narrowing. Treat user-saved status filters as
-      // narrowing instead so the empty state nudges them toward
-      // loosening rather than onboarding.
-      (f.status && f.status.length > 0 && !view.isBuiltin) ||
-      f.unread === true ||
-      Boolean(f.fromContains && f.fromContains.length > 0) ||
-      Boolean(f.accountIds && f.accountIds.length > 0),
+    (f.tagsNone && f.tagsNone.length > 0) ||
+    // Built-in views (Inbox / Snoozed / Done) all carry a status
+    // predicate; that's their defining identity rather than a
+    // user-applied narrowing. Treat user-saved status filters as
+    // narrowing instead so the empty state nudges them toward
+    // loosening rather than onboarding.
+    (f.status && f.status.length > 0 && !view.isBuiltin) ||
+    f.unread === true ||
+    Boolean(f.fromContains && f.fromContains.length > 0) ||
+    Boolean(f.accountIds && f.accountIds.length > 0),
   );
 }
 
-export function firstSyncError(
-  accounts: AccountSummary[] | null,
-): string | null {
+export function firstSyncError(accounts: AccountSummary[] | null): string | null {
   if (!accounts) return null;
   for (const a of accounts) {
     if (a.lastSyncError) return a.lastSyncError;

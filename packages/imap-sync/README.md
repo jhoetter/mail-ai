@@ -9,17 +9,17 @@ The only package that imports `imapflow`. See:
 
 ## Quick map
 
-| File | Purpose |
-| --- | --- |
-| `types.ts` | Public types — `MessageHeader`, `DeltaResult`, `SyncState`. |
-| `connection.ts` | `ImapConnection` lifecycle wrapper around `ImapFlow`. |
-| `pool.ts` | Per-account pool, provider rate limits. |
-| `syncer.ts` | `MailboxSyncer` — initial + delta sync. |
-| `idle.ts` | `IdleListener` with NOOP fallback. |
-| `vanished.ts` | UID set diff for non-QRESYNC servers. |
-| `outboxer.ts` | Drives STORE/MOVE/EXPUNGE/APPEND from `ImapSideEffect[]`. |
-| `worker.ts` | BullMQ wiring: `sync-account`, `apply-side-effects` jobs. |
-| `oauth/google.ts`, `oauth/microsoft.ts` | XOAUTH2 token issuance + refresh. |
+| File                                    | Purpose                                                     |
+| --------------------------------------- | ----------------------------------------------------------- |
+| `types.ts`                              | Public types — `MessageHeader`, `DeltaResult`, `SyncState`. |
+| `connection.ts`                         | `ImapConnection` lifecycle wrapper around `ImapFlow`.       |
+| `pool.ts`                               | Per-account pool, provider rate limits.                     |
+| `syncer.ts`                             | `MailboxSyncer` — initial + delta sync.                     |
+| `idle.ts`                               | `IdleListener` with NOOP fallback.                          |
+| `vanished.ts`                           | UID set diff for non-QRESYNC servers.                       |
+| `outboxer.ts`                           | Drives STORE/MOVE/EXPUNGE/APPEND from `ImapSideEffect[]`.   |
+| `worker.ts`                             | BullMQ wiring: `sync-account`, `apply-side-effects` jobs.   |
+| `oauth/google.ts`, `oauth/microsoft.ts` | XOAUTH2 token issuance + refresh.                           |
 
 ## What this package will NOT do
 

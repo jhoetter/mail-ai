@@ -4,11 +4,7 @@
 
 import type { CommandHandler, HandlerContext, HandlerResult } from "@mailai/core";
 import { MailaiError } from "@mailai/core";
-import {
-  OauthAccountsRepository,
-  withTenant,
-  type Pool,
-} from "@mailai/overlay-db";
+import { OauthAccountsRepository, withTenant, type Pool } from "@mailai/overlay-db";
 
 export interface SignatureDeps {
   readonly pool: Pool;
@@ -24,7 +20,10 @@ interface SetSignaturePayload {
 export function buildAccountSetSignatureHandler(
   deps: SignatureDeps,
 ): CommandHandler<"account:set-signature", SetSignaturePayload> {
-  return async (cmd: { payload: SetSignaturePayload }, _ctx: HandlerContext): Promise<HandlerResult> => {
+  return async (
+    cmd: { payload: SetSignaturePayload },
+    _ctx: HandlerContext,
+  ): Promise<HandlerResult> => {
     const payload = cmd.payload;
     const updated = await withTenant(deps.pool, deps.tenantId, async (tx) => {
       const repo = new OauthAccountsRepository(tx);

@@ -15,7 +15,10 @@ interface PresenceMsg {
   threadId?: string;
 }
 
-const peers = new Map<string, { lastSeen: number; status: PresenceMsg["status"]; threadId?: string }>();
+const peers = new Map<
+  string,
+  { lastSeen: number; status: PresenceMsg["status"]; threadId?: string }
+>();
 
 wss.on("connection", (ws) => {
   ws.on("message", (raw) => {

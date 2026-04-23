@@ -13,25 +13,19 @@ describe("serializeRRule", () => {
     expect(serializeRRule({ freq: "WEEKLY", interval: 1 })).toBe("FREQ=WEEKLY");
   });
   it("includes INTERVAL when greater than 1", () => {
-    expect(serializeRRule({ freq: "WEEKLY", interval: 2 })).toBe(
-      "FREQ=WEEKLY;INTERVAL=2",
-    );
+    expect(serializeRRule({ freq: "WEEKLY", interval: 2 })).toBe("FREQ=WEEKLY;INTERVAL=2");
   });
   it("includes COUNT", () => {
-    expect(serializeRRule({ freq: "DAILY", count: 5 })).toBe(
-      "FREQ=DAILY;COUNT=5",
-    );
+    expect(serializeRRule({ freq: "DAILY", count: 5 })).toBe("FREQ=DAILY;COUNT=5");
   });
   it("formats UNTIL as RFC 5545 UTC basic ISO", () => {
     const until = new Date(Date.UTC(2026, 5, 1, 9, 30, 0));
-    expect(serializeRRule({ freq: "DAILY", until })).toBe(
-      "FREQ=DAILY;UNTIL=20260601T093000Z",
-    );
+    expect(serializeRRule({ freq: "DAILY", until })).toBe("FREQ=DAILY;UNTIL=20260601T093000Z");
   });
   it("emits BYDAY in input order", () => {
-    expect(
-      serializeRRule({ freq: "WEEKLY", byday: ["MO", "WE", "FR"] }),
-    ).toBe("FREQ=WEEKLY;BYDAY=MO,WE,FR");
+    expect(serializeRRule({ freq: "WEEKLY", byday: ["MO", "WE", "FR"] })).toBe(
+      "FREQ=WEEKLY;BYDAY=MO,WE,FR",
+    );
   });
   it("emits BYMONTHDAY", () => {
     expect(serializeRRule({ freq: "MONTHLY", bymonthday: [1, 15] })).toBe(

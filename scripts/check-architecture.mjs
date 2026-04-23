@@ -71,8 +71,7 @@ const PROVIDER_INTERNAL_BARE = [
   "@mailai/oauth-tokens/dist/calendar",
   "@mailai/oauth-tokens/dist/contacts",
 ];
-const PROVIDER_INTERNAL_RELATIVE_RE =
-  /(^|\/)(?:gmail|graph|send|calendar|contacts)(?:\.[a-z]+)?$/;
+const PROVIDER_INTERNAL_RELATIVE_RE = /(^|\/)(?:gmail|graph|send|calendar|contacts)(?:\.[a-z]+)?$/;
 
 // Files that *are* allowed to import the provider internals. The
 // adapters are the boundary; the legacy oauth-tokens internal modules
@@ -100,8 +99,7 @@ const IMPORT_RE = /(?:from\s+["']([^"']+)["'])|(?:require\(\s*["']([^"']+)["']\s
 // equality comparisons so type narrowings via `if (x.provider) {}`
 // or string interpolations that legitimately serialize the id stay
 // allowed.
-const PROVIDER_BRANCH_RE =
-  /\bprovider\s*(?:===|!==|==|!=)\s*["'](?:google-mail|outlook|imap)["']/;
+const PROVIDER_BRANCH_RE = /\bprovider\s*(?:===|!==|==|!=)\s*["'](?:google-mail|outlook|imap)["']/;
 
 // Files that legitimately branch on provider id:
 //   - Adapters (the boundary itself).
@@ -179,7 +177,9 @@ for (const base of [packagesDir, appsDir]) {
         if (HEADLESS.has(name)) {
           for (const re of FORBIDDEN_IN_HEADLESS) {
             if (re.test(spec)) {
-              errors.push(`${relative(ROOT, file)}: forbidden import "${spec}" in headless package "${name}"`);
+              errors.push(
+                `${relative(ROOT, file)}: forbidden import "${spec}" in headless package "${name}"`,
+              );
             }
           }
         }

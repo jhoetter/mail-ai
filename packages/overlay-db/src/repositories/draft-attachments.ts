@@ -59,19 +59,11 @@ export class DraftAttachmentsRepository {
     const rows = await this.db
       .select()
       .from(draftAttachments)
-      .where(
-        and(
-          eq(draftAttachments.tenantId, tenantId),
-          eq(draftAttachments.draftId, draftId),
-        ),
-      );
+      .where(and(eq(draftAttachments.tenantId, tenantId), eq(draftAttachments.draftId, draftId)));
     return rows as DraftAttachmentRow[];
   }
 
-  async listUnboundForUser(
-    tenantId: string,
-    userId: string,
-  ): Promise<DraftAttachmentRow[]> {
+  async listUnboundForUser(tenantId: string, userId: string): Promise<DraftAttachmentRow[]> {
     const rows = await this.db
       .select()
       .from(draftAttachments)
@@ -101,11 +93,6 @@ export class DraftAttachmentsRepository {
   async deleteForDraft(tenantId: string, draftId: string): Promise<void> {
     await this.db
       .delete(draftAttachments)
-      .where(
-        and(
-          eq(draftAttachments.tenantId, tenantId),
-          eq(draftAttachments.draftId, draftId),
-        ),
-      );
+      .where(and(eq(draftAttachments.tenantId, tenantId), eq(draftAttachments.draftId, draftId)));
   }
 }

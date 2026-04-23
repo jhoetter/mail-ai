@@ -15,10 +15,7 @@ export class MailProviderRegistry {
 
   register(adapter: MailProvider): void {
     if (this.adapters.has(adapter.id)) {
-      throw new MailaiError(
-        "validation_error",
-        `mail provider ${adapter.id} already registered`,
-      );
+      throw new MailaiError("validation_error", `mail provider ${adapter.id} already registered`);
     }
     this.adapters.set(adapter.id, adapter);
   }
@@ -43,10 +40,7 @@ export class MailProviderRegistry {
         // Forces a compile-time error if MailProviderId grows but
         // this switch doesn't.
         const _exhaustive: never = provider;
-        throw new MailaiError(
-          "validation_error",
-          `unhandled mail provider ${String(_exhaustive)}`,
-        );
+        throw new MailaiError("validation_error", `unhandled mail provider ${String(_exhaustive)}`);
       }
     }
   }

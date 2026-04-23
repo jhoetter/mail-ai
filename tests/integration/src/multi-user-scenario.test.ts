@@ -15,11 +15,7 @@
 // realtime-server later replays for "thread activity feed" UI.
 
 import { describe, it, expect } from "vitest";
-import {
-  CommandBus,
-  type Command,
-  type Mutation,
-} from "@mailai/core";
+import { CommandBus, type Command, type Mutation } from "@mailai/core";
 import { CollaborationPlugin } from "@mailai/collaboration";
 
 interface FakeThread {
@@ -46,7 +42,12 @@ function makeThreads(seed: FakeThread[]) {
   } as unknown as ConstructorParameters<typeof CollaborationPlugin>[0]["threads"];
 }
 
-function cmd(type: string, payload: Record<string, unknown>, actorId: string, source: Command["source"]): Command {
+function cmd(
+  type: string,
+  payload: Record<string, unknown>,
+  actorId: string,
+  source: Command["source"],
+): Command {
   return {
     type,
     payload,
@@ -66,12 +67,18 @@ describe("multi-user shared-inbox scenario", () => {
       threads: makeThreads([{ id: "th-42", status: "open", assignedTo: null }]),
     }).register(bus);
 
-    await bus.dispatch(cmd("thread:assign", { threadId: "th-42", assigneeId: "alice" }, "alice", "human"));
-    await bus.dispatch(cmd("thread:assign", { threadId: "th-42", assigneeId: "bob" }, "alice", "human"));
+    await bus.dispatch(
+      cmd("thread:assign", { threadId: "th-42", assigneeId: "alice" }, "alice", "human"),
+    );
+    await bus.dispatch(
+      cmd("thread:assign", { threadId: "th-42", assigneeId: "bob" }, "alice", "human"),
+    );
     await bus.dispatch(
       cmd("comment:add", { threadId: "th-42", text: "@bob please respond by EOD" }, "bob", "human"),
     );
-    await bus.dispatch(cmd("thread:set-status", { threadId: "th-42", status: "resolved" }, "bob", "human"));
+    await bus.dispatch(
+      cmd("thread:set-status", { threadId: "th-42", status: "resolved" }, "bob", "human"),
+    );
 
     expect(audit.map((m) => `${m.command.actorId}:${m.command.type}:${m.status}`)).toEqual([
       "alice:thread:assign:applied",

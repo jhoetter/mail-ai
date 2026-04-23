@@ -9,15 +9,15 @@ A command is allowed if BOTH layers grant the permission required by the command
 
 ## Permission matrix (excerpt)
 
-| Command | Tenant minimum | Inbox role |
-| --- | --- | --- |
-| `mail:mark-read`, `mail:mark-unread` | `read-only` | `viewer` |
-| `comment:add` | `member` | `agent` |
-| `thread:assign`, `thread:set-status` | `member` | `agent` |
-| `mail:send`, `mail:reply`, `mail:forward` | `member` | `agent` |
-| `mail:delete` | `member` | `inbox-admin` |
-| `account:connect`, `account:disconnect` | `admin` | n/a |
-| `inbox:create`, `inbox:add-member` | `admin` | n/a |
+| Command                                   | Tenant minimum | Inbox role    |
+| ----------------------------------------- | -------------- | ------------- |
+| `mail:mark-read`, `mail:mark-unread`      | `read-only`    | `viewer`      |
+| `comment:add`                             | `member`       | `agent`       |
+| `thread:assign`, `thread:set-status`      | `member`       | `agent`       |
+| `mail:send`, `mail:reply`, `mail:forward` | `member`       | `agent`       |
+| `mail:delete`                             | `member`       | `inbox-admin` |
+| `account:connect`, `account:disconnect`   | `admin`        | n/a           |
+| `inbox:create`, `inbox:add-member`        | `admin`        | n/a           |
 
 ## Implementation
 

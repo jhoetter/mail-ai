@@ -94,12 +94,7 @@ export function parseRRule(text: string): RecurrenceRule | null {
     if (k && v) map.set(k.toUpperCase(), v);
   }
   const freq = map.get("FREQ");
-  if (
-    freq !== "DAILY" &&
-    freq !== "WEEKLY" &&
-    freq !== "MONTHLY" &&
-    freq !== "YEARLY"
-  ) {
+  if (freq !== "DAILY" && freq !== "WEEKLY" && freq !== "MONTHLY" && freq !== "YEARLY") {
     return null;
   }
   const out: {
@@ -121,14 +116,7 @@ export function parseRRule(text: string): RecurrenceRule | null {
     if (m) {
       const [, y, mo, d, hh = "0", mm = "0", ss = "0"] = m;
       out.until = new Date(
-        Date.UTC(
-          Number(y),
-          Number(mo) - 1,
-          Number(d),
-          Number(hh),
-          Number(mm),
-          Number(ss),
-        ),
+        Date.UTC(Number(y), Number(mo) - 1, Number(d), Number(hh), Number(mm), Number(ss)),
       );
     }
   }
@@ -137,9 +125,15 @@ export function parseRRule(text: string): RecurrenceRule | null {
     const days = byday
       .split(",")
       .map((s) => s.trim().toUpperCase())
-      .filter((s): s is "MO" | "TU" | "WE" | "TH" | "FR" | "SA" | "SU" =>
-        s === "MO" || s === "TU" || s === "WE" || s === "TH" ||
-        s === "FR" || s === "SA" || s === "SU",
+      .filter(
+        (s): s is "MO" | "TU" | "WE" | "TH" | "FR" | "SA" | "SU" =>
+          s === "MO" ||
+          s === "TU" ||
+          s === "WE" ||
+          s === "TH" ||
+          s === "FR" ||
+          s === "SA" ||
+          s === "SU",
       );
     if (days.length > 0) out.byday = days;
   }
@@ -189,7 +183,12 @@ interface GoogleEvent {
   location?: string;
   start: { dateTime?: string; date?: string; timeZone?: string };
   end: { dateTime?: string; date?: string; timeZone?: string };
-  attendees?: { email: string; displayName?: string; responseStatus?: string; organizer?: boolean }[];
+  attendees?: {
+    email: string;
+    displayName?: string;
+    responseStatus?: string;
+    organizer?: boolean;
+  }[];
   organizer?: { email?: string };
   status?: string;
   sequence?: number;
@@ -222,9 +221,7 @@ export async function listGoogleEvents(args: {
   fetchImpl?: typeof fetch;
 }): Promise<NormalizedEvent[]> {
   const f = args.fetchImpl ?? fetch;
-  const u = new URL(
-    `${GOOGLE_CAL_BASE}/calendars/${encodeURIComponent(args.calendarId)}/events`,
-  );
+  const u = new URL(`${GOOGLE_CAL_BASE}/calendars/${encodeURIComponent(args.calendarId)}/events`);
   u.searchParams.set("timeMin", args.timeMin.toISOString());
   u.searchParams.set("timeMax", args.timeMax.toISOString());
   u.searchParams.set("singleEvents", "true");
@@ -242,9 +239,7 @@ function normaliseGoogleEvent(e: GoogleEvent): NormalizedEvent {
   const startsAt = e.start.dateTime
     ? new Date(e.start.dateTime)
     : new Date(`${e.start.date}T00:00:00Z`);
-  const endsAt = e.end.dateTime
-    ? new Date(e.end.dateTime)
-    : new Date(`${e.end.date}T00:00:00Z`);
+  const endsAt = e.end.dateTime ? new Date(e.end.dateTime) : new Date(`${e.end.date}T00:00:00Z`);
   // Google emits an array of recurrence lines, only one of which is
   // typically RRULE. Surface the first RRULE row verbatim; drops
   // EXDATE/RDATE which we don't model yet.
@@ -263,11 +258,7 @@ function normaliseGoogleEvent(e: GoogleEvent): NormalizedEvent {
       ...(a.displayName ? { name: a.displayName } : {}),
       ...(a.responseStatus
         ? {
-            response: a.responseStatus as
-              | "accepted"
-              | "declined"
-              | "tentative"
-              | "needsAction",
+            response: a.responseStatus as "accepted" | "declined" | "tentative" | "needsAction",
           }
         : {}),
       ...(a.organizer ? { organizer: a.organizer } : {}),
@@ -338,9 +329,7 @@ export async function createGoogleEvent(args: {
       },
     };
   }
-  const url = new URL(
-    `${GOOGLE_CAL_BASE}/calendars/${encodeURIComponent(args.calendarId)}/events`,
-  );
+  const url = new URL(`${GOOGLE_CAL_BASE}/calendars/${encodeURIComponent(args.calendarId)}/events`);
   if (args.withGoogleMeet) {
     url.searchParams.set("conferenceDataVersion", "1");
   }
@@ -365,9 +354,7 @@ export async function createGoogleEvent(args: {
 
 function pickGoogleJoinUrl(e: GoogleEvent): string | null {
   if (e.hangoutLink) return e.hangoutLink;
-  const ep = e.conferenceData?.entryPoints?.find(
-    (p) => p.entryPointType === "video",
-  );
+  const ep = e.conferenceData?.entryPoints?.find((p) => p.entryPointType === "video");
   return ep?.uri ?? null;
 }
 
@@ -377,7 +364,8 @@ function cryptoRandomId(): string {
   // Node's webcrypto is always present on the supported runtimes; the
   // type isn't always picked up from lib.dom though, so we route via
   // the `unknown` -> typed call without naming `Crypto`.
-  const c = (globalThis as unknown as { crypto: { getRandomValues(b: Uint8Array): Uint8Array } }).crypto;
+  const c = (globalThis as unknown as { crypto: { getRandomValues(b: Uint8Array): Uint8Array } })
+    .crypto;
   const bytes = new Uint8Array(8);
   c.getRandomValues(bytes);
   return Array.from(bytes, (b) => b.toString(16).padStart(2, "0")).join("");
@@ -395,7 +383,12 @@ export async function getGoogleEvent(args: {
   icalUid: string;
   sequence: number;
   joinUrl: string | null;
-  attendees: { email: string; responseStatus?: string; displayName?: string; organizer?: boolean }[];
+  attendees: {
+    email: string;
+    responseStatus?: string;
+    displayName?: string;
+    organizer?: boolean;
+  }[];
   recurringEventId: string | null;
   recurrence: string[] | null;
   start: { dateTime?: string; date?: string; timeZone?: string };
@@ -479,7 +472,9 @@ export async function respondGoogleEvent(args: {
     { headers: { authorization: `Bearer ${args.accessToken}` } },
   );
   if (!getRes.ok) throw new Error(`gcal get event failed: ${getRes.status}`);
-  const event = (await getRes.json()) as { attendees?: { email: string; responseStatus?: string }[] };
+  const event = (await getRes.json()) as {
+    attendees?: { email: string; responseStatus?: string }[];
+  };
   const attendees = (event.attendees ?? []).map((a) =>
     a.email.toLowerCase() === args.attendeeEmail.toLowerCase()
       ? { ...a, responseStatus: args.response }
@@ -580,9 +575,7 @@ function normaliseGraphEvent(e: GraphEvent): NormalizedEvent {
     attendees: (e.attendees ?? []).map((a) => ({
       email: a.emailAddress.address,
       ...(a.emailAddress.name ? { name: a.emailAddress.name } : {}),
-      ...(a.status?.response
-        ? { response: graphResponseToNorm(a.status.response) }
-        : {}),
+      ...(a.status?.response ? { response: graphResponseToNorm(a.status.response) } : {}),
     })),
     organizerEmail: e.organizer?.emailAddress?.address ?? null,
     responseStatus: e.responseStatus?.response ?? null,
@@ -596,9 +589,7 @@ function normaliseGraphEvent(e: GraphEvent): NormalizedEvent {
   };
 }
 
-function graphResponseToNorm(
-  r: string,
-): "accepted" | "declined" | "tentative" | "needsAction" {
+function graphResponseToNorm(r: string): "accepted" | "declined" | "tentative" | "needsAction" {
   switch (r) {
     case "accepted":
     case "organizer":
@@ -648,17 +639,14 @@ export async function createGraphEvent(args: {
     body["isOnlineMeeting"] = true;
     body["onlineMeetingProvider"] = "teamsForBusiness";
   }
-  const res = await f(
-    `${GRAPH_BASE}/me/calendars/${encodeURIComponent(args.calendarId)}/events`,
-    {
-      method: "POST",
-      headers: {
-        authorization: `Bearer ${args.accessToken}`,
-        "content-type": "application/json",
-      },
-      body: JSON.stringify(body),
+  const res = await f(`${GRAPH_BASE}/me/calendars/${encodeURIComponent(args.calendarId)}/events`, {
+    method: "POST",
+    headers: {
+      authorization: `Bearer ${args.accessToken}`,
+      "content-type": "application/json",
     },
-  );
+    body: JSON.stringify(body),
+  });
   if (!res.ok) throw new Error(`graph create event failed: ${res.status}`);
   const json = (await res.json()) as GraphEvent;
   return {
@@ -678,10 +666,9 @@ export async function getGraphEvent(args: {
   fetchImpl?: typeof fetch;
 }): Promise<{ icalUid: string; joinUrl: string | null }> {
   const f = args.fetchImpl ?? fetch;
-  const res = await f(
-    `${GRAPH_BASE}/me/events/${encodeURIComponent(args.providerEventId)}`,
-    { headers: { authorization: `Bearer ${args.accessToken}` } },
-  );
+  const res = await f(`${GRAPH_BASE}/me/events/${encodeURIComponent(args.providerEventId)}`, {
+    headers: { authorization: `Bearer ${args.accessToken}` },
+  });
   if (!res.ok) throw new Error(`graph get event failed: ${res.status}`);
   const json = (await res.json()) as GraphEvent;
   return {
@@ -697,17 +684,14 @@ export async function patchGraphEvent(args: {
   fetchImpl?: typeof fetch;
 }): Promise<void> {
   const f = args.fetchImpl ?? fetch;
-  const res = await f(
-    `${GRAPH_BASE}/me/events/${encodeURIComponent(args.providerEventId)}`,
-    {
-      method: "PATCH",
-      headers: {
-        authorization: `Bearer ${args.accessToken}`,
-        "content-type": "application/json",
-      },
-      body: JSON.stringify(args.patch),
+  const res = await f(`${GRAPH_BASE}/me/events/${encodeURIComponent(args.providerEventId)}`, {
+    method: "PATCH",
+    headers: {
+      authorization: `Bearer ${args.accessToken}`,
+      "content-type": "application/json",
     },
-  );
+    body: JSON.stringify(args.patch),
+  });
   if (!res.ok) throw new Error(`graph patch event failed: ${res.status}`);
 }
 
@@ -717,13 +701,10 @@ export async function deleteGraphEvent(args: {
   fetchImpl?: typeof fetch;
 }): Promise<void> {
   const f = args.fetchImpl ?? fetch;
-  const res = await f(
-    `${GRAPH_BASE}/me/events/${encodeURIComponent(args.providerEventId)}`,
-    {
-      method: "DELETE",
-      headers: { authorization: `Bearer ${args.accessToken}` },
-    },
-  );
+  const res = await f(`${GRAPH_BASE}/me/events/${encodeURIComponent(args.providerEventId)}`, {
+    method: "DELETE",
+    headers: { authorization: `Bearer ${args.accessToken}` },
+  });
   if (!res.ok && res.status !== 404) {
     throw new Error(`graph delete event failed: ${res.status}`);
   }

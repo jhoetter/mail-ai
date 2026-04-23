@@ -84,9 +84,7 @@ export class OutlookMailAdapter implements MailProvider {
     return out;
   }
 
-  async listMessages(
-    args: AccessTokenArgs & ListMessagesArgs,
-  ): Promise<ListMessagesPage> {
+  async listMessages(args: AccessTokenArgs & ListMessagesArgs): Promise<ListMessagesPage> {
     const folderId = GRAPH_FOLDER_IDS[args.folder];
     if (!folderId) {
       // Folders we don't have a mapping for (e.g. "other") are an
@@ -127,9 +125,7 @@ export class OutlookMailAdapter implements MailProvider {
     };
   }
 
-  async fetchRawMime(
-    args: AccessTokenArgs & { providerMessageId: string },
-  ): Promise<Buffer> {
+  async fetchRawMime(args: AccessTokenArgs & { providerMessageId: string }): Promise<Buffer> {
     return fetchGraphRawMessage({
       accessToken: args.accessToken,
       messageId: args.providerMessageId,
@@ -155,9 +151,7 @@ export class OutlookMailAdapter implements MailProvider {
     });
   }
 
-  async send(
-    args: AccessTokenArgs & { message: ComposedMessage },
-  ): Promise<SendResult> {
+  async send(args: AccessTokenArgs & { message: ComposedMessage }): Promise<SendResult> {
     await sendGraphRawMime({
       accessToken: args.accessToken,
       raw: args.message.raw,
@@ -197,9 +191,7 @@ export class OutlookMailAdapter implements MailProvider {
   // 410 from Graph means the deltaLink expired (~30-day window). We
   // surface a null nextWatermark so the scheduler clears the column
   // and re-baselines on the next call.
-  async pullDelta(
-    args: AccessTokenArgs & PullDeltaArgs,
-  ): Promise<PullDeltaResult> {
+  async pullDelta(args: AccessTokenArgs & PullDeltaArgs): Promise<PullDeltaResult> {
     if (args.since && args.since.kind !== "graph") {
       // Defensive: Graph adapter never expects a Gmail historyId.
       return { inserted: [], updated: [], deleted: [], nextWatermark: null };
@@ -257,7 +249,7 @@ export class OutlookMailAdapter implements MailProvider {
       deleted: deletedIds,
       nextWatermark: finalDeltaLink
         ? { kind: "graph", deltaLink: finalDeltaLink }
-        : args.since ?? null,
+        : (args.since ?? null),
     };
   }
 
@@ -282,9 +274,7 @@ const GRAPH_FOLDER_TOKENS = new Set<string>([
   "Archive",
 ]);
 
-export function graphLabelIdsToUserLabels(
-  labelIds: ReadonlyArray<string>,
-): string[] {
+export function graphLabelIdsToUserLabels(labelIds: ReadonlyArray<string>): string[] {
   return labelIds.filter((l) => !GRAPH_FOLDER_TOKENS.has(l));
 }
 
@@ -299,10 +289,7 @@ function toNormalizedMessage(
     providerThreadId: meta.threadId,
     wellKnownFolder: folder,
     subject: meta.subject,
-    from:
-      meta.fromEmail !== null
-        ? { name: meta.fromName, email: meta.fromEmail }
-        : null,
+    from: meta.fromEmail !== null ? { name: meta.fromName, email: meta.fromEmail } : null,
     to: parseAddressList(meta.to),
     cc: parseAddressList(meta.cc),
     bcc: parseAddressList(meta.bcc),

@@ -2,12 +2,7 @@ import { Button, Card, Input, PageBody, PageHeader, Shell, useDialogs } from "@m
 import { useCallback, useEffect, useState } from "react";
 import { AppNav } from "../../components/AppNav";
 import { useTranslator } from "../../lib/i18n/useTranslator";
-import {
-  createTag,
-  deleteTag,
-  listTags,
-  type TagDefinition,
-} from "../../lib/tags-client";
+import { createTag, deleteTag, listTags, type TagDefinition } from "../../lib/tags-client";
 
 export default function TagsSettingsPage() {
   const { t } = useTranslator();
@@ -63,61 +58,58 @@ export default function TagsSettingsPage() {
     <Shell sidebar={<AppNav />}>
       <PageHeader title={t("tags.title")} subtitle={t("tags.subtitle")} />
       <PageBody>
-      <Card>
-        <div className="flex flex-col gap-4">
-          <div className="flex items-center gap-2">
-            <Input
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              placeholder={t("tags.newTagPlaceholder")}
-              onKeyDown={(e) => {
-                if (e.key === "Enter") {
-                  e.preventDefault();
-                  void onCreate();
-                }
-              }}
-            />
-            <Button
-              variant="primary"
-              size="sm"
-              disabled={busy || name.trim().length === 0}
-              onClick={() => void onCreate()}
-            >
-              {t("tags.create")}
-            </Button>
+        <Card>
+          <div className="flex flex-col gap-4">
+            <div className="flex items-center gap-2">
+              <Input
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                placeholder={t("tags.newTagPlaceholder")}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    e.preventDefault();
+                    void onCreate();
+                  }
+                }}
+              />
+              <Button
+                variant="primary"
+                size="sm"
+                disabled={busy || name.trim().length === 0}
+                onClick={() => void onCreate()}
+              >
+                {t("tags.create")}
+              </Button>
+            </div>
+            {error ? (
+              <p className="text-sm text-error">{error}</p>
+            ) : rows === null ? (
+              <p className="text-sm text-secondary">{t("common.loading")}</p>
+            ) : rows.length === 0 ? (
+              <p className="text-sm text-secondary">{t("tags.noTags")}</p>
+            ) : (
+              <ul className="divide-y divide-divider">
+                {rows.map((tag) => (
+                  <li key={tag.id} className="flex items-center gap-3 py-2">
+                    <span
+                      className="inline-block h-3 w-3 rounded-full"
+                      style={{ backgroundColor: tag.color }}
+                    />
+                    <span className="flex-1 text-sm">{tag.name}</span>
+                    <span className="text-xs text-secondary">
+                      {tag.count === 1
+                        ? t("tags.countOne")
+                        : t("tags.count", { count: tag.count ?? 0 })}
+                    </span>
+                    <Button size="sm" variant="ghost" onClick={() => void onDelete(tag)}>
+                      {t("common.delete")}
+                    </Button>
+                  </li>
+                ))}
+              </ul>
+            )}
           </div>
-          {error ? (
-            <p className="text-sm text-error">{error}</p>
-          ) : rows === null ? (
-            <p className="text-sm text-secondary">{t("common.loading")}</p>
-          ) : rows.length === 0 ? (
-            <p className="text-sm text-secondary">{t("tags.noTags")}</p>
-          ) : (
-            <ul className="divide-y divide-divider">
-              {rows.map((tag) => (
-                <li
-                  key={tag.id}
-                  className="flex items-center gap-3 py-2"
-                >
-                  <span
-                    className="inline-block h-3 w-3 rounded-full"
-                    style={{ backgroundColor: tag.color }}
-                  />
-                  <span className="flex-1 text-sm">{tag.name}</span>
-                  <span className="text-xs text-secondary">
-                    {tag.count === 1
-                      ? t("tags.countOne")
-                      : t("tags.count", { count: tag.count ?? 0 })}
-                  </span>
-                  <Button size="sm" variant="ghost" onClick={() => void onDelete(tag)}>
-                    {t("common.delete")}
-                  </Button>
-                </li>
-              ))}
-            </ul>
-          )}
-        </div>
-      </Card>
+        </Card>
       </PageBody>
     </Shell>
   );

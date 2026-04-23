@@ -13,7 +13,9 @@ function bus(): CommandBus {
     if (payload.threadId === "boom") throw new Error("nope");
     return {
       before: [{ kind: "thread", id: payload.threadId, version: 1, data: { status: "open" } }],
-      after: [{ kind: "thread", id: payload.threadId, version: 2, data: { status: payload.status } }],
+      after: [
+        { kind: "thread", id: payload.threadId, version: 2, data: { status: payload.status } },
+      ],
     };
   });
   return b;

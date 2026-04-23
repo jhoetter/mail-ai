@@ -18,10 +18,7 @@ import {
   type ObjectStore,
   type Pool,
 } from "@mailai/overlay-db";
-import {
-  getValidAccessToken,
-  type ProviderCredentials,
-} from "@mailai/oauth-tokens";
+import { getValidAccessToken, type ProviderCredentials } from "@mailai/oauth-tokens";
 import type { MailProviderId, MailProviderRegistry } from "@mailai/providers";
 import { parseMessage } from "@mailai/mime";
 
@@ -47,10 +44,7 @@ interface RawCtx {
   };
 }
 
-export function registerRawMessageRoutes(
-  app: FastifyInstance,
-  deps: RawMessageRoutesDeps,
-): void {
+export function registerRawMessageRoutes(app: FastifyInstance, deps: RawMessageRoutesDeps): void {
   app.get("/api/messages/:id/raw.eml", async (req, reply) => {
     const ident = await deps.identity({ headers: req.headers as Record<string, unknown> });
     const { id } = req.params as { id: string };

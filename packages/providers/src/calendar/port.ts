@@ -58,13 +58,9 @@ export interface CalendarProvider {
   readonly id: MailProviderId;
   readonly capabilities: CalendarProviderCapabilities;
 
-  listCalendars(
-    args: AccessTokenArgs,
-  ): Promise<ReadonlyArray<NormalizedCalendar>>;
+  listCalendars(args: AccessTokenArgs): Promise<ReadonlyArray<NormalizedCalendar>>;
 
-  listEvents(
-    args: AccessTokenArgs & ListEventsArgs,
-  ): Promise<ReadonlyArray<NormalizedEvent>>;
+  listEvents(args: AccessTokenArgs & ListEventsArgs): Promise<ReadonlyArray<NormalizedEvent>>;
 
   // Returns metadata needed by the iMIP composer (icalUid, current
   // SEQUENCE, conference URL). Adapters for providers that don't
@@ -77,19 +73,11 @@ export interface CalendarProvider {
     },
   ): Promise<EventMetadata>;
 
-  createEvent(
-    args: AccessTokenArgs & CreateEventArgs,
-  ): Promise<CreatedEvent>;
+  createEvent(args: AccessTokenArgs & CreateEventArgs): Promise<CreatedEvent>;
 
-  patchEvent(
-    args: AccessTokenArgs & PatchEventArgs,
-  ): Promise<void>;
+  patchEvent(args: AccessTokenArgs & PatchEventArgs): Promise<void>;
 
-  deleteEvent(
-    args: AccessTokenArgs & DeleteEventArgs,
-  ): Promise<void>;
+  deleteEvent(args: AccessTokenArgs & DeleteEventArgs): Promise<void>;
 
-  respondEvent(
-    args: AccessTokenArgs & RespondEventArgs,
-  ): Promise<void>;
+  respondEvent(args: AccessTokenArgs & RespondEventArgs): Promise<void>;
 }

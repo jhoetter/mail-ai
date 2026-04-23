@@ -48,17 +48,17 @@ This split lets you:
 
 ## Environment variables
 
-| Variable | Required | Purpose |
-| -------- | -------- | ------- |
-| `NANGO_SECRET_KEY` | yes (for OAuth) | Nango secret key. Without it the API server runs in **demo mode**: the connect dialog renders setup instructions instead of a popup. |
-| `NANGO_HOST` | no | Nango API base. Defaults to `https://api.nango.dev`. Override for self-hosted Nango. |
-| `NANGO_GOOGLE_INTEGRATION` | no | Nango integration ID for Gmail. Defaults to `google-mail`. |
-| `NANGO_OUTLOOK_INTEGRATION` | no | Nango integration ID for Outlook. Defaults to `outlook`. |
-| `GOOGLE_OAUTH_CLIENT_ID` | for refresh | Your own Google OAuth 2.0 client ID. Required so mail-ai can refresh tokens after the initial Nango handshake. |
-| `GOOGLE_OAUTH_CLIENT_SECRET` | for refresh | Matching client secret. |
-| `MICROSOFT_OAUTH_CLIENT_ID` | for refresh | Your own Microsoft Entra ID app (client) ID. |
-| `MICROSOFT_OAUTH_CLIENT_SECRET` | for refresh | Matching client secret. |
-| `MICROSOFT_OAUTH_TENANT` | no | `common` (default) for personal + work, `consumers` for personal only, `organizations` for AAD only, or a tenant GUID for single-tenant apps. |
+| Variable                        | Required        | Purpose                                                                                                                                       |
+| ------------------------------- | --------------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
+| `NANGO_SECRET_KEY`              | yes (for OAuth) | Nango secret key. Without it the API server runs in **demo mode**: the connect dialog renders setup instructions instead of a popup.          |
+| `NANGO_HOST`                    | no              | Nango API base. Defaults to `https://api.nango.dev`. Override for self-hosted Nango.                                                          |
+| `NANGO_GOOGLE_INTEGRATION`      | no              | Nango integration ID for Gmail. Defaults to `google-mail`.                                                                                    |
+| `NANGO_OUTLOOK_INTEGRATION`     | no              | Nango integration ID for Outlook. Defaults to `outlook`.                                                                                      |
+| `GOOGLE_OAUTH_CLIENT_ID`        | for refresh     | Your own Google OAuth 2.0 client ID. Required so mail-ai can refresh tokens after the initial Nango handshake.                                |
+| `GOOGLE_OAUTH_CLIENT_SECRET`    | for refresh     | Matching client secret.                                                                                                                       |
+| `MICROSOFT_OAUTH_CLIENT_ID`     | for refresh     | Your own Microsoft Entra ID app (client) ID.                                                                                                  |
+| `MICROSOFT_OAUTH_CLIENT_SECRET` | for refresh     | Matching client secret.                                                                                                                       |
+| `MICROSOFT_OAUTH_TENANT`        | no              | `common` (default) for personal + work, `consumers` for personal only, `organizations` for AAD only, or a tenant GUID for single-tenant apps. |
 
 The frontend resolves the API origin from `NEXT_PUBLIC_MAILAI_API_URL`
 (default `http://127.0.0.1:8200`).
@@ -78,7 +78,6 @@ The frontend resolves the API origin from `NEXT_PUBLIC_MAILAI_API_URL`
      refresh tokens directly without going through Nango.
 3. Required scopes (must be enabled in both Nango and the provider
    console):
-
    - **Gmail** (`google-mail` integration): `https://mail.google.com/`
      (full IMAP/SMTP access) **plus**
      `https://www.googleapis.com/auth/calendar.events` for the calendar

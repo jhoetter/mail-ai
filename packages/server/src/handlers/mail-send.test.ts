@@ -52,9 +52,7 @@ describe("buildSentMirrorRow", () => {
       ...baseInput,
       to: ["bob@example.com", "carol@example.com", "dan@example.com"],
     });
-    expect(row.toAddr).toBe(
-      "bob@example.com, carol@example.com, dan@example.com",
-    );
+    expect(row.toAddr).toBe("bob@example.com, carol@example.com, dan@example.com");
   });
 
   it("uses the supplied internal date so the row sorts to the top of Sent immediately", () => {

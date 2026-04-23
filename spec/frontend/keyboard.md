@@ -6,50 +6,50 @@ namespaced under `g` (go-to) and `c` (collaboration).
 
 ## Global
 
-| Key         | Action                          |
-| ----------- | ------------------------------- |
-| `?`         | Show this cheat sheet           |
-| `g i`       | Go to inbox                     |
-| `g s`       | Go to search                    |
-| `g p`       | Go to pending approvals         |
-| `g a`       | Go to settings → audit          |
-| `Cmd/Ctrl+K`| Quick-jump command palette      |
-| `Esc`       | Close modal / blur input        |
+| Key          | Action                     |
+| ------------ | -------------------------- |
+| `?`          | Show this cheat sheet      |
+| `g i`        | Go to inbox                |
+| `g s`        | Go to search               |
+| `g p`        | Go to pending approvals    |
+| `g a`        | Go to settings → audit     |
+| `Cmd/Ctrl+K` | Quick-jump command palette |
+| `Esc`        | Close modal / blur input   |
 
 ## Thread list
 
-| Key         | Action                          |
-| ----------- | ------------------------------- |
-| `j` / `k`   | Next / previous thread          |
-| `Enter`     | Open selected thread            |
-| `x`         | Toggle selection                |
-| `e`         | Archive (move to overlay status `archived`) |
-| `s`         | Snooze prompt                   |
-| `r`         | Mark resolved                   |
-| `a`         | Assign to… (opens picker)       |
-| `u`         | Mark unread                     |
-| `Shift+u`   | Mark read                       |
-| `t`         | Add tag…                        |
+| Key       | Action                                      |
+| --------- | ------------------------------------------- |
+| `j` / `k` | Next / previous thread                      |
+| `Enter`   | Open selected thread                        |
+| `x`       | Toggle selection                            |
+| `e`       | Archive (move to overlay status `archived`) |
+| `s`       | Snooze prompt                               |
+| `r`       | Mark resolved                               |
+| `a`       | Assign to… (opens picker)                   |
+| `u`       | Mark unread                                 |
+| `Shift+u` | Mark read                                   |
+| `t`       | Add tag…                                    |
 
 ## Thread view
 
-| Key         | Action                          |
-| ----------- | ------------------------------- |
-| `r`         | Reply                           |
-| `Shift+R`   | Reply all                       |
-| `f`         | Forward                         |
-| `c`         | Add comment (focuses comment box)|
-| `@`         | Inside comment: open mention picker|
-| `]` / `[`   | Next / previous message         |
-| `Cmd+Enter` | Send compose / submit comment   |
+| Key         | Action                              |
+| ----------- | ----------------------------------- |
+| `r`         | Reply                               |
+| `Shift+R`   | Reply all                           |
+| `f`         | Forward                             |
+| `c`         | Add comment (focuses comment box)   |
+| `@`         | Inside comment: open mention picker |
+| `]` / `[`   | Next / previous message             |
+| `Cmd+Enter` | Send compose / submit comment       |
 
 ## Pending approvals
 
-| Key         | Action                          |
-| ----------- | ------------------------------- |
-| `j` / `k`   | Next / previous pending         |
-| `y`         | Approve highlighted             |
-| `n`         | Reject (prompts for reason)     |
+| Key       | Action                      |
+| --------- | --------------------------- |
+| `j` / `k` | Next / previous pending     |
+| `y`       | Approve highlighted         |
+| `n`       | Reject (prompts for reason) |
 
 ## Accessibility notes
 

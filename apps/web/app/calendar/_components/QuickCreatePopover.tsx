@@ -76,9 +76,7 @@ export function QuickCreatePopover({
           if (e.key === "Enter") void submit();
         }}
       />
-      <div className="mt-2 text-[11px] text-secondary">
-        {formatRange(defaults)}
-      </div>
+      <div className="mt-2 text-[11px] text-secondary">{formatRange(defaults)}</div>
       <select
         value={calendarId}
         onChange={(e) => setCalendarId(e.target.value)}

@@ -41,9 +41,7 @@ export class GoogleMailPushAdapter implements PushProvider {
   readonly id = "google-mail" as const;
   readonly capabilities: PushProviderCapabilities = CAPABILITIES;
 
-  async subscribe(
-    args: AccessTokenArgs & SubscribeArgs,
-  ): Promise<PushSubscription> {
+  async subscribe(args: AccessTokenArgs & SubscribeArgs): Promise<PushSubscription> {
     const watch = await watchGmailMailbox({
       accessToken: args.accessToken,
       // notificationUrl == Pub/Sub topic name; see file comment.
@@ -83,9 +81,7 @@ export class GoogleMailPushAdapter implements PushProvider {
     });
   }
 
-  async unsubscribe(
-    args: AccessTokenArgs & { subscription: PushSubscription },
-  ): Promise<void> {
+  async unsubscribe(args: AccessTokenArgs & { subscription: PushSubscription }): Promise<void> {
     void args.subscription;
     await stopGmailMailboxWatch({ accessToken: args.accessToken });
   }

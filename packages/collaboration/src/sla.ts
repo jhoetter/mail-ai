@@ -34,7 +34,11 @@ export function evaluateSla(
     const policy = policyByInbox.get(t.inboxId);
     if (!policy) continue;
     const minutes = Math.floor((now.getTime() - t.lastInboundAt.getTime()) / 60_000);
-    out.push({ threadId: t.threadId, overdue: minutes > policy.responseTargetMinutes, minutesElapsed: minutes });
+    out.push({
+      threadId: t.threadId,
+      overdue: minutes > policy.responseTargetMinutes,
+      minutesElapsed: minutes,
+    });
   }
   return out;
 }

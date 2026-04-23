@@ -55,7 +55,8 @@ export class S3ObjectStore implements ObjectStore {
       await this.client.send(new HeadBucketCommand({ Bucket: this.bucket }));
       return;
     } catch (err) {
-      const status = (err as { $metadata?: { httpStatusCode?: number } })?.$metadata?.httpStatusCode;
+      const status = (err as { $metadata?: { httpStatusCode?: number } })?.$metadata
+        ?.httpStatusCode;
       if (status !== 404 && status !== 301 && status !== undefined) {
         // 403 (no permission) — swallow; presigned operations may
         // still work if the bucket exists and we just can't HEAD it.
@@ -104,7 +105,8 @@ export class S3ObjectStore implements ObjectStore {
       await this.client.send(new HeadObjectCommand({ Bucket: this.bucket, Key: key }));
       return true;
     } catch (err) {
-      const status = (err as { $metadata?: { httpStatusCode?: number } })?.$metadata?.httpStatusCode;
+      const status = (err as { $metadata?: { httpStatusCode?: number } })?.$metadata
+        ?.httpStatusCode;
       if (status === 404) return false;
       const code = (err as { name?: string }).name;
       if (code === "NotFound" || code === "NoSuchKey") return false;
@@ -148,9 +150,7 @@ export class S3ObjectStore implements ObjectStore {
       ...(opts?.responseContentDisposition
         ? { ResponseContentDisposition: opts.responseContentDisposition }
         : {}),
-      ...(opts?.responseContentType
-        ? { ResponseContentType: opts.responseContentType }
-        : {}),
+      ...(opts?.responseContentType ? { ResponseContentType: opts.responseContentType } : {}),
     });
     const url = await getSignedUrl(this.client, cmd, { expiresIn });
     return { url, expiresAt: Date.now() + expiresIn * 1000 };
@@ -196,7 +196,9 @@ export function withKeyPrefix(store: ObjectStore, prefix: string | undefined | n
 // Read S3 settings from process.env. Returns null when not all required
 // values are present so callers can fall back to InMemoryObjectStore in
 // minimal dev/test environments.
-export function loadS3OptionsFromEnv(env: NodeJS.ProcessEnv = process.env): S3ObjectStoreOptions | null {
+export function loadS3OptionsFromEnv(
+  env: NodeJS.ProcessEnv = process.env,
+): S3ObjectStoreOptions | null {
   const region = env["S3_REGION"];
   const bucket = env["S3_BUCKET"];
   const accessKeyId = env["S3_ACCESS_KEY"];

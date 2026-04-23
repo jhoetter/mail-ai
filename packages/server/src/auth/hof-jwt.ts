@@ -46,14 +46,9 @@ function verify(token: string, secret: Buffer): JwtClaims {
     throw new Error("malformed JWT");
   }
   const [h, p, s] = parts;
-  const expected = createHmac("sha256", secret)
-    .update(`${h}.${p}`)
-    .digest();
+  const expected = createHmac("sha256", secret).update(`${h}.${p}`).digest();
   const actual = b64urlDecodeToBuffer(s);
-  if (
-    expected.length !== actual.length ||
-    !timingSafeEqual(expected, actual)
-  ) {
+  if (expected.length !== actual.length || !timingSafeEqual(expected, actual)) {
     throw new Error("bad signature");
   }
   const claims = JSON.parse(b64urlDecodeToBuffer(p).toString("utf-8")) as JwtClaims;

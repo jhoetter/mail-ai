@@ -135,7 +135,9 @@ function partAlternative(textBody: string | undefined, htmlBody: string | undefi
   if (!hasBoth) {
     const body = htmlBody ?? textBody ?? "";
     const ct = htmlBody ? "text/html" : "text/plain";
-    return [`Content-Type: ${ct}; charset=UTF-8`, "Content-Transfer-Encoding: 8bit", "", body].join("\r\n");
+    return [`Content-Type: ${ct}; charset=UTF-8`, "Content-Transfer-Encoding: 8bit", "", body].join(
+      "\r\n",
+    );
   }
   const boundary = `=_alt_${randomUUID()}`;
   return [

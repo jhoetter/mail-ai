@@ -14,11 +14,7 @@ export interface ConnectAccountDialogProps {
   onConnected?: (acc: AccountSummary) => void;
 }
 
-export function ConnectAccountDialog({
-  open,
-  onClose,
-  onConnected,
-}: ConnectAccountDialogProps) {
+export function ConnectAccountDialog({ open, onClose, onConnected }: ConnectAccountDialogProps) {
   const { stage, connect, reset } = useNangoConnect({
     ...(onConnected ? { onConnected } : {}),
   });
@@ -31,8 +27,7 @@ export function ConnectAccountDialog({
   // Computed up here so the buttons render in the picker block below
   // without TS narrowing `stage.kind` away from in-flight values.
   const inFlight = stage.kind === "starting" || stage.kind === "awaiting-user";
-  const showPicker =
-    stage.kind === "idle" || stage.kind === "error" || stage.kind === "success";
+  const showPicker = stage.kind === "idle" || stage.kind === "error" || stage.kind === "success";
 
   return (
     <Dialog open={open} onClose={close}>
@@ -49,8 +44,8 @@ export function ConnectAccountDialog({
             >
               Nango
             </a>{" "}
-            for the initial handshake. After that, we own the tokens — refreshes
-            go straight to Google/Microsoft.
+            for the initial handshake. After that, we own the tokens — refreshes go straight to
+            Google/Microsoft.
           </p>
         </header>
 
@@ -129,30 +124,26 @@ function StageBody({ stage }: { stage: ConnectStage }) {
     case "starting":
       return (
         <Notice tone="info">
-          Requesting a Nango Connect session for{" "}
-          <strong>{providerLabel(stage.provider)}</strong>…
+          Requesting a Nango Connect session for <strong>{providerLabel(stage.provider)}</strong>…
         </Notice>
       );
     case "awaiting-user":
       return (
         <Notice tone="info">
-          A secure popup is open. Sign in with{" "}
-          <strong>{providerLabel(stage.provider)}</strong> and approve the
-          mail-ai access. We&apos;ll detect when you finish.
+          A secure popup is open. Sign in with <strong>{providerLabel(stage.provider)}</strong> and
+          approve the mail-ai access. We&apos;ll detect when you finish.
         </Notice>
       );
     case "finalizing":
       return (
-        <Notice tone="info">
-          Almost there — fetching your tokens and storing the connection…
-        </Notice>
+        <Notice tone="info">Almost there — fetching your tokens and storing the connection…</Notice>
       );
     case "success":
       return (
         <Notice tone="success">
           Connected <strong>{stage.account.email}</strong> via{" "}
-          <strong>{providerLabel(stage.provider)}</strong>. mail-ai will refresh
-          tokens automatically from now on.
+          <strong>{providerLabel(stage.provider)}</strong>. mail-ai will refresh tokens
+          automatically from now on.
         </Notice>
       );
     case "error":
@@ -161,8 +152,8 @@ function StageBody({ stage }: { stage: ConnectStage }) {
           <Notice tone="warn">
             <p>
               <strong>Demo mode:</strong> the API server is running without{" "}
-              <code className="font-mono">NANGO_SECRET_KEY</code>, so OAuth
-              popups can&apos;t be opened.
+              <code className="font-mono">NANGO_SECRET_KEY</code>, so OAuth popups can&apos;t be
+              opened.
             </p>
             <p className="mt-2">
               Two-minute fix:{" "}
@@ -215,17 +206,9 @@ const NOTICE_PALETTE: Record<NoticeTone, string> = {
   error: "border-danger/40 bg-error/10 text-foreground",
 };
 
-function Notice({
-  tone,
-  children,
-}: {
-  tone: NoticeTone;
-  children: React.ReactNode;
-}) {
+function Notice({ tone, children }: { tone: NoticeTone; children: React.ReactNode }) {
   return (
-    <div className={`rounded-md border px-3 py-2 text-sm ${NOTICE_PALETTE[tone]}`}>
-      {children}
-    </div>
+    <div className={`rounded-md border px-3 py-2 text-sm ${NOTICE_PALETTE[tone]}`}>{children}</div>
   );
 }
 

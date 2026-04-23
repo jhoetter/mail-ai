@@ -19,15 +19,15 @@
 
 ## State table
 
-| Current | Command | Allowed → next |
-| --- | --- | --- |
-| `open` | `thread:set-status snoozed` (with `snoozed_until`) | `snoozed` |
-| `open` | `thread:set-status resolved` | `resolved` |
-| `snoozed` | `thread:set-status open` | `open` |
-| `snoozed` | `thread:set-status resolved` | `resolved` |
-| `resolved` | `thread:set-status open` | `open` |
-| `*` | `thread:snooze-elapsed` (system) | `open` (only valid if currently `snoozed`) |
-| `*` | any other status command | `MailaiError("conflict_error")` |
+| Current    | Command                                            | Allowed → next                             |
+| ---------- | -------------------------------------------------- | ------------------------------------------ |
+| `open`     | `thread:set-status snoozed` (with `snoozed_until`) | `snoozed`                                  |
+| `open`     | `thread:set-status resolved`                       | `resolved`                                 |
+| `snoozed`  | `thread:set-status open`                           | `open`                                     |
+| `snoozed`  | `thread:set-status resolved`                       | `resolved`                                 |
+| `resolved` | `thread:set-status open`                           | `open`                                     |
+| `*`        | `thread:snooze-elapsed` (system)                   | `open` (only valid if currently `snoozed`) |
+| `*`        | any other status command                           | `MailaiError("conflict_error")`            |
 
 ## Implementation
 

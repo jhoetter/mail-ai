@@ -22,15 +22,16 @@ export interface AuditRoutesDeps {
 export function registerAuditRoutes(app: FastifyInstance, deps: AuditRoutesDeps): void {
   app.get("/api/audit", async (req) => {
     const ident = await deps.identity({ headers: req.headers as Record<string, unknown> });
-    const q = (req.query as {
-      actor?: string;
-      type?: string;
-      threadId?: string;
-      since?: string;
-      until?: string;
-      cursor?: string;
-      limit?: string;
-    }) ?? {};
+    const q =
+      (req.query as {
+        actor?: string;
+        type?: string;
+        threadId?: string;
+        since?: string;
+        until?: string;
+        cursor?: string;
+        limit?: string;
+      }) ?? {};
 
     const limit = q.limit ? Math.min(Math.max(Number(q.limit) || 50, 1), 200) : 50;
 
@@ -84,7 +85,8 @@ function parseDateOrRelative(s: string): Date | null {
   if (rel) {
     const n = Number(rel[1]);
     const unit = rel[2] as "s" | "m" | "h" | "d";
-    const ms = n * (unit === "s" ? 1000 : unit === "m" ? 60_000 : unit === "h" ? 3_600_000 : 86_400_000);
+    const ms =
+      n * (unit === "s" ? 1000 : unit === "m" ? 60_000 : unit === "h" ? 3_600_000 : 86_400_000);
     return new Date(Date.now() - ms);
   }
   const d = new Date(s);

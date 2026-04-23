@@ -8,19 +8,19 @@ the web UI must be expressible as commands on the bus — no
 
 ## In-scope screens
 
-| Route                          | Purpose                                                     |
-| ------------------------------ | ----------------------------------------------------------- |
-| `/login`                       | OAuth-redirect login                                        |
+| Route                          | Purpose                                                         |
+| ------------------------------ | --------------------------------------------------------------- |
+| `/login`                       | OAuth-redirect login                                            |
 | `/inbox`                       | Default inbox view, three-pane layout (folders/threads/preview) |
-| `/inbox/[inboxId]`             | Inbox switcher                                              |
-| `/inbox/[inboxId]/thread/[id]` | Thread reading + replying + commenting                      |
-| `/compose`                     | Standalone compose window (split from inbox view)           |
-| `/search?q=...`                | Full-text + filter search (FTS-backed)                      |
-| `/settings/account`            | Connect/disconnect IMAP+OAuth accounts                      |
-| `/settings/inboxes`            | Shared inbox config + members                               |
-| `/settings/agents`             | API tokens, agent staging policies                          |
-| `/settings/audit`              | Read-only audit log viewer                                  |
-| `/pending`                     | Approval queue for staged agent mutations                   |
+| `/inbox/[inboxId]`             | Inbox switcher                                                  |
+| `/inbox/[inboxId]/thread/[id]` | Thread reading + replying + commenting                          |
+| `/compose`                     | Standalone compose window (split from inbox view)               |
+| `/search?q=...`                | Full-text + filter search (FTS-backed)                          |
+| `/settings/account`            | Connect/disconnect IMAP+OAuth accounts                          |
+| `/settings/inboxes`            | Shared inbox config + members                                   |
+| `/settings/agents`             | API tokens, agent staging policies                              |
+| `/settings/audit`              | Read-only audit log viewer                                      |
+| `/pending`                     | Approval queue for staged agent mutations                       |
 
 ## Out of scope (v1)
 

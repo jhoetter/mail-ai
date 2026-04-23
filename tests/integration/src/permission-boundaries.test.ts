@@ -3,12 +3,7 @@
 // intersect with tenant role.
 
 import { describe, it, expect } from "vitest";
-import {
-  assertCan,
-  assertCanInInbox,
-  can,
-  canInInbox,
-} from "@mailai/collaboration";
+import { assertCan, assertCanInInbox, can, canInInbox } from "@mailai/collaboration";
 
 describe("permission boundaries", () => {
   it("read-only tenant role cannot mutate, even as inbox-admin", () => {
@@ -18,9 +13,7 @@ describe("permission boundaries", () => {
 
   it("admin tenant role + viewer inbox role cannot write to that inbox", () => {
     expect(canInInbox("admin", "viewer", "thread.assign")).toBe(false);
-    expect(() => assertCanInInbox("admin", "viewer", "comment.add")).toThrow(
-      /lacks capability/,
-    );
+    expect(() => assertCanInInbox("admin", "viewer", "comment.add")).toThrow(/lacks capability/);
   });
 
   it("member + agent can comment + assign + set-status", () => {

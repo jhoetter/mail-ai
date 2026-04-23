@@ -67,200 +67,198 @@ export interface RichEditorProps {
   readonly ariaLabel?: string;
 }
 
-export const RichEditor = forwardRef<RichEditorHandle, RichEditorProps>(
-  function RichEditor(
-    {
-      defaultValue,
-      placeholder,
-      minHeight = 140,
-      maxHeight,
-      className,
-      onChange,
-      onSubmit,
-      hideToolbar,
-      ariaLabel,
-    },
+export const RichEditor = forwardRef<RichEditorHandle, RichEditorProps>(function RichEditor(
+  {
+    defaultValue,
+    placeholder,
+    minHeight = 140,
+    maxHeight,
+    className,
+    onChange,
+    onSubmit,
+    hideToolbar,
+    ariaLabel,
+  },
+  ref,
+) {
+  const editorRef = useRef<HTMLDivElement | null>(null);
+  const dialogs = useDialogs();
+  const [empty, setEmpty] = useState(!defaultValue || defaultValue.trim().length === 0);
+
+  const emit = useCallback(() => {
+    const el = editorRef.current;
+    if (!el) return;
+    const html = el.innerHTML;
+    const text = htmlToText(html);
+    setEmpty(text.trim().length === 0);
+    onChange?.({ html, text });
+  }, [onChange]);
+
+  useImperativeHandle(
     ref,
-  ) {
-    const editorRef = useRef<HTMLDivElement | null>(null);
-    const dialogs = useDialogs();
-    const [empty, setEmpty] = useState(!defaultValue || defaultValue.trim().length === 0);
-
-    const emit = useCallback(() => {
-      const el = editorRef.current;
-      if (!el) return;
-      const html = el.innerHTML;
-      const text = htmlToText(html);
-      setEmpty(text.trim().length === 0);
-      onChange?.({ html, text });
-    }, [onChange]);
-
-    useImperativeHandle(
-      ref,
-      () => ({
-        setContent(html: string) {
-          if (!editorRef.current) return;
-          editorRef.current.innerHTML = html;
-          placeCaretAtEnd(editorRef.current);
-          emit();
-        },
-        focus() {
-          editorRef.current?.focus();
-        },
-        getValue() {
-          const html = editorRef.current?.innerHTML ?? "";
-          return { html, text: htmlToText(html) };
-        },
-      }),
-      [emit],
-    );
-
-    // Seed once on mount. Updates to `defaultValue` after mount are
-    // ignored — callers wanting to overwrite the editor should call
-    // `ref.current?.setContent(...)` instead.
-    useEffect(() => {
-      const el = editorRef.current;
-      if (!el) return;
-      el.innerHTML = defaultValue ?? "";
-      setEmpty(htmlToText(el.innerHTML).trim().length === 0);
-      // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, []);
-
-    const exec = useCallback(
-      (command: string, arg?: string) => {
-        // execCommand is "deprecated" but still implemented in every
-        // major browser and is the only API that gives us reliable,
-        // selection-aware formatting without a full editor framework.
-        const ok =
-          // eslint-disable-next-line @typescript-eslint/no-deprecated
-          document.execCommand(command, false, arg);
-        if (!ok) return;
-        editorRef.current?.focus();
+    () => ({
+      setContent(html: string) {
+        if (!editorRef.current) return;
+        editorRef.current.innerHTML = html;
+        placeCaretAtEnd(editorRef.current);
         emit();
       },
-      [emit],
-    );
+      focus() {
+        editorRef.current?.focus();
+      },
+      getValue() {
+        const html = editorRef.current?.innerHTML ?? "";
+        return { html, text: htmlToText(html) };
+      },
+    }),
+    [emit],
+  );
 
-    const promptForLink = useCallback(async () => {
-      if (typeof window === "undefined") return;
-      // The link prompt opens a dialog, which steals focus from the
-      // contenteditable and wipes the user's selection. We capture the
-      // active range up front and restore it before calling
-      // `createLink`, otherwise the link gets inserted at the
-      // start of the document (or nowhere at all).
-      const selection = window.getSelection();
-      const savedRange =
-        selection && selection.rangeCount > 0 ? selection.getRangeAt(0).cloneRange() : null;
-      const url = await dialogs.prompt({
-        title: "Insert link",
-        description: "Enter a URL — we'll prepend https:// if you skip the scheme.",
-        placeholder: "https://example.com",
-        inputType: "url",
-        okLabel: "Insert",
-      });
-      if (!url) return;
-      const trimmed = url.trim();
-      if (trimmed.length === 0) return;
-      const safe =
-        /^https?:\/\//i.test(trimmed) || trimmed.startsWith("mailto:")
-          ? trimmed
-          : `https://${trimmed}`;
+  // Seed once on mount. Updates to `defaultValue` after mount are
+  // ignored — callers wanting to overwrite the editor should call
+  // `ref.current?.setContent(...)` instead.
+  useEffect(() => {
+    const el = editorRef.current;
+    if (!el) return;
+    el.innerHTML = defaultValue ?? "";
+    setEmpty(htmlToText(el.innerHTML).trim().length === 0);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const exec = useCallback(
+    (command: string, arg?: string) => {
+      // execCommand is "deprecated" but still implemented in every
+      // major browser and is the only API that gives us reliable,
+      // selection-aware formatting without a full editor framework.
+      const ok =
+        // eslint-disable-next-line @typescript-eslint/no-deprecated
+        document.execCommand(command, false, arg);
+      if (!ok) return;
       editorRef.current?.focus();
-      if (savedRange) {
-        const sel = window.getSelection();
-        sel?.removeAllRanges();
-        sel?.addRange(savedRange);
-      }
-      exec("createLink", safe);
-    }, [dialogs, exec]);
+      emit();
+    },
+    [emit],
+  );
 
-    const onKeyDown = useCallback(
-      (e: React.KeyboardEvent<HTMLDivElement>) => {
-        if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "enter" && onSubmit) {
+  const promptForLink = useCallback(async () => {
+    if (typeof window === "undefined") return;
+    // The link prompt opens a dialog, which steals focus from the
+    // contenteditable and wipes the user's selection. We capture the
+    // active range up front and restore it before calling
+    // `createLink`, otherwise the link gets inserted at the
+    // start of the document (or nowhere at all).
+    const selection = window.getSelection();
+    const savedRange =
+      selection && selection.rangeCount > 0 ? selection.getRangeAt(0).cloneRange() : null;
+    const url = await dialogs.prompt({
+      title: "Insert link",
+      description: "Enter a URL — we'll prepend https:// if you skip the scheme.",
+      placeholder: "https://example.com",
+      inputType: "url",
+      okLabel: "Insert",
+    });
+    if (!url) return;
+    const trimmed = url.trim();
+    if (trimmed.length === 0) return;
+    const safe =
+      /^https?:\/\//i.test(trimmed) || trimmed.startsWith("mailto:")
+        ? trimmed
+        : `https://${trimmed}`;
+    editorRef.current?.focus();
+    if (savedRange) {
+      const sel = window.getSelection();
+      sel?.removeAllRanges();
+      sel?.addRange(savedRange);
+    }
+    exec("createLink", safe);
+  }, [dialogs, exec]);
+
+  const onKeyDown = useCallback(
+    (e: React.KeyboardEvent<HTMLDivElement>) => {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "enter" && onSubmit) {
+        e.preventDefault();
+        onSubmit();
+        return;
+      }
+      if ((e.metaKey || e.ctrlKey) && !e.shiftKey) {
+        const k = e.key.toLowerCase();
+        if (k === "b") {
           e.preventDefault();
-          onSubmit();
+          exec("bold");
           return;
         }
-        if ((e.metaKey || e.ctrlKey) && !e.shiftKey) {
-          const k = e.key.toLowerCase();
-          if (k === "b") {
-            e.preventDefault();
-            exec("bold");
-            return;
-          }
-          if (k === "i") {
-            e.preventDefault();
-            exec("italic");
-            return;
-          }
-          if (k === "u") {
-            e.preventDefault();
-            exec("underline");
-            return;
-          }
-          if (k === "k") {
-            e.preventDefault();
-            void promptForLink();
-            return;
-          }
+        if (k === "i") {
+          e.preventDefault();
+          exec("italic");
+          return;
         }
-      },
-      [exec, onSubmit, promptForLink],
-    );
+        if (k === "u") {
+          e.preventDefault();
+          exec("underline");
+          return;
+        }
+        if (k === "k") {
+          e.preventDefault();
+          void promptForLink();
+          return;
+        }
+      }
+    },
+    [exec, onSubmit, promptForLink],
+  );
 
-    // Paste cleanup: keep the formatted clipboard if it's a sensible
-    // subset, otherwise drop to plain text. This is what you actually
-    // want when pasting from another mail/Slack/notion — preserves
-    // links + lists + emphasis without dragging in their CSS.
-    const onPaste = useCallback(
-      (e: React.ClipboardEvent<HTMLDivElement>) => {
-        const html = e.clipboardData.getData("text/html");
-        const text = e.clipboardData.getData("text/plain");
-        if (!html) return;
-        e.preventDefault();
-        const cleaned = sanitizePastedHtml(html) || escapeText(text).replace(/\n/g, "<br>");
-        // eslint-disable-next-line @typescript-eslint/no-deprecated
-        document.execCommand("insertHTML", false, cleaned);
-        emit();
-      },
-      [emit],
-    );
+  // Paste cleanup: keep the formatted clipboard if it's a sensible
+  // subset, otherwise drop to plain text. This is what you actually
+  // want when pasting from another mail/Slack/notion — preserves
+  // links + lists + emphasis without dragging in their CSS.
+  const onPaste = useCallback(
+    (e: React.ClipboardEvent<HTMLDivElement>) => {
+      const html = e.clipboardData.getData("text/html");
+      const text = e.clipboardData.getData("text/plain");
+      if (!html) return;
+      e.preventDefault();
+      const cleaned = sanitizePastedHtml(html) || escapeText(text).replace(/\n/g, "<br>");
+      // eslint-disable-next-line @typescript-eslint/no-deprecated
+      document.execCommand("insertHTML", false, cleaned);
+      emit();
+    },
+    [emit],
+  );
 
-    const style: CSSProperties = { minHeight };
-    if (maxHeight !== undefined) {
-      style.maxHeight = maxHeight;
-      style.overflowY = "auto";
-    }
+  const style: CSSProperties = { minHeight };
+  if (maxHeight !== undefined) {
+    style.maxHeight = maxHeight;
+    style.overflowY = "auto";
+  }
 
-    return (
-      <div className={cn("flex w-full flex-col", className)}>
-        {hideToolbar ? null : <Toolbar exec={exec} onLinkClick={() => void promptForLink()} />}
-        <div className="relative flex-1">
-          <div
-            ref={editorRef}
-            role="textbox"
-            aria-multiline="true"
-            aria-label={ariaLabel}
-            contentEditable
-            suppressContentEditableWarning
-            spellCheck
-            onInput={emit}
-            onBlur={emit}
-            onKeyDown={onKeyDown}
-            onPaste={onPaste}
-            className="prose-mailai w-full resize-none px-3 py-3 text-sm leading-relaxed text-foreground outline-none"
-            style={style}
-          />
-          {empty && placeholder ? (
-            <span className="pointer-events-none absolute left-3 top-3 text-sm text-tertiary">
-              {placeholder}
-            </span>
-          ) : null}
-        </div>
+  return (
+    <div className={cn("flex w-full flex-col", className)}>
+      {hideToolbar ? null : <Toolbar exec={exec} onLinkClick={() => void promptForLink()} />}
+      <div className="relative flex-1">
+        <div
+          ref={editorRef}
+          role="textbox"
+          aria-multiline="true"
+          aria-label={ariaLabel}
+          contentEditable
+          suppressContentEditableWarning
+          spellCheck
+          onInput={emit}
+          onBlur={emit}
+          onKeyDown={onKeyDown}
+          onPaste={onPaste}
+          className="prose-mailai w-full resize-none px-3 py-3 text-sm leading-relaxed text-foreground outline-none"
+          style={style}
+        />
+        {empty && placeholder ? (
+          <span className="pointer-events-none absolute left-3 top-3 text-sm text-tertiary">
+            {placeholder}
+          </span>
+        ) : null}
       </div>
-    );
-  },
-);
+    </div>
+  );
+});
 
 interface ToolbarProps {
   readonly exec: (command: string, arg?: string) => void;
@@ -371,14 +369,14 @@ function htmlToText(html: string): string {
 }
 
 function stripTags(html: string): string {
-  return html.replace(/<[^>]+>/g, "").replace(/\s+/g, " ").trim();
+  return html
+    .replace(/<[^>]+>/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
 }
 
 function escapeText(s: string): string {
-  return s
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;");
+  return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 }
 
 // Conservative paste-HTML cleaner. We strip scripts, styles, classes,

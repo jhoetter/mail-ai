@@ -28,13 +28,13 @@ sub-components would couple us to their layout assumptions.
 
 ## Host hooks
 
-| Hook                 | Required | Purpose                                                      |
-| -------------------- | -------- | ------------------------------------------------------------ |
-| `getAuthToken`       | yes      | Returns a Bearer token for `HttpAgentClient`. Async to allow refresh. |
-| `onUnauthorized`     | yes      | Called when the API returns 401; the host decides what to do (re-auth, sign out, etc.). |
-| `navigate`           | yes      | URL changes are delegated to the host's router so deep links integrate cleanly. |
-| `requestThemeOverride` | no    | Lets the host tint the UI to match its design system.       |
-| `onMutation`         | no       | Notifies the host of every applied mutation, so it can update its own counters / badges. |
+| Hook                   | Required | Purpose                                                                                  |
+| ---------------------- | -------- | ---------------------------------------------------------------------------------------- |
+| `getAuthToken`         | yes      | Returns a Bearer token for `HttpAgentClient`. Async to allow refresh.                    |
+| `onUnauthorized`       | yes      | Called when the API returns 401; the host decides what to do (re-auth, sign out, etc.).  |
+| `navigate`             | yes      | URL changes are delegated to the host's router so deep links integrate cleanly.          |
+| `requestThemeOverride` | no       | Lets the host tint the UI to match its design system.                                    |
+| `onMutation`           | no       | Notifies the host of every applied mutation, so it can update its own counters / badges. |
 
 Hooks are intentionally narrow: anything not on this list, the host
 cannot influence. That keeps the embed contract auditable.

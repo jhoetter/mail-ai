@@ -33,32 +33,20 @@ describe("layoutDayEvents", () => {
   const dayEnd = new Date(2026, 3, 23, 0, 0, 0);
 
   it("non-overlapping events take 1 column each", () => {
-    const out = layoutDayEvents(
-      [ev("a", 9, 10), ev("b", 11, 12)],
-      dayStart,
-      dayEnd,
-    );
+    const out = layoutDayEvents([ev("a", 9, 10), ev("b", 11, 12)], dayStart, dayEnd);
     expect(out).toHaveLength(2);
     expect(out.every((it) => it.columns === 1 && it.column === 0)).toBe(true);
   });
 
   it("two overlapping events split the column count to 2", () => {
-    const out = layoutDayEvents(
-      [ev("a", 9, 11), ev("b", 10, 12)],
-      dayStart,
-      dayEnd,
-    );
+    const out = layoutDayEvents([ev("a", 9, 11), ev("b", 10, 12)], dayStart, dayEnd);
     expect(out).toHaveLength(2);
     expect(out.map((it) => it.columns)).toEqual([2, 2]);
     expect(new Set(out.map((it) => it.column))).toEqual(new Set([0, 1]));
   });
 
   it("three concurrent events all share columns=3", () => {
-    const out = layoutDayEvents(
-      [ev("a", 9, 12), ev("b", 9, 12), ev("c", 9, 12)],
-      dayStart,
-      dayEnd,
-    );
+    const out = layoutDayEvents([ev("a", 9, 12), ev("b", 9, 12), ev("c", 9, 12)], dayStart, dayEnd);
     expect(out.map((it) => it.columns)).toEqual([3, 3, 3]);
   });
 
@@ -77,11 +65,7 @@ describe("layoutDayEvents", () => {
   });
 
   it("drops events fully outside the day window", () => {
-    const out = layoutDayEvents(
-      [ev("a", 9, 10), { ...ev("late", 25, 26) }],
-      dayStart,
-      dayEnd,
-    );
+    const out = layoutDayEvents([ev("a", 9, 10), { ...ev("late", 25, 26) }], dayStart, dayEnd);
     expect(out).toHaveLength(1);
   });
 });

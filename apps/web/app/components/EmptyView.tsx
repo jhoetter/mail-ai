@@ -105,18 +105,13 @@ interface LayoutProps {
 
 function Layout({ icon, title, hint, details, cta }: LayoutProps) {
   return (
-    <div
-      data-testid="empty-view"
-      className="flex flex-col items-start gap-3 py-6"
-    >
+    <div data-testid="empty-view" className="flex flex-col items-start gap-3 py-6">
       <div className="flex items-center gap-2">
         {icon}
         <p className="text-sm font-medium text-foreground">{title}</p>
       </div>
       <p className="max-w-md text-sm text-secondary">{hint}</p>
-      {details ? (
-        <p className="max-w-md break-words text-xs text-tertiary">{details}</p>
-      ) : null}
+      {details ? <p className="max-w-md break-words text-xs text-tertiary">{details}</p> : null}
       {cta}
     </div>
   );

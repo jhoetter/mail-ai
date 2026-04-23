@@ -72,7 +72,10 @@ async function snapshot(client: ImapFlow, mailboxes: string[]): Promise<MailboxS
   return out;
 }
 
-function diff(a: MailboxSnapshot[], b: MailboxSnapshot[]): {
+function diff(
+  a: MailboxSnapshot[],
+  b: MailboxSnapshot[],
+): {
   newFolders: string[];
   removedFolders: string[];
   perFolder: Array<{

@@ -1,11 +1,6 @@
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
-import {
-  BrowserRouter,
-  Navigate,
-  Route,
-  Routes,
-} from "react-router";
+import { BrowserRouter, Navigate, Route, Routes } from "react-router";
 
 // Global stylesheet — Tailwind, design tokens, prose-mailai. Keeping
 // the import here (rather than referencing it from index.html) lets

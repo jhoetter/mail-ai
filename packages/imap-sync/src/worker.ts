@@ -106,6 +106,9 @@ export function startOutboxWorker(opts: {
   );
 }
 
-export function watchQueueEvents(connection: Redis, queue: typeof SYNC_QUEUE | typeof OUTBOX_QUEUE) {
+export function watchQueueEvents(
+  connection: Redis,
+  queue: typeof SYNC_QUEUE | typeof OUTBOX_QUEUE,
+) {
   return new QueueEvents(queue, { connection });
 }

@@ -21,9 +21,7 @@ describe("RecurrenceSchema", () => {
     expect(() => RecurrenceSchema.parse({ freq: "FORTNIGHTLY" })).toThrow();
   });
   it("rejects unknown weekday tokens", () => {
-    expect(() =>
-      RecurrenceSchema.parse({ freq: "WEEKLY", byday: ["XX"] }),
-    ).toThrow();
+    expect(() => RecurrenceSchema.parse({ freq: "WEEKLY", byday: ["XX"] })).toThrow();
   });
 });
 

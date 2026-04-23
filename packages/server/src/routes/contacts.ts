@@ -44,10 +44,7 @@ export interface ContactsRoutesDeps {
   readonly contactsProviders?: ContactsProviderRegistry;
 }
 
-export function registerContactsRoutes(
-  app: FastifyInstance,
-  deps: ContactsRoutesDeps,
-): void {
+export function registerContactsRoutes(app: FastifyInstance, deps: ContactsRoutesDeps): void {
   app.get("/api/contacts/suggest", async (req) => {
     const ident = await deps.identity({ headers: req.headers as Record<string, unknown> });
     const q = (req.query as { q?: string }).q ?? "";

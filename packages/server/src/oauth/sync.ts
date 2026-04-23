@@ -21,10 +21,7 @@ import {
   type OauthMessageProvider,
   type OauthMessagesRepository,
 } from "@mailai/overlay-db";
-import {
-  getValidAccessToken,
-  type ProviderCredentials,
-} from "@mailai/oauth-tokens";
+import { getValidAccessToken, type ProviderCredentials } from "@mailai/oauth-tokens";
 import type {
   DeltaWatermark,
   MailProvider,
@@ -82,11 +79,7 @@ export interface SyncResult {
   }>;
 }
 
-const DEFAULT_FOLDERS: ReadonlyArray<WellKnownFolder> = [
-  "inbox",
-  "sent",
-  "drafts",
-];
+const DEFAULT_FOLDERS: ReadonlyArray<WellKnownFolder> = ["inbox", "sent", "drafts"];
 const DEFAULT_PAGE_SIZE = 100;
 const DEFAULT_MAX_PAGES_PER_FOLDER = 5;
 
@@ -120,8 +113,7 @@ export async function syncOauthAccount(
     // deltaLink for Graph) to read; the helper just consults
     // capabilities and forwards the row.
     const watermark = provider.readWatermark(account);
-    const tryDelta =
-      !deps.forceFull && provider.capabilities.delta && watermark !== null;
+    const tryDelta = !deps.forceFull && provider.capabilities.delta && watermark !== null;
 
     if (tryDelta) {
       const delta = await runDeltaSync(account, provider, deps, watermark, accessToken);
@@ -155,13 +147,9 @@ export async function syncOauthAccount(
         if (baseline.nextWatermark) {
           await deps.accounts.setWatermark(account.tenantId, account.id, {
             historyId:
-              baseline.nextWatermark.kind === "gmail"
-                ? baseline.nextWatermark.historyId
-                : null,
+              baseline.nextWatermark.kind === "gmail" ? baseline.nextWatermark.historyId : null,
             deltaLink:
-              baseline.nextWatermark.kind === "graph"
-                ? baseline.nextWatermark.deltaLink
-                : null,
+              baseline.nextWatermark.kind === "graph" ? baseline.nextWatermark.deltaLink : null,
           });
         }
       } catch {
@@ -205,28 +193,17 @@ async function runDeltaSync(
   for (const m of result.updated) {
     rows.push(toInsertRow(account, m, m.wellKnownFolder));
   }
-  const counts = rows.length > 0
-    ? await deps.messages.upsertMany(rows)
-    : { inserted: 0, updated: 0 };
+  const counts =
+    rows.length > 0 ? await deps.messages.upsertMany(rows) : { inserted: 0, updated: 0 };
 
   const deletedCount =
     result.deleted.length > 0
-      ? await deps.messages.markDeleted(
-          account.tenantId,
-          account.id,
-          result.deleted,
-        )
+      ? await deps.messages.markDeleted(account.tenantId, account.id, result.deleted)
       : 0;
 
   await deps.accounts.setWatermark(account.tenantId, account.id, {
-    historyId:
-      result.nextWatermark.kind === "gmail"
-        ? result.nextWatermark.historyId
-        : null,
-    deltaLink:
-      result.nextWatermark.kind === "graph"
-        ? result.nextWatermark.deltaLink
-        : null,
+    historyId: result.nextWatermark.kind === "gmail" ? result.nextWatermark.historyId : null,
+    deltaLink: result.nextWatermark.kind === "graph" ? result.nextWatermark.deltaLink : null,
   });
 
   return {
@@ -255,9 +232,7 @@ async function runFullSync(
   // Gmail's "archive") so we skip them without an empty round-trip.
   const supported = await provider.listFolders({ accessToken });
   const supportedSet = new Set(
-    supported
-      .filter((f) => f.providerFolderId !== null)
-      .map((f) => f.wellKnownFolder),
+    supported.filter((f) => f.providerFolderId !== null).map((f) => f.wellKnownFolder),
   );
 
   let totalFetched = 0;
@@ -325,18 +300,9 @@ export function toInsertRow(
     subject: m.subject,
     fromName: m.from?.name ?? null,
     fromEmail: m.from?.email ?? null,
-    toAddr:
-      m.to.length > 0
-        ? m.to.map((a) => a.email).join(", ")
-        : null,
-    ccAddr:
-      m.cc.length > 0
-        ? m.cc.map((a) => a.email).join(", ")
-        : null,
-    bccAddr:
-      m.bcc.length > 0
-        ? m.bcc.map((a) => a.email).join(", ")
-        : null,
+    toAddr: m.to.length > 0 ? m.to.map((a) => a.email).join(", ") : null,
+    ccAddr: m.cc.length > 0 ? m.cc.map((a) => a.email).join(", ") : null,
+    bccAddr: m.bcc.length > 0 ? m.bcc.map((a) => a.email).join(", ") : null,
     snippet: m.snippet,
     internalDate: m.internalDate,
     labelsJson: [...m.userLabels],

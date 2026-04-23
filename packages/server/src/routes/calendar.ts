@@ -10,10 +10,7 @@ import {
   withTenant,
   type Pool,
 } from "@mailai/overlay-db";
-import {
-  getValidAccessToken,
-  type ProviderCredentials,
-} from "@mailai/oauth-tokens";
+import { getValidAccessToken, type ProviderCredentials } from "@mailai/oauth-tokens";
 import type { CalendarProviderRegistry } from "@mailai/providers";
 
 export interface CalendarRoutesDeps {
@@ -28,10 +25,7 @@ export interface CalendarRoutesDeps {
   readonly calendarProviders?: CalendarProviderRegistry;
 }
 
-export function registerCalendarRoutes(
-  app: FastifyInstance,
-  deps: CalendarRoutesDeps,
-): void {
+export function registerCalendarRoutes(app: FastifyInstance, deps: CalendarRoutesDeps): void {
   app.get("/api/calendars", async (req) => {
     const ident = await deps.identity({ headers: req.headers as Record<string, unknown> });
     return withTenant(deps.pool, ident.tenantId, async (tx) => {
@@ -123,9 +117,7 @@ export function registerCalendarRoutes(
       const repo = new CalendarRepository(tx);
       const updated = await repo.setVisibility(ident.tenantId, id, body.isVisible as boolean);
       if (!updated) {
-        return reply
-          .code(404)
-          .send({ error: "not_found", message: `calendar ${id} not found` });
+        return reply.code(404).send({ error: "not_found", message: `calendar ${id} not found` });
       }
       return { id, isVisible: body.isVisible };
     });
@@ -199,12 +191,7 @@ export function registerCalendarRoutes(
         events: ReadonlyArray<unknown>;
       }> = [];
       for (const calendar of visible) {
-        const cached = await repo.listEventsInRange(
-          ident.tenantId,
-          calendar.id,
-          from,
-          to,
-        );
+        const cached = await repo.listEventsInRange(ident.tenantId, calendar.id, from, to);
         grouped.push({
           calendarId: calendar.id,
           events: cached.map((e) => ({

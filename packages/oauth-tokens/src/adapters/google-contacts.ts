@@ -12,10 +12,7 @@ import type {
   ContactsProviderCapabilities,
 } from "@mailai/providers";
 import type { NormalizedContact } from "@mailai/providers/contacts";
-import {
-  listGoogleConnections,
-  listGoogleOtherContacts,
-} from "../contacts.js";
+import { listGoogleConnections, listGoogleOtherContacts } from "../contacts.js";
 
 const CAPABILITIES: ContactsProviderCapabilities = {
   ownContacts: true,
@@ -30,21 +27,15 @@ export class GoogleContactsAdapter implements ContactsProvider {
   readonly id = "google-mail" as const;
   readonly capabilities: ContactsProviderCapabilities = CAPABILITIES;
 
-  async listOwnContacts(
-    args: AccessTokenArgs,
-  ): Promise<ReadonlyArray<NormalizedContact>> {
+  async listOwnContacts(args: AccessTokenArgs): Promise<ReadonlyArray<NormalizedContact>> {
     return listGoogleConnections({ accessToken: args.accessToken });
   }
 
-  async listOtherContacts(
-    args: AccessTokenArgs,
-  ): Promise<ReadonlyArray<NormalizedContact>> {
+  async listOtherContacts(args: AccessTokenArgs): Promise<ReadonlyArray<NormalizedContact>> {
     return listGoogleOtherContacts({ accessToken: args.accessToken });
   }
 
-  async listFrequent(
-    _args: AccessTokenArgs,
-  ): Promise<ReadonlyArray<NormalizedContact>> {
+  async listFrequent(_args: AccessTokenArgs): Promise<ReadonlyArray<NormalizedContact>> {
     return [];
   }
 }

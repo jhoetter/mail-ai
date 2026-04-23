@@ -2,25 +2,25 @@
 
 Authoritative checklist of known-bad behaviour in the wild and our chosen handling. Every row corresponds to a test (or planned test) in `tests/integration/`.
 
-| # | Edge case | Provider seen | Handling |
-| --- | --- | --- | --- |
-| 1 | UIDVALIDITY changes mid-session | All; common after server restore | Re-SELECT detects mismatch → algorithm 2; affected mailbox locked until full resync done. |
-| 2 | UIDNEXT decreases (server bug) | Some Dovecot misconfigs | Treat as algorithm 2. We log a warning to the audit log. |
-| 3 | Server returns FETCH FLAGS for an EXPUNGED uid | Cyrus | Apply flag change after vanished-UID reconciliation; if UID truly gone, drop the flag change. |
-| 4 | Idle disconnect with no DONE (server kicked us) | Gmail every ~29 min | Reconnect, run algorithm 3. State stays consistent. |
-| 5 | "Too many simultaneous connections" | Gmail | Pool back-off (–1 connection, retry in 60 s). Audit row notes the reason. |
-| 6 | Folder rename while syncing | Microsoft | Catch SELECT 'NO' → re-LIST, follow rename via mailbox UIDVALIDITY; remap overlay messages by `(uid_validity, uid)`. |
-| 7 | 8BITMIME body in 7-bit-only fallback | Legacy IMAP | We always fetch raw bytes; mime layer transcodes for display only. |
-| 8 | Message-ID missing or duplicated across senders | Marketing senders | Generate synthetic stable id `sha256(date+from+subject+rcpt)` for our internal `message_id`; preserve original (or absence) untouched. |
-| 9 | `\\Recent` flag confusion | RFC 3501 nuance | We never persist `\\Recent`; only INTERNALDATE + delivery-time semantics. |
-| 10 | Server folds long header lines mid-encoded-word | IMAP servers stripping CRLF | mime parser uses `mailparser` which handles this; we add a regression fixture. |
-| 11 | APPEND to Sent silently ignored | Some Yahoo accounts | Detect by re-SEARCH after 30 s; if absent, retry once, then surface a notification. |
-| 12 | Server changes Message-ID on APPEND | Some Exchange | Track returned `APPENDUID` and update overlay row. |
-| 13 | Move failed because target folder doesn't exist | All | Auto-create folder via CREATE; if CREATE fails (permissions), surface error to user. |
-| 14 | Server reports CONDSTORE but lies about HIGHESTMODSEQ | Old Cyrus | Detect by mismatch between FETCH MODSEQ values and stored HIGHESTMODSEQ; fall back to algorithm 4 (full UID SEARCH). |
-| 15 | OAuth token expires mid-fetch | Gmail/MS | imapflow surfaces auth error; refresh token; re-authenticate; resume from current UID window. |
-| 16 | Unicode mailbox name (RFC 6855 vs UTF-7) | Mixed | Always use IMAP4rev2 UTF-8 if `LITERAL+` and `UTF8=ACCEPT` advertised; else encode via modified UTF-7. |
-| 17 | Tag we set via `+FLAGS` returned in different case | Some servers | Compare flags case-insensitively for system flags; preserve server casing for user keywords. |
-| 18 | Very large message (>50MB) | Newsletters with embedded video | Skip body fetch; store headers + structure only; mark `body_skipped`. UI offers "fetch on demand". |
-| 19 | Server sends untagged BAD during IDLE | Misbehaving load balancers | Treat as need-reconnect; do not propagate to caller. |
-| 20 | Sent mail appears in Sent before SMTP returns | Race with provider auto-file | Outboxer dedupes by Message-ID after submit. |
+| #   | Edge case                                             | Provider seen                    | Handling                                                                                                                               |
+| --- | ----------------------------------------------------- | -------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------- |
+| 1   | UIDVALIDITY changes mid-session                       | All; common after server restore | Re-SELECT detects mismatch → algorithm 2; affected mailbox locked until full resync done.                                              |
+| 2   | UIDNEXT decreases (server bug)                        | Some Dovecot misconfigs          | Treat as algorithm 2. We log a warning to the audit log.                                                                               |
+| 3   | Server returns FETCH FLAGS for an EXPUNGED uid        | Cyrus                            | Apply flag change after vanished-UID reconciliation; if UID truly gone, drop the flag change.                                          |
+| 4   | Idle disconnect with no DONE (server kicked us)       | Gmail every ~29 min              | Reconnect, run algorithm 3. State stays consistent.                                                                                    |
+| 5   | "Too many simultaneous connections"                   | Gmail                            | Pool back-off (–1 connection, retry in 60 s). Audit row notes the reason.                                                              |
+| 6   | Folder rename while syncing                           | Microsoft                        | Catch SELECT 'NO' → re-LIST, follow rename via mailbox UIDVALIDITY; remap overlay messages by `(uid_validity, uid)`.                   |
+| 7   | 8BITMIME body in 7-bit-only fallback                  | Legacy IMAP                      | We always fetch raw bytes; mime layer transcodes for display only.                                                                     |
+| 8   | Message-ID missing or duplicated across senders       | Marketing senders                | Generate synthetic stable id `sha256(date+from+subject+rcpt)` for our internal `message_id`; preserve original (or absence) untouched. |
+| 9   | `\\Recent` flag confusion                             | RFC 3501 nuance                  | We never persist `\\Recent`; only INTERNALDATE + delivery-time semantics.                                                              |
+| 10  | Server folds long header lines mid-encoded-word       | IMAP servers stripping CRLF      | mime parser uses `mailparser` which handles this; we add a regression fixture.                                                         |
+| 11  | APPEND to Sent silently ignored                       | Some Yahoo accounts              | Detect by re-SEARCH after 30 s; if absent, retry once, then surface a notification.                                                    |
+| 12  | Server changes Message-ID on APPEND                   | Some Exchange                    | Track returned `APPENDUID` and update overlay row.                                                                                     |
+| 13  | Move failed because target folder doesn't exist       | All                              | Auto-create folder via CREATE; if CREATE fails (permissions), surface error to user.                                                   |
+| 14  | Server reports CONDSTORE but lies about HIGHESTMODSEQ | Old Cyrus                        | Detect by mismatch between FETCH MODSEQ values and stored HIGHESTMODSEQ; fall back to algorithm 4 (full UID SEARCH).                   |
+| 15  | OAuth token expires mid-fetch                         | Gmail/MS                         | imapflow surfaces auth error; refresh token; re-authenticate; resume from current UID window.                                          |
+| 16  | Unicode mailbox name (RFC 6855 vs UTF-7)              | Mixed                            | Always use IMAP4rev2 UTF-8 if `LITERAL+` and `UTF8=ACCEPT` advertised; else encode via modified UTF-7.                                 |
+| 17  | Tag we set via `+FLAGS` returned in different case    | Some servers                     | Compare flags case-insensitively for system flags; preserve server casing for user keywords.                                           |
+| 18  | Very large message (>50MB)                            | Newsletters with embedded video  | Skip body fetch; store headers + structure only; mark `body_skipped`. UI offers "fetch on demand".                                     |
+| 19  | Server sends untagged BAD during IDLE                 | Misbehaving load balancers       | Treat as need-reconnect; do not propagate to caller.                                                                                   |
+| 20  | Sent mail appears in Sent before SMTP returns         | Race with provider auto-file     | Outboxer dedupes by Message-ID after submit.                                                                                           |

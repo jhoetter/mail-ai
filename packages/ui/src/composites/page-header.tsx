@@ -23,12 +23,7 @@ interface Props {
 // On mobile (< md) the header grows a leading hamburger button that
 // opens the Shell's sidebar drawer; the action cluster stays on the
 // right but wraps if it gets long.
-export function PageHeader({
-  title,
-  subtitle,
-  actions,
-  showSidebarToggle = true,
-}: Props) {
+export function PageHeader({ title, subtitle, actions, showSidebarToggle = true }: Props) {
   const sidebar = useSidebar();
   return (
     <header className="flex shrink-0 items-center justify-between gap-2 border-b border-divider bg-surface px-3 py-2 sm:px-4 sm:py-2.5">
@@ -61,18 +56,12 @@ export function PageHeader({
           </button>
         ) : null}
         <div className="min-w-0">
-          <h1 className="truncate text-sm font-semibold text-foreground">
-            {title}
-          </h1>
-          {subtitle && (
-            <p className="mt-0.5 truncate text-xs text-tertiary">{subtitle}</p>
-          )}
+          <h1 className="truncate text-sm font-semibold text-foreground">{title}</h1>
+          {subtitle && <p className="mt-0.5 truncate text-xs text-tertiary">{subtitle}</p>}
         </div>
       </div>
       {actions && (
-        <div className="flex shrink-0 flex-wrap items-center justify-end gap-1.5">
-          {actions}
-        </div>
+        <div className="flex shrink-0 flex-wrap items-center justify-end gap-1.5">{actions}</div>
       )}
     </header>
   );

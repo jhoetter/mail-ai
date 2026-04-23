@@ -28,7 +28,9 @@ export const tenants = pgTable("tenants", {
 
 export const users = pgTable("users", {
   id: text("id").primaryKey(),
-  tenantId: text("tenant_id").references(() => tenants.id).notNull(),
+  tenantId: text("tenant_id")
+    .references(() => tenants.id)
+    .notNull(),
   email: text("email").notNull(),
   displayName: text("display_name").notNull(),
   role: text("role").notNull(), // 'admin' | 'member' | 'read-only'
@@ -40,7 +42,9 @@ export const accounts = pgTable(
   {
     id: text("id").primaryKey(),
     tenantId: text("tenant_id").notNull(),
-    userId: text("user_id").references(() => users.id).notNull(),
+    userId: text("user_id")
+      .references(() => users.id)
+      .notNull(),
     provider: text("provider").notNull(),
     address: text("address").notNull(),
     imapHost: text("imap_host").notNull(),
@@ -65,7 +69,9 @@ export const oauthAccounts = pgTable(
   {
     id: text("id").primaryKey(),
     tenantId: text("tenant_id").notNull(),
-    userId: text("user_id").references(() => users.id).notNull(),
+    userId: text("user_id")
+      .references(() => users.id)
+      .notNull(),
     provider: text("provider").notNull(), // 'google-mail' | 'outlook'
     email: text("email").notNull(),
     accessToken: text("access_token").notNull(),
@@ -99,11 +105,7 @@ export const oauthAccounts = pgTable(
     signatureText: text("signature_text"),
   },
   (t) => ({
-    emailIdx: uniqueIndex("oauth_accounts_tenant_email_idx").on(
-      t.tenantId,
-      t.provider,
-      t.email,
-    ),
+    emailIdx: uniqueIndex("oauth_accounts_tenant_email_idx").on(t.tenantId, t.provider, t.email),
   }),
 );
 
@@ -152,10 +154,7 @@ export const oauthMessages = pgTable(
     deletedAt: timestamp("deleted_at", { withTimezone: true }),
   },
   (t) => ({
-    msgIdx: uniqueIndex("oauth_messages_account_msg_idx").on(
-      t.oauthAccountId,
-      t.providerMessageId,
-    ),
+    msgIdx: uniqueIndex("oauth_messages_account_msg_idx").on(t.oauthAccountId, t.providerMessageId),
     dateIdx: index("oauth_messages_tenant_date_idx").on(t.tenantId, t.internalDate),
     threadIdx: index("oauth_messages_thread_idx").on(t.tenantId, t.providerThreadId),
     folderIdx: index("oauth_messages_tenant_folder_date_idx").on(
@@ -196,10 +195,7 @@ export const oauthAttachments = pgTable(
     createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
   },
   (t) => ({
-    msgIdx: index("oauth_attachments_account_msg_idx").on(
-      t.oauthAccountId,
-      t.providerMessageId,
-    ),
+    msgIdx: index("oauth_attachments_account_msg_idx").on(t.oauthAccountId, t.providerMessageId),
     cidIdx: index("oauth_attachments_cid_idx").on(t.tenantId, t.contentId),
   }),
 );
@@ -241,10 +237,11 @@ export const oauthPushSubscriptions = pgTable(
   }),
 );
 
-
 export const mailboxes = pgTable("mailboxes", {
   id: text("id").primaryKey(),
-  accountId: text("account_id").references(() => accounts.id).notNull(),
+  accountId: text("account_id")
+    .references(() => accounts.id)
+    .notNull(),
   tenantId: text("tenant_id").notNull(),
   path: text("path").notNull(),
   delimiter: text("delimiter").notNull(),
@@ -261,8 +258,12 @@ export const messages = pgTable(
   {
     id: text("id").primaryKey(),
     tenantId: text("tenant_id").notNull(),
-    accountId: text("account_id").references(() => accounts.id).notNull(),
-    mailboxId: text("mailbox_id").references(() => mailboxes.id).notNull(),
+    accountId: text("account_id")
+      .references(() => accounts.id)
+      .notNull(),
+    mailboxId: text("mailbox_id")
+      .references(() => mailboxes.id)
+      .notNull(),
     uid: integer("uid").notNull(),
     messageId: text("message_id"),
     threadId: text("thread_id"),
@@ -292,7 +293,9 @@ export const threads = pgTable(
   {
     id: text("id").primaryKey(),
     tenantId: text("tenant_id").notNull(),
-    accountId: text("account_id").references(() => accounts.id).notNull(),
+    accountId: text("account_id")
+      .references(() => accounts.id)
+      .notNull(),
     rootMessageId: text("root_message_id"),
     subject: text("subject"),
     status: text("status").default("open").notNull(),
@@ -308,7 +311,9 @@ export const threads = pgTable(
 export const attachmentsMeta = pgTable("attachments_meta", {
   id: text("id").primaryKey(),
   tenantId: text("tenant_id").notNull(),
-  messageId: text("message_id").references(() => messages.id).notNull(),
+  messageId: text("message_id")
+    .references(() => messages.id)
+    .notNull(),
   filename: text("filename"),
   contentType: text("content_type").notNull(),
   sizeBytes: integer("size_bytes").notNull(),
@@ -325,8 +330,12 @@ export const tags = pgTable("tags", {
 export const threadTags = pgTable(
   "thread_tags",
   {
-    threadId: text("thread_id").references(() => threads.id).notNull(),
-    tagId: text("tag_id").references(() => tags.id).notNull(),
+    threadId: text("thread_id")
+      .references(() => threads.id)
+      .notNull(),
+    tagId: text("tag_id")
+      .references(() => tags.id)
+      .notNull(),
     tenantId: text("tenant_id").notNull(),
   },
   (t) => ({ pk: uniqueIndex("thread_tags_pk").on(t.threadId, t.tagId) }),
@@ -335,8 +344,12 @@ export const threadTags = pgTable(
 export const comments = pgTable("comments", {
   id: text("id").primaryKey(),
   tenantId: text("tenant_id").notNull(),
-  threadId: text("thread_id").references(() => threads.id).notNull(),
-  authorId: text("author_id").references(() => users.id).notNull(),
+  threadId: text("thread_id")
+    .references(() => threads.id)
+    .notNull(),
+  authorId: text("author_id")
+    .references(() => users.id)
+    .notNull(),
   body: text("body").notNull(),
   mentionsJson: jsonb("mentions_json"),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
@@ -375,8 +388,12 @@ export const inboxes = pgTable("inboxes", {
 export const inboxMailboxes = pgTable(
   "inbox_mailboxes",
   {
-    inboxId: text("inbox_id").references(() => inboxes.id).notNull(),
-    accountId: text("account_id").references(() => accounts.id).notNull(),
+    inboxId: text("inbox_id")
+      .references(() => inboxes.id)
+      .notNull(),
+    accountId: text("account_id")
+      .references(() => accounts.id)
+      .notNull(),
     mailboxPath: text("mailbox_path").notNull(),
     tenantId: text("tenant_id").notNull(),
   },
@@ -386,8 +403,12 @@ export const inboxMailboxes = pgTable(
 export const inboxMembers = pgTable(
   "inbox_members",
   {
-    inboxId: text("inbox_id").references(() => inboxes.id).notNull(),
-    userId: text("user_id").references(() => users.id).notNull(),
+    inboxId: text("inbox_id")
+      .references(() => inboxes.id)
+      .notNull(),
+    userId: text("user_id")
+      .references(() => users.id)
+      .notNull(),
     role: text("role").notNull(),
     tenantId: text("tenant_id").notNull(),
   },
@@ -417,11 +438,7 @@ export const oauthThreadTags = pgTable(
     addedBy: text("added_by").references(() => users.id),
   },
   (t) => ({
-    pk: uniqueIndex("oauth_thread_tags_pk").on(
-      t.tenantId,
-      t.providerThreadId,
-      t.tagId,
-    ),
+    pk: uniqueIndex("oauth_thread_tags_pk").on(t.tenantId, t.providerThreadId, t.tagId),
   }),
 );
 
@@ -432,7 +449,9 @@ export const oauthThreadState = pgTable(
   "oauth_thread_state",
   {
     tenantId: text("tenant_id").notNull(),
-    userId: text("user_id").references(() => users.id).notNull(),
+    userId: text("user_id")
+      .references(() => users.id)
+      .notNull(),
     providerThreadId: text("provider_thread_id").notNull(),
     status: text("status").notNull().default("open"),
     snoozedUntil: timestamp("snoozed_until", { withTimezone: true }),
@@ -440,11 +459,7 @@ export const oauthThreadState = pgTable(
     updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
   },
   (t) => ({
-    pk: uniqueIndex("oauth_thread_state_pk").on(
-      t.tenantId,
-      t.userId,
-      t.providerThreadId,
-    ),
+    pk: uniqueIndex("oauth_thread_state_pk").on(t.tenantId, t.userId, t.providerThreadId),
   }),
 );
 
@@ -453,7 +468,9 @@ export const oauthThreadState = pgTable(
 export const views = pgTable("views", {
   id: text("id").primaryKey(),
   tenantId: text("tenant_id").notNull(),
-  userId: text("user_id").references(() => users.id).notNull(),
+  userId: text("user_id")
+    .references(() => users.id)
+    .notNull(),
   name: text("name").notNull(),
   icon: text("icon"),
   position: integer("position").notNull().default(0),
@@ -470,7 +487,9 @@ export const views = pgTable("views", {
 export const drafts = pgTable("drafts", {
   id: text("id").primaryKey(),
   tenantId: text("tenant_id").notNull(),
-  userId: text("user_id").references(() => users.id).notNull(),
+  userId: text("user_id")
+    .references(() => users.id)
+    .notNull(),
   oauthAccountId: text("oauth_account_id").references(() => oauthAccounts.id, {
     onDelete: "set null",
   }),
@@ -501,7 +520,9 @@ export const draftAttachments = pgTable(
   {
     id: text("id").primaryKey(),
     tenantId: text("tenant_id").notNull(),
-    userId: text("user_id").references(() => users.id).notNull(),
+    userId: text("user_id")
+      .references(() => users.id)
+      .notNull(),
     draftId: text("draft_id").references(() => drafts.id, { onDelete: "cascade" }),
     objectKey: text("object_key").notNull(),
     filename: text("filename").notNull(),
@@ -579,14 +600,8 @@ export const oauthContacts = pgTable(
       t.oauthAccountId,
       t.providerContactId,
     ),
-    emailIdx: index("oauth_contacts_tenant_email_idx").on(
-      t.tenantId,
-      t.primaryEmail,
-    ),
-    nameIdx: index("oauth_contacts_tenant_name_idx").on(
-      t.tenantId,
-      t.displayName,
-    ),
+    emailIdx: index("oauth_contacts_tenant_email_idx").on(t.tenantId, t.primaryEmail),
+    nameIdx: index("oauth_contacts_tenant_name_idx").on(t.tenantId, t.displayName),
   }),
 );
 
@@ -625,10 +640,7 @@ export const events = pgTable(
     fetchedAt: timestamp("fetched_at", { withTimezone: true }).defaultNow().notNull(),
   },
   (t) => ({
-    eventIdx: uniqueIndex("events_calendar_event_idx").on(
-      t.calendarId,
-      t.providerEventId,
-    ),
+    eventIdx: uniqueIndex("events_calendar_event_idx").on(t.calendarId, t.providerEventId),
     timeIdx: index("events_tenant_time_idx").on(t.tenantId, t.startsAt),
   }),
 );

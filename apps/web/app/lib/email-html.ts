@@ -71,10 +71,7 @@ export function rewriteEmailHtml(args: {
         img.setAttribute("src", args.attachmentInlineUrl(attId));
       } else {
         img.removeAttribute("src");
-        img.setAttribute(
-          "alt",
-          img.getAttribute("alt") ?? "(missing inline image)",
-        );
+        img.setAttribute("alt", img.getAttribute("alt") ?? "(missing inline image)");
       }
       return;
     }
@@ -188,10 +185,7 @@ export interface IframeDocOptions {
   readonly darkMode?: boolean;
 }
 
-export function buildIframeDoc(
-  sanitizedBody: string,
-  opts: IframeDocOptions = {},
-): string {
+export function buildIframeDoc(sanitizedBody: string, opts: IframeDocOptions = {}): string {
   const dark = opts.darkMode === true;
   // The dark canvas matches `--background` from the design tokens
   // (#191919). Foreground inherits the app's `--foreground` (#e3e2e0)

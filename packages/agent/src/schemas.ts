@@ -55,9 +55,7 @@ export const RecurrenceSchema = z.object({
   interval: z.number().int().positive().optional(),
   count: z.number().int().positive().optional(),
   until: z.string().datetime().optional(),
-  byday: z
-    .array(z.enum(["MO", "TU", "WE", "TH", "FR", "SA", "SU"]))
-    .optional(),
+  byday: z.array(z.enum(["MO", "TU", "WE", "TH", "FR", "SA", "SU"])).optional(),
   bymonthday: z.array(z.number().int().min(1).max(31)).optional(),
 });
 
@@ -191,7 +189,10 @@ export const CommandPayloadSchema = z.discriminatedUnion("type", [
       signatureText: z.string().nullable(),
     }),
   }),
-  z.object({ type: z.literal("thread:assign"), payload: z.object({ threadId: z.string(), assigneeId: z.string() }) }),
+  z.object({
+    type: z.literal("thread:assign"),
+    payload: z.object({ threadId: z.string(), assigneeId: z.string() }),
+  }),
   z.object({
     type: z.literal("thread:set-status"),
     payload: z.object({

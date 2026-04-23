@@ -24,13 +24,7 @@ export interface AccountSummary {
   lastSyncError: string | null;
 }
 
-export type SyncFolder =
-  | "inbox"
-  | "sent"
-  | "drafts"
-  | "trash"
-  | "spam"
-  | "archive";
+export type SyncFolder = "inbox" | "sent" | "drafts" | "trash" | "spam" | "archive";
 
 export interface SyncResult {
   fetched: number;
@@ -52,9 +46,7 @@ export interface SyncOptions {
 }
 
 export interface FinalizeResponse extends AccountSummary {
-  initialSync:
-    | ({ status: "ok" } & SyncResult)
-    | { status: "pending" };
+  initialSync: ({ status: "ok" } & SyncResult) | { status: "pending" };
 }
 
 export interface OauthApiError {
@@ -123,10 +115,7 @@ export async function deleteAccount(id: string): Promise<void> {
   await jsonOrThrow<{ ok: true }>(res);
 }
 
-export async function syncAccount(
-  id: string,
-  opts: SyncOptions = {},
-): Promise<SyncResult> {
+export async function syncAccount(id: string, opts: SyncOptions = {}): Promise<SyncResult> {
   const params = new URLSearchParams();
   if (opts.folders && opts.folders.length > 0) {
     params.set("folders", opts.folders.join(","));

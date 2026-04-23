@@ -27,11 +27,11 @@ Clean-room study of every public reference; we read code, take notes, then **imp
 
 ## Provider rate-limit table (extracted from public docs)
 
-| Provider | Concurrent IMAP per user | IDLE max | Notes |
-| --- | --- | --- | --- |
-| Gmail | 15 | session 28 m → reconnect | OAuth scope `https://mail.google.com/`. |
-| Outlook / Microsoft 365 | 20 | session 29 m | XOAUTH2 + tenant consent variants. |
-| Other IMAP | configurable, default 5 | varies | We probe `IDLE` capability; fall back to 30s NOOP. |
+| Provider                | Concurrent IMAP per user | IDLE max                 | Notes                                              |
+| ----------------------- | ------------------------ | ------------------------ | -------------------------------------------------- |
+| Gmail                   | 15                       | session 28 m → reconnect | OAuth scope `https://mail.google.com/`.            |
+| Outlook / Microsoft 365 | 20                       | session 29 m             | XOAUTH2 + tenant consent variants.                 |
+| Other IMAP              | configurable, default 5  | varies                   | We probe `IDLE` capability; fall back to 30s NOOP. |
 
 ## Open questions answered before Build
 

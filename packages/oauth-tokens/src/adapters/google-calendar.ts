@@ -61,9 +61,7 @@ export class GoogleCalendarAdapter implements CalendarProvider {
   readonly id = "google-mail" as const;
   readonly capabilities: CalendarProviderCapabilities = CAPABILITIES;
 
-  async listCalendars(
-    args: AccessTokenArgs,
-  ): Promise<ReadonlyArray<NormalizedCalendar>> {
+  async listCalendars(args: AccessTokenArgs): Promise<ReadonlyArray<NormalizedCalendar>> {
     return listGoogleCalendars({ accessToken: args.accessToken });
   }
 
@@ -96,13 +94,9 @@ export class GoogleCalendarAdapter implements CalendarProvider {
     };
   }
 
-  async createEvent(
-    args: AccessTokenArgs & CreateEventArgs,
-  ): Promise<CreatedEvent> {
+  async createEvent(args: AccessTokenArgs & CreateEventArgs): Promise<CreatedEvent> {
     if (args.conference === "microsoft") {
-      throw new Error(
-        "google-mail calendar adapter cannot provision a Microsoft Teams meeting",
-      );
+      throw new Error("google-mail calendar adapter cannot provision a Microsoft Teams meeting");
     }
     return createGoogleEvent({
       accessToken: args.accessToken,
@@ -242,9 +236,7 @@ export class GoogleCalendarAdapter implements CalendarProvider {
       calendarId: args.calendarId,
       providerEventId: instance.recurringEventId,
     });
-    const masterRruleLine = (master.recurrence ?? []).find((l) =>
-      l.startsWith("RRULE:"),
-    );
+    const masterRruleLine = (master.recurrence ?? []).find((l) => l.startsWith("RRULE:"));
     if (!masterRruleLine) {
       throw new Error("master event has no RRULE; cannot split following");
     }
@@ -312,9 +304,7 @@ export class GoogleCalendarAdapter implements CalendarProvider {
       accessToken: args.accessToken,
       calendarId: args.calendarId,
       summary: args.patch.summary ?? "",
-      ...(args.patch.description !== undefined
-        ? { description: args.patch.description }
-        : {}),
+      ...(args.patch.description !== undefined ? { description: args.patch.description } : {}),
       ...(args.patch.location !== undefined ? { location: args.patch.location } : {}),
       startsAt: tailStart,
       endsAt: tailEnd,
@@ -361,17 +351,14 @@ function buildGooglePatchBody(
     }
   }
   if (patch.recurrence !== undefined) {
-    body["recurrence"] = patch.recurrence === null
-      ? []
-      : [`RRULE:${serializeRRule(patch.recurrence)}`];
+    body["recurrence"] =
+      patch.recurrence === null ? [] : [`RRULE:${serializeRRule(patch.recurrence)}`];
   }
   const adds = patch.attendeesAdd ?? [];
   const removes = (patch.attendeesRemove ?? []).map((e) => e.toLowerCase());
   if (adds.length > 0 || removes.length > 0) {
     const existing = existingAttendees ?? [];
-    const merged = existing.filter(
-      (a) => !removes.includes(a.email.toLowerCase()),
-    );
+    const merged = existing.filter((a) => !removes.includes(a.email.toLowerCase()));
     for (const email of adds) {
       if (!merged.some((a) => a.email.toLowerCase() === email.toLowerCase())) {
         merged.push({ email });

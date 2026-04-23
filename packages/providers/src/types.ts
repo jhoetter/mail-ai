@@ -17,14 +17,7 @@ export type MailProviderId = "google-mail" | "outlook";
 // the way in. "other" is the catch-all for user-defined folders /
 // custom Gmail labels — those keep their providerFolderId for
 // adapter-side disambiguation but never get hard-coded in the UI.
-export type WellKnownFolder =
-  | "inbox"
-  | "sent"
-  | "drafts"
-  | "trash"
-  | "spam"
-  | "archive"
-  | "other";
+export type WellKnownFolder = "inbox" | "sent" | "drafts" | "trash" | "spam" | "archive" | "other";
 
 // Per-message flags abstracted across providers. Gmail expresses
 // these as label ids (UNREAD, STARRED, IMPORTANT, …); Graph as

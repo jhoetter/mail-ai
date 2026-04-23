@@ -19,11 +19,9 @@ if (existsSync(built)) {
   await import(pathToFileURL(built).href);
 } else if (existsSync(src)) {
   const { spawn } = await import("node:child_process");
-  const child = spawn(
-    process.execPath,
-    ["--import", "tsx", src, ...process.argv.slice(2)],
-    { stdio: "inherit" },
-  );
+  const child = spawn(process.execPath, ["--import", "tsx", src, ...process.argv.slice(2)], {
+    stdio: "inherit",
+  });
   child.on("exit", (code) => process.exit(code ?? 0));
 } else {
   process.stderr.write("mail-agent: neither dist/cli.js nor src/cli.ts found\n");

@@ -49,13 +49,7 @@ export interface SearchAllOpts {
   readonly limits?: Partial<Record<SearchDomain, number>>;
 }
 
-export type SearchDomain =
-  | "messages"
-  | "files"
-  | "people"
-  | "mailboxes"
-  | "tags"
-  | "calendar";
+export type SearchDomain = "messages" | "files" | "people" | "mailboxes" | "tags" | "calendar";
 
 const DEFAULT_LIMITS: Record<SearchDomain, number> = {
   messages: 20,
@@ -129,10 +123,7 @@ export interface SearchAllResult {
 
 // ---------------------------------------------------------------- impl
 
-export async function searchAll(
-  db: Database,
-  opts: SearchAllOpts,
-): Promise<SearchAllResult> {
+export async function searchAll(db: Database, opts: SearchAllOpts): Promise<SearchAllResult> {
   const q = opts.q.trim();
   const limits = { ...DEFAULT_LIMITS, ...(opts.limits ?? {}) };
 

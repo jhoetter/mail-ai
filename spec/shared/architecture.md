@@ -47,16 +47,16 @@ These come straight from prompt.md §Architecture Principles and are checked by 
 
 ## Boundaries between packages
 
-| Package | Inputs | Outputs | Forbidden |
-| --- | --- | --- | --- |
-| `core` | command + handlers | mutations | DOM, IMAP, SQL |
-| `mime` | bytes | typed `ParsedMessage`, composed `raw` | sockets |
-| `imap-sync` | `AccountCredentials`, mailbox path | `MessageHeader[]`, `DeltaResult` | DB writes |
-| `overlay-db` | mutations + queries | rows, audit | sockets |
-| `smtp-send` | composed message + credentials | `SendOutcome` | DB writes, IMAP APPEND (delegated back) |
-| `collaboration` | command, repos | new snapshots | sockets, IMAP |
-| `agent` | typed CLI/MCP/HTTP input | `Mutation` results | sockets (transport injected) |
-| `server` | HTTP / WS | bus dispatch + broadcast | domain logic |
+| Package         | Inputs                             | Outputs                               | Forbidden                               |
+| --------------- | ---------------------------------- | ------------------------------------- | --------------------------------------- |
+| `core`          | command + handlers                 | mutations                             | DOM, IMAP, SQL                          |
+| `mime`          | bytes                              | typed `ParsedMessage`, composed `raw` | sockets                                 |
+| `imap-sync`     | `AccountCredentials`, mailbox path | `MessageHeader[]`, `DeltaResult`      | DB writes                               |
+| `overlay-db`    | mutations + queries                | rows, audit                           | sockets                                 |
+| `smtp-send`     | composed message + credentials     | `SendOutcome`                         | DB writes, IMAP APPEND (delegated back) |
+| `collaboration` | command, repos                     | new snapshots                         | sockets, IMAP                           |
+| `agent`         | typed CLI/MCP/HTTP input           | `Mutation` results                    | sockets (transport injected)            |
+| `server`        | HTTP / WS                          | bus dispatch + broadcast              | domain logic                            |
 
 ## Dependency direction
 

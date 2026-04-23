@@ -25,8 +25,9 @@ export class IdleListener {
     const client = this.conn.raw();
     if (!client) throw new Error("connection not open");
     await client.mailboxOpen(this.mailboxPath);
-    const supportsIdle = (client as { capability?: { has?: (s: string) => boolean } }).capability
-      ?.has?.("IDLE");
+    const supportsIdle = (
+      client as { capability?: { has?: (s: string) => boolean } }
+    ).capability?.has?.("IDLE");
     if (supportsIdle) {
       const onExists = () => this.handler({ kind: "new-mail" });
       const onFlags = () => this.handler({ kind: "flag-change" });

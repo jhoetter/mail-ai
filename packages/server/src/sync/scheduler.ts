@@ -31,14 +31,8 @@ import {
   type Pool,
   type PushSubscriptionRow,
 } from "@mailai/overlay-db";
-import {
-  getValidAccessToken,
-  type ProviderCredentials,
-} from "@mailai/oauth-tokens";
-import type {
-  MailProviderRegistry,
-  PushProviderRegistry,
-} from "@mailai/providers";
+import { getValidAccessToken, type ProviderCredentials } from "@mailai/oauth-tokens";
+import type { MailProviderRegistry, PushProviderRegistry } from "@mailai/providers";
 import { syncOauthAccount, type SyncResult } from "../oauth/sync.js";
 import type { EventBroadcaster } from "../events.js";
 
@@ -66,10 +60,7 @@ export interface PushConfig {
 // Postgres or mocked fetch.
 export interface SyncDriver {
   listAccounts(tenantId: string): Promise<OauthAccountRow[]>;
-  runSync(
-    tenantId: string,
-    accountId: string,
-  ): Promise<SyncResult | null>;
+  runSync(tenantId: string, accountId: string): Promise<SyncResult | null>;
 }
 
 export interface SyncSchedulerDeps {
@@ -162,9 +153,7 @@ export class SyncScheduler {
       this.driver = deps.driver;
     } else {
       if (!deps.pool || !deps.credentials || !deps.providers) {
-        throw new Error(
-          "SyncScheduler: provide either `driver` or {pool, credentials, providers}",
-        );
+        throw new Error("SyncScheduler: provide either `driver` or {pool, credentials, providers}");
       }
       this.driver = buildPostgresDriver({
         pool: deps.pool,
@@ -299,23 +288,16 @@ export class SyncScheduler {
   // tenant, runs sequentially because the volume is small (one row
   // per account) and the API rate limits are tight enough that
   // pipelining buys nothing.
-  private async runPushBookkeeping(
-    tenants: ReadonlyArray<string>,
-  ): Promise<void> {
+  private async runPushBookkeeping(tenants: ReadonlyArray<string>): Promise<void> {
     const push = this.deps.push;
     if (!push) return;
     const now = (this.deps.now ?? Date.now)();
     for (const tenantId of tenants) {
       let accounts: OauthAccountRow[];
       try {
-        accounts = (await this.driver.listAccounts(tenantId)).filter(
-          (a) => a.status === "ok",
-        );
+        accounts = (await this.driver.listAccounts(tenantId)).filter((a) => a.status === "ok");
       } catch (err) {
-        this.logger.warn(
-          { tenantId, err },
-          "[sync-scheduler] push: list accounts failed",
-        );
+        this.logger.warn({ tenantId, err }, "[sync-scheduler] push: list accounts failed");
         continue;
       }
       // existingByAccount lets the per-account loop avoid an extra
@@ -325,10 +307,7 @@ export class SyncScheduler {
       try {
         existingByAccount = await this.loadSubscriptions(tenantId);
       } catch (err) {
-        this.logger.warn(
-          { tenantId, err },
-          "[sync-scheduler] push: load subscriptions failed",
-        );
+        this.logger.warn({ tenantId, err }, "[sync-scheduler] push: load subscriptions failed");
         continue;
       }
       for (const account of accounts) {
@@ -359,9 +338,7 @@ export class SyncScheduler {
     }
   }
 
-  private async loadSubscriptions(
-    tenantId: string,
-  ): Promise<Map<string, PushSubscriptionRow>> {
+  private async loadSubscriptions(tenantId: string): Promise<Map<string, PushSubscriptionRow>> {
     if (!this.deps.pool) return new Map();
     const rows = await withTenant(this.deps.pool, tenantId, async (tx) => {
       const repo = new OauthPushSubscriptionsRepository(tx);
@@ -382,9 +359,7 @@ export class SyncScheduler {
     const pool = this.deps.pool;
     const credentials = this.deps.credentials;
     if (!push || !pool || !credentials) return;
-    const adapter = push.registry.for(
-      account.provider as "google-mail" | "outlook",
-    );
+    const adapter = push.registry.for(account.provider as "google-mail" | "outlook");
     if (!adapter) {
       // Provider has no push adapter wired in — caller-side filter
       // already excludes these but we keep the guard so a misconfigured
@@ -393,9 +368,7 @@ export class SyncScheduler {
     }
     const accessToken = await this.refreshToken(tenantId, account, credentials);
     const clientState =
-      existing?.clientState ??
-      push.generateClientState?.() ??
-      generateRandomClientState();
+      existing?.clientState ?? push.generateClientState?.() ?? generateRandomClientState();
     const subscription = existing
       ? await adapter.renew({
           accessToken,
@@ -471,9 +444,7 @@ export class SyncScheduler {
     });
   }
 
-  private async listSyncableAccounts(
-    tenantId: string,
-  ): Promise<OauthAccountRow[]> {
+  private async listSyncableAccounts(tenantId: string): Promise<OauthAccountRow[]> {
     const all = await this.driver.listAccounts(tenantId);
     return all.filter((a) => a.status === "ok");
   }
@@ -516,10 +487,7 @@ export class SyncScheduler {
     await Promise.all(workers);
   }
 
-  private async syncOne(
-    tenantId: string,
-    account: OauthAccountRow,
-  ): Promise<void> {
+  private async syncOne(tenantId: string, account: OauthAccountRow): Promise<void> {
     try {
       const result = await this.driver.runSync(tenantId, account.id);
       if (!result) return;
@@ -539,11 +507,7 @@ export class SyncScheduler {
     }
   }
 
-  private publishSyncEvent(
-    tenantId: string,
-    accountId: string,
-    result: SyncResult,
-  ): void {
+  private publishSyncEvent(tenantId: string, accountId: string, result: SyncResult): void {
     this.deps.broadcaster.publish({
       kind: "sync",
       tenantId,

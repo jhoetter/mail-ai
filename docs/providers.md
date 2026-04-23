@@ -31,12 +31,12 @@ All four live in `packages/providers/src/`. Each one ships with:
    adapter; throws or returns `null` for unknown ids depending on the
    port.
 
-| Port              | What it abstracts                      | Adapters                                                            |
-| ----------------- | -------------------------------------- | ------------------------------------------------------------------- |
-| `MailProvider`    | Folders, messages, send, delta sync    | `GoogleMailAdapter`, `OutlookMailAdapter`                           |
-| `PushProvider`    | Server-push subscriptions              | `GoogleMailPushAdapter`, `OutlookMailPushAdapter`                   |
-| `CalendarProvider`| Calendars, events, RSVP, conferencing  | `GoogleCalendarAdapter`, `OutlookCalendarAdapter`                   |
-| `ContactsProvider`| Address-book sources, frequent people  | `GoogleContactsAdapter`, `OutlookContactsAdapter`                   |
+| Port               | What it abstracts                     | Adapters                                          |
+| ------------------ | ------------------------------------- | ------------------------------------------------- |
+| `MailProvider`     | Folders, messages, send, delta sync   | `GoogleMailAdapter`, `OutlookMailAdapter`         |
+| `PushProvider`     | Server-push subscriptions             | `GoogleMailPushAdapter`, `OutlookMailPushAdapter` |
+| `CalendarProvider` | Calendars, events, RSVP, conferencing | `GoogleCalendarAdapter`, `OutlookCalendarAdapter` |
+| `ContactsProvider` | Address-book sources, frequent people | `GoogleContactsAdapter`, `OutlookContactsAdapter` |
 
 ### Capabilities, not provider ids
 
@@ -58,11 +58,11 @@ adapter set it.
 ### Normalized types
 
 Every port returns a normalized shape. Adapters map provider wire
-formats *into* this shape; nothing else in the codebase ever sees the
+formats _into_ this shape; nothing else in the codebase ever sees the
 raw provider response. Examples:
 
 - `NormalizedMessage` — `{ providerMessageId, threadId, subject,
-  participants, wellKnownFolder, labels, ... }`. Folder identity is
+participants, wellKnownFolder, labels, ... }`. Folder identity is
   always carried in the dedicated `wellKnownFolder` enum (see
   `Phase 3` in the build log); `labels` only ever contains user-visible
   labels/categories.
@@ -70,7 +70,7 @@ raw provider response. Examples:
   fields. Conferencing is captured as a `conference` discriminator
   the adapter knows how to round-trip.
 - `NormalizedContact` — `{ providerContactId, source, displayName,
-  emails, lastInteractionAt? }` where `source` is one of
+emails, lastInteractionAt? }` where `source` is one of
   `"my" | "other" | "people"`. Adapters return `[]` for sources they
   don't support.
 - `PushSubscription` — opaque `clientState`/`channel` payload an
@@ -112,7 +112,7 @@ surface (`refresher`, `xoauth2`, `userinfo`, `adapters/*`,
 `google.ts`/`microsoft.ts` for OAuth code exchange, plus the shared
 `types.ts`). The provider-specific REST clients (`gmail.ts`,
 `graph.ts`, `send.ts`, `calendar.ts`, `contacts.ts`) are deliberately
-*not* re-exported. CI fails if a non-adapter file imports them.
+_not_ re-exported. CI fails if a non-adapter file imports them.
 
 ---
 
@@ -136,11 +136,21 @@ export class GoogleMailAdapter implements MailProvider {
   readonly id = "google-mail" as const;
   readonly capabilities = GOOGLE_MAIL_CAPABILITIES;
 
-  async listFolders(args) { /* ...wrap gmail.ts... */ }
-  async listMessages(args) { /* ...paginate... */ }
-  async pullDelta(args) { /* ...users.history.list... */ }
-  async send(args) { /* ...send.ts... */ }
-  async normalize(raw) { /* ...emit NormalizedMessage... */ }
+  async listFolders(args) {
+    /* ...wrap gmail.ts... */
+  }
+  async listMessages(args) {
+    /* ...paginate... */
+  }
+  async pullDelta(args) {
+    /* ...users.history.list... */
+  }
+  async send(args) {
+    /* ...send.ts... */
+  }
+  async normalize(raw) {
+    /* ...emit NormalizedMessage... */
+  }
 }
 ```
 
@@ -158,7 +168,7 @@ The end-to-end checklist for, say, an IMAP/SMTP provider:
    that module (or alongside it under `oauth-tokens/src/`, behind the
    port).
 3. Set every `MailProviderCapabilities` flag truthfully. If your
-   provider can't do server-push, *don't* add a `PushProvider`
+   provider can't do server-push, _don't_ add a `PushProvider`
    adapter for it; the scheduler will fall back to polling
    automatically.
 4. Register the adapter in
@@ -167,7 +177,7 @@ The end-to-end checklist for, say, an IMAP/SMTP provider:
    `packages/oauth-tokens/src/types.ts::ProviderCredentials` and the
    onboarding routes.
 6. Add a row to the `MailProviderId` union in
-   `@mailai/providers/types.ts` *and* to the matching column type in
+   `@mailai/providers/types.ts` _and_ to the matching column type in
    `packages/overlay-db/src/schema.ts::oauthMessageProvider`. Run the
    migration generator.
 7. Run `pnpm --filter @mailai/providers test` — the contract suite

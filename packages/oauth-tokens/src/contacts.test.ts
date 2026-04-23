@@ -87,20 +87,17 @@ describe("listGoogleConnections", () => {
       ) as unknown as typeof fetch;
 
     const out = await listGoogleConnections({ accessToken: "t", fetchImpl });
-    expect(out.map((c) => c.providerContactId)).toEqual([
-      "people/p1",
-      "people/p2",
-    ]);
+    expect(out.map((c) => c.providerContactId)).toEqual(["people/p1", "people/p2"]);
     expect(fetchImpl).toHaveBeenCalledTimes(2);
   });
 
   it("throws on non-200", async () => {
-    const fetchImpl = vi.fn(async () =>
-      new Response("nope", { status: 401 }),
+    const fetchImpl = vi.fn(
+      async () => new Response("nope", { status: 401 }),
     ) as unknown as typeof fetch;
-    await expect(
-      listGoogleConnections({ accessToken: "t", fetchImpl }),
-    ).rejects.toThrow(/google connections/);
+    await expect(listGoogleConnections({ accessToken: "t", fetchImpl })).rejects.toThrow(
+      /google connections/,
+    );
   });
 });
 
@@ -225,10 +222,7 @@ describe("pickPrimaryEmail", () => {
 
   it("falls back to first when none is flagged", () => {
     expect(
-      pickPrimaryEmail([
-        { address: "  First@Example.com  " },
-        { address: "second@example.com" },
-      ]),
+      pickPrimaryEmail([{ address: "  First@Example.com  " }, { address: "second@example.com" }]),
     ).toBe("first@example.com");
   });
 

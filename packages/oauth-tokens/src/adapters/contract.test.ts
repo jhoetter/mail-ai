@@ -11,11 +11,7 @@
 // guarantee parity.
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import {
-  MailProviderRegistry,
-  type MailProvider,
-  type WellKnownFolder,
-} from "@mailai/providers";
+import { MailProviderRegistry, type MailProvider, type WellKnownFolder } from "@mailai/providers";
 import { GoogleMailAdapter } from "./google-mail.js";
 import { OutlookMailAdapter } from "./outlook-mail.js";
 
@@ -75,39 +71,34 @@ function googleCase(): AdapterCase {
           resultSizeEstimate: 1,
         }),
       );
-      stub.on(
-        new RegExp(`/messages/${messageId}\\?format=metadata`),
-        () =>
-          Response.json({
-            id: messageId,
-            threadId: "thr_1",
-            labelIds: ["INBOX", "UNREAD"],
-            snippet: "hi there",
-            internalDate: "1700000000000",
-            payload: {
-              headers: [
-                { name: "From", value: "Alice <alice@example.com>" },
-                { name: "Subject", value: "Hello" },
-                { name: "To", value: "bob@example.com" },
-              ],
-            },
-          }),
+      stub.on(new RegExp(`/messages/${messageId}\\?format=metadata`), () =>
+        Response.json({
+          id: messageId,
+          threadId: "thr_1",
+          labelIds: ["INBOX", "UNREAD"],
+          snippet: "hi there",
+          internalDate: "1700000000000",
+          payload: {
+            headers: [
+              { name: "From", value: "Alice <alice@example.com>" },
+              { name: "Subject", value: "Hello" },
+              { name: "To", value: "bob@example.com" },
+            ],
+          },
+        }),
       );
-      stub.on(
-        new RegExp(`/messages/${messageId}\\?format=full`),
-        () =>
-          Response.json({
-            id: messageId,
-            threadId: "thr_1",
-            payload: {
-              mimeType: "text/plain",
-              body: { size: 5, data: Buffer.from("hello").toString("base64") },
-            },
-          }),
+      stub.on(new RegExp(`/messages/${messageId}\\?format=full`), () =>
+        Response.json({
+          id: messageId,
+          threadId: "thr_1",
+          payload: {
+            mimeType: "text/plain",
+            body: { size: 5, data: Buffer.from("hello").toString("base64") },
+          },
+        }),
       );
-      stub.on(
-        new RegExp(`/messages/${messageId}\\?format=raw`),
-        () => Response.json({ raw: Buffer.from("RAW").toString("base64") }),
+      stub.on(new RegExp(`/messages/${messageId}\\?format=raw`), () =>
+        Response.json({ raw: Buffer.from("RAW").toString("base64") }),
       );
       stub.on(/messages\/send/, () =>
         Response.json({
@@ -116,14 +107,10 @@ function googleCase(): AdapterCase {
           labelIds: ["SENT"],
         }),
       );
-      stub.on(new RegExp(`/messages/${messageId}/modify`), () =>
-        Response.json({ ok: true }),
-      );
+      stub.on(new RegExp(`/messages/${messageId}/modify`), () => Response.json({ ok: true }));
       // pullDelta baseline path: /users/me/profile returns the
       // current historyId without listing any messages.
-      stub.on(/users\/me\/profile/, () =>
-        Response.json({ historyId: "12345" }),
-      );
+      stub.on(/users\/me\/profile/, () => Response.json({ historyId: "12345" }));
     },
   };
 }
@@ -160,32 +147,25 @@ function outlookCase(): AdapterCase {
               from: {
                 emailAddress: { name: "Alice", address: "alice@example.com" },
               },
-              toRecipients: [
-                { emailAddress: { name: "Bob", address: "bob@example.com" } },
-              ],
+              toRecipients: [{ emailAddress: { name: "Bob", address: "bob@example.com" } }],
             },
           ],
         }),
       );
-      stub.on(
-        new RegExp(`/me/messages/${messageId}\\?\\$select=`),
-        () =>
-          Response.json({
-            id: messageId,
-            conversationId: "conv_1",
-            body: { contentType: "html", content: "<p>hi</p>" },
-            attachments: [],
-          }),
+      stub.on(new RegExp(`/me/messages/${messageId}\\?\\$select=`), () =>
+        Response.json({
+          id: messageId,
+          conversationId: "conv_1",
+          body: { contentType: "html", content: "<p>hi</p>" },
+          attachments: [],
+        }),
       );
       stub.on(
         new RegExp(`/me/messages/${messageId}/\\$value`),
         () => new Response(Buffer.from("RAW")),
       );
       stub.on(/me\/sendMail/, () => new Response(null, { status: 202 }));
-      stub.on(
-        new RegExp(`/me/messages/${messageId}$`),
-        () => new Response(null, { status: 200 }),
-      );
+      stub.on(new RegExp(`/me/messages/${messageId}$`), () => new Response(null, { status: 200 }));
     },
   };
 }
@@ -219,9 +199,7 @@ describe.each(cases)("MailProvider contract: $id", (c) => {
     const cap = c.adapter.capabilities;
     // Force the test to be updated when MailProviderCapabilities
     // grows a new flag — adapters must opt in or out per cap.
-    expect(Object.keys(cap).sort()).toEqual(
-      ["delta", "push", "synchronousSendId"].sort(),
-    );
+    expect(Object.keys(cap).sort()).toEqual(["delta", "push", "synchronousSendId"].sort());
     for (const v of Object.values(cap)) expect(typeof v).toBe("boolean");
   });
 

@@ -18,12 +18,12 @@ interface MailaiPlugin {
 
 ## Built-in plugins (v1)
 
-| Plugin | Owns |
-| --- | --- |
-| `imap-sync` | `imap:fetch`, `imap:sync-mailbox`, `imap:apply-side-effects` |
-| `collaboration` | `thread:set-status`, `thread:assign`, `thread:unassign`, `comment:add`, `tag:*` |
-| `agent-policy` | (no handlers) — registers an audit observer that emits webhook events for each mutation |
-| `outboxer` | `imap:apply-side-effects` consumer; relays handler output to IMAP/SMTP |
+| Plugin          | Owns                                                                                    |
+| --------------- | --------------------------------------------------------------------------------------- |
+| `imap-sync`     | `imap:fetch`, `imap:sync-mailbox`, `imap:apply-side-effects`                            |
+| `collaboration` | `thread:set-status`, `thread:assign`, `thread:unassign`, `comment:add`, `tag:*`         |
+| `agent-policy`  | (no handlers) — registers an audit observer that emits webhook events for each mutation |
+| `outboxer`      | `imap:apply-side-effects` consumer; relays handler output to IMAP/SMTP                  |
 
 ## Future hook points (designed-in, not built)
 

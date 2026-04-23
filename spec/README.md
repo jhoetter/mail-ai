@@ -1,6 +1,6 @@
 # mail-ai specs
 
-This directory contains the durable design — the kind of writing the team will reference six months from now to remember *why*. Each Phase produces a fresh batch of specs alongside its build.
+This directory contains the durable design — the kind of writing the team will reference six months from now to remember _why_. Each Phase produces a fresh batch of specs alongside its build.
 
 ## Layout
 

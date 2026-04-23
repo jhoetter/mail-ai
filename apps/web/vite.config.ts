@@ -3,8 +3,7 @@ import react from "@vitejs/plugin-react";
 import tsconfigPaths from "vite-tsconfig-paths";
 import tailwindcss from "@tailwindcss/vite";
 
-const API_ORIGIN =
-  process.env["MAILAI_API_ORIGIN"] ?? "http://127.0.0.1:8200";
+const API_ORIGIN = process.env["MAILAI_API_ORIGIN"] ?? "http://127.0.0.1:8200";
 
 // Vite config for the mail-ai web SPA.
 //
@@ -17,11 +16,7 @@ const API_ORIGIN =
 // In prod, the SPA is served from any static host and talks to the
 // API directly via VITE_MAILAI_API_URL — the proxy is dev-only.
 export default defineConfig({
-  plugins: [
-    react(),
-    tsconfigPaths(),
-    tailwindcss(),
-  ],
+  plugins: [react(), tsconfigPaths(), tailwindcss()],
   // host pinned to IPv4 loopback so `make dev`'s health probe
   // (curl http://127.0.0.1:3200/) and Playwright's default baseURL
   // (apps/web/playwright.config.ts) both connect. Without this Vite

@@ -14,11 +14,7 @@
 
 export type IcsMethod = "REQUEST" | "CANCEL" | "REPLY";
 
-export type IcsPartstat =
-  | "ACCEPTED"
-  | "DECLINED"
-  | "TENTATIVE"
-  | "NEEDS-ACTION";
+export type IcsPartstat = "ACCEPTED" | "DECLINED" | "TENTATIVE" | "NEEDS-ACTION";
 
 export type IcsRole = "REQ-PARTICIPANT" | "OPT-PARTICIPANT";
 
@@ -93,8 +89,7 @@ export function composeIcs(event: IcsEvent, method: IcsMethod): ComposedIcs {
     lines.push(`URL:${event.url}`);
   }
   // Status: explicit override wins; otherwise derive from method.
-  const status =
-    event.status ?? (method === "CANCEL" ? "CANCELLED" : "CONFIRMED");
+  const status = event.status ?? (method === "CANCEL" ? "CANCELLED" : "CONFIRMED");
   lines.push(`STATUS:${status}`);
 
   // ORGANIZER is mandatory for METHOD-bearing iTIP messages.
@@ -120,12 +115,8 @@ export function composeIcs(event: IcsEvent, method: IcsMethod): ComposedIcs {
       // is what Google Calendar's own export uses.
       lines.push(`X-GOOGLE-CONFERENCE:${event.conference.joinUrl}`);
     } else if (event.conference.provider === "ms-teams") {
-      lines.push(
-        `X-MICROSOFT-SKYPETEAMSMEETINGURL:${event.conference.joinUrl}`,
-      );
-      lines.push(
-        `X-MICROSOFT-ONLINEMEETINGCONFLINK:${event.conference.joinUrl}`,
-      );
+      lines.push(`X-MICROSOFT-SKYPETEAMSMEETINGURL:${event.conference.joinUrl}`);
+      lines.push(`X-MICROSOFT-ONLINEMEETINGCONFLINK:${event.conference.joinUrl}`);
     }
   }
 
@@ -157,11 +148,7 @@ function buildAttendee(a: IcsAttendee): string {
 
 // RFC 5545 §3.3.11 TEXT escaping.
 function escapeText(s: string): string {
-  return s
-    .replace(/\\/g, "\\\\")
-    .replace(/\n/g, "\\n")
-    .replace(/,/g, "\\,")
-    .replace(/;/g, "\\;");
+  return s.replace(/\\/g, "\\\\").replace(/\n/g, "\\n").replace(/,/g, "\\,").replace(/;/g, "\\;");
 }
 
 // CN values are quoted when they contain `:`, `;`, `,` or whitespace.

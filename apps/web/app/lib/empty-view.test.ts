@@ -1,9 +1,5 @@
 import { describe, expect, it } from "vitest";
-import {
-  firstSyncError,
-  hasNarrowingFilters,
-  resolveEmptyKind,
-} from "./empty-view";
+import { firstSyncError, hasNarrowingFilters, resolveEmptyKind } from "./empty-view";
 import type { AccountSummary } from "./oauth-client";
 import type { ViewSummary } from "./views-client";
 
@@ -83,21 +79,15 @@ describe("resolveEmptyKind", () => {
 
 describe("hasNarrowingFilters", () => {
   it("treats empty arrays and missing fields as no narrowing", () => {
-    expect(
-      hasNarrowingFilters(view({ id: "v", filter: { tagsAny: [], tagsNone: [] } })),
-    ).toBe(false);
+    expect(hasNarrowingFilters(view({ id: "v", filter: { tagsAny: [], tagsNone: [] } }))).toBe(
+      false,
+    );
   });
 
   it("flags fromContains, accountIds, and unread as narrowing", () => {
-    expect(
-      hasNarrowingFilters(view({ id: "v", filter: { fromContains: "alice" } })),
-    ).toBe(true);
-    expect(
-      hasNarrowingFilters(view({ id: "v", filter: { accountIds: ["acc_1"] } })),
-    ).toBe(true);
-    expect(hasNarrowingFilters(view({ id: "v", filter: { unread: true } }))).toBe(
-      true,
-    );
+    expect(hasNarrowingFilters(view({ id: "v", filter: { fromContains: "alice" } }))).toBe(true);
+    expect(hasNarrowingFilters(view({ id: "v", filter: { accountIds: ["acc_1"] } }))).toBe(true);
+    expect(hasNarrowingFilters(view({ id: "v", filter: { unread: true } }))).toBe(true);
   });
 });
 

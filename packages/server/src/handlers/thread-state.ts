@@ -6,11 +6,7 @@
 // server (UTC for v1; user-tz aware once Phase 6 ships timezone
 // preferences).
 
-import type {
-  CommandHandler,
-  EntitySnapshot,
-  HandlerResult,
-} from "@mailai/core";
+import type { CommandHandler, EntitySnapshot, HandlerResult } from "@mailai/core";
 import { MailaiError } from "@mailai/core";
 import {
   OauthMessagesRepository,
@@ -64,17 +60,9 @@ export function buildThreadUnsnoozeHandler(
     return withTenant(deps.pool, deps.tenantId, async (tx) => {
       await ensureThreadExists(tx, deps.tenantId, cmd.payload.providerThreadId);
       const repo = new OauthThreadStateRepository(tx);
-      const before = await repo.get(
-        deps.tenantId,
-        cmd.actorId,
-        cmd.payload.providerThreadId,
-      );
+      const before = await repo.get(deps.tenantId, cmd.actorId, cmd.payload.providerThreadId);
       await repo.unsnooze(deps.tenantId, cmd.actorId, cmd.payload.providerThreadId);
-      const after = await repo.get(
-        deps.tenantId,
-        cmd.actorId,
-        cmd.payload.providerThreadId,
-      );
+      const after = await repo.get(deps.tenantId, cmd.actorId, cmd.payload.providerThreadId);
       return snapshot(cmd.payload.providerThreadId, before, after);
     });
   };
@@ -87,17 +75,9 @@ export function buildThreadMarkDoneHandler(
     return withTenant(deps.pool, deps.tenantId, async (tx) => {
       await ensureThreadExists(tx, deps.tenantId, cmd.payload.providerThreadId);
       const repo = new OauthThreadStateRepository(tx);
-      const before = await repo.get(
-        deps.tenantId,
-        cmd.actorId,
-        cmd.payload.providerThreadId,
-      );
+      const before = await repo.get(deps.tenantId, cmd.actorId, cmd.payload.providerThreadId);
       await repo.markDone(deps.tenantId, cmd.actorId, cmd.payload.providerThreadId);
-      const after = await repo.get(
-        deps.tenantId,
-        cmd.actorId,
-        cmd.payload.providerThreadId,
-      );
+      const after = await repo.get(deps.tenantId, cmd.actorId, cmd.payload.providerThreadId);
       return snapshot(cmd.payload.providerThreadId, before, after);
     });
   };
@@ -110,17 +90,9 @@ export function buildThreadReopenHandler(
     return withTenant(deps.pool, deps.tenantId, async (tx) => {
       await ensureThreadExists(tx, deps.tenantId, cmd.payload.providerThreadId);
       const repo = new OauthThreadStateRepository(tx);
-      const before = await repo.get(
-        deps.tenantId,
-        cmd.actorId,
-        cmd.payload.providerThreadId,
-      );
+      const before = await repo.get(deps.tenantId, cmd.actorId, cmd.payload.providerThreadId);
       await repo.reopen(deps.tenantId, cmd.actorId, cmd.payload.providerThreadId);
-      const after = await repo.get(
-        deps.tenantId,
-        cmd.actorId,
-        cmd.payload.providerThreadId,
-      );
+      const after = await repo.get(deps.tenantId, cmd.actorId, cmd.payload.providerThreadId);
       return snapshot(cmd.payload.providerThreadId, before, after);
     });
   };
@@ -134,10 +106,7 @@ async function ensureThreadExists(
   const messages = new OauthMessagesRepository(tx);
   const list = await messages.listByProviderThread(tenantId, providerThreadId);
   if (list.length === 0) {
-    throw new MailaiError(
-      "not_found",
-      `thread ${providerThreadId} not found in oauth_messages`,
-    );
+    throw new MailaiError("not_found", `thread ${providerThreadId} not found in oauth_messages`);
   }
 }
 

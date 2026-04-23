@@ -20,10 +20,7 @@ import {
   type OauthAttachmentRow,
   type Pool,
 } from "@mailai/overlay-db";
-import {
-  getValidAccessToken,
-  type ProviderCredentials,
-} from "@mailai/oauth-tokens";
+import { getValidAccessToken, type ProviderCredentials } from "@mailai/oauth-tokens";
 import type { MailProviderRegistry } from "@mailai/providers";
 
 export interface AttachmentRoutesDeps {
@@ -37,10 +34,7 @@ export interface AttachmentRoutesDeps {
   }>;
 }
 
-export function registerAttachmentRoutes(
-  app: FastifyInstance,
-  deps: AttachmentRoutesDeps,
-): void {
+export function registerAttachmentRoutes(app: FastifyInstance, deps: AttachmentRoutesDeps): void {
   app.get("/api/attachments/:id", async (req, reply) => {
     const ident = await deps.identity({ headers: req.headers as Record<string, unknown> });
     const { id } = req.params as { id: string };
@@ -72,9 +66,7 @@ export function registerAttachmentRoutes(
       responseContentDisposition: `inline; filename="${escapeFilename(filename)}"`,
       responseContentType: row.mime,
     });
-    return reply
-      .header("cache-control", "private, max-age=600")
-      .redirect(presigned.url, 302);
+    return reply.header("cache-control", "private, max-age=600").redirect(presigned.url, 302);
   });
 }
 

@@ -16,10 +16,7 @@ import { TimeGrid } from "./_components/TimeGrid";
 import { MonthGrid } from "./_components/MonthGrid";
 import { QuickCreatePopover } from "./_components/QuickCreatePopover";
 import { EventDetailsPopover } from "./_components/EventDetailsPopover";
-import {
-  EventEditorDialog,
-  type EventEditorOutput,
-} from "./_components/EventEditorDialog";
+import { EventEditorDialog, type EventEditorOutput } from "./_components/EventEditorDialog";
 import { startOfDay } from "./_lib/calendar-time";
 import { useCalendarState, type CalendarEvent } from "./_lib/useCalendarState";
 
@@ -69,7 +66,7 @@ export default function CalendarPage() {
   // The first visible calendar is the "default" target for new
   // events. We intentionally keep this dumb: the picker inside the
   // popover/dialog lets the user change it before saving.
-  const defaultCalendarId = (state.visibleCalendars[0]?.id ?? state.calendars?.[0]?.id) ?? null;
+  const defaultCalendarId = state.visibleCalendars[0]?.id ?? state.calendars?.[0]?.id ?? null;
 
   const openCreateAt = useCallback(
     (start: Date, end: Date, allDay: boolean, anchor: HTMLElement | DOMRect) => {
@@ -91,8 +88,7 @@ export default function CalendarPage() {
   }, [openCreateAt]);
 
   const calendarOf = useCallback(
-    (id: string): CalendarSummary | null =>
-      state.calendars?.find((c) => c.id === id) ?? null,
+    (id: string): CalendarSummary | null => state.calendars?.find((c) => c.id === id) ?? null,
     [state.calendars],
   );
 
@@ -155,10 +151,7 @@ export default function CalendarPage() {
   );
 
   const onSubmitEditor = useCallback(
-    async (
-      intent: NonNullable<EditorState["intent"]>,
-      payload: EventEditorOutput,
-    ) => {
+    async (intent: NonNullable<EditorState["intent"]>, payload: EventEditorOutput) => {
       if (intent.mode === "create") {
         await createEvent({
           calendarId: payload.calendarId,
@@ -181,16 +174,12 @@ export default function CalendarPage() {
           startsAt: payload.startsAt,
           endsAt: payload.endsAt,
           allDay: payload.allDay,
-          ...(payload.attendeesAdd.length > 0
-            ? { attendeesAdd: [...payload.attendeesAdd] }
-            : {}),
+          ...(payload.attendeesAdd.length > 0 ? { attendeesAdd: [...payload.attendeesAdd] } : {}),
           ...(payload.attendeesRemove.length > 0
             ? { attendeesRemove: [...payload.attendeesRemove] }
             : {}),
           meeting: payload.meeting,
-          ...(payload.recurrence !== undefined
-            ? { recurrence: payload.recurrence }
-            : {}),
+          ...(payload.recurrence !== undefined ? { recurrence: payload.recurrence } : {}),
           timeZone: payload.timeZone,
           scope: intent.scope,
         });
@@ -223,15 +212,9 @@ export default function CalendarPage() {
 
   return (
     <Shell sidebar={<AppNav />}>
-      <PageHeader
-        title={t("calendar.title")}
-        subtitle={t("calendar.subtitle")}
-        actions={null}
-      />
+      <PageHeader title={t("calendar.title")} subtitle={t("calendar.subtitle")} actions={null} />
       <PageBody width="none">
-        {state.error && (
-          <p className="px-4 text-sm text-error">{state.error}</p>
-        )}
+        {state.error && <p className="px-4 text-sm text-error">{state.error}</p>}
         {state.calendars === null ? (
           <p className="px-4 text-sm text-secondary">{t("common.loading")}</p>
         ) : state.calendars.length === 0 ? (
@@ -262,9 +245,7 @@ export default function CalendarPage() {
               />
               {state.visibleCalendars.length === 0 ? (
                 <Card>
-                  <p className="text-sm text-secondary">
-                    {t("calendar.noVisibleCalendars")}
-                  </p>
+                  <p className="text-sm text-secondary">{t("calendar.noVisibleCalendars")}</p>
                 </Card>
               ) : state.view === "month" ? (
                 <MonthGrid
@@ -277,9 +258,7 @@ export default function CalendarPage() {
                     const end = new Date(start.getTime() + 60 * 60_000);
                     openCreateAt(start, end, false, anchor);
                   }}
-                  onSelectEvent={(event, anchor) =>
-                    setDetails({ event, anchor })
-                  }
+                  onSelectEvent={(event, anchor) => setDetails({ event, anchor })}
                   onMoveEventToDay={onMoveToDay}
                 />
               ) : (
@@ -291,9 +270,7 @@ export default function CalendarPage() {
                   onCreateRange={(args, anchor) =>
                     openCreateAt(args.start, args.end, args.allDay, anchor)
                   }
-                  onSelectEvent={(event, anchor) =>
-                    setDetails({ event, anchor })
-                  }
+                  onSelectEvent={(event, anchor) => setDetails({ event, anchor })}
                   onMoveEvent={onMoveEvent}
                   onResizeEvent={onResizeEvent}
                 />

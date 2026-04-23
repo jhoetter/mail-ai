@@ -117,7 +117,7 @@ add(
     from: "ed@example.org",
     to: "bob@example.com",
     subject: "Plain flowed",
-    headers: ['Content-Type: text/plain; charset=UTF-8; format=flowed; delsp=no'],
+    headers: ["Content-Type: text/plain; charset=UTF-8; format=flowed; delsp=no"],
     body: "Line one is long enough to wrap and wrap and wrap and wrap and wrap and wrap and wrap. \nLine two.",
   }),
 );
@@ -161,7 +161,11 @@ samples.push({ file: "malformed-unterminated.eml", category: "malformed", synthe
 writeFileSync(
   join(OUT, "INDEX.json"),
   JSON.stringify(
-    { generated_at: new Date().toISOString(), note: "Synthetic fixtures. Replace with real .eml files before production.", samples },
+    {
+      generated_at: new Date().toISOString(),
+      note: "Synthetic fixtures. Replace with real .eml files before production.",
+      samples,
+    },
     null,
     2,
   ),

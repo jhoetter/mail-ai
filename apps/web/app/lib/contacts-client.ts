@@ -78,10 +78,7 @@ export interface UseSuggestState {
   readonly loading: boolean;
 }
 
-export function useDebouncedSuggest(
-  query: string,
-  opts: UseSuggestOptions = {},
-): UseSuggestState {
+export function useDebouncedSuggest(query: string, opts: UseSuggestOptions = {}): UseSuggestState {
   const { debounceMs = 120, accountId, limit, enabled = true } = opts;
   const [items, setItems] = useState<ContactSuggestion[]>([]);
   const [reconnect, setReconnect] = useState<ReconnectAccount[]>([]);

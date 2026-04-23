@@ -9,13 +9,7 @@ import {
 } from "react";
 import en from "./messages/en.json";
 import de from "./messages/de.json";
-import {
-  DEFAULT_LOCALE,
-  LOCALE_COOKIE,
-  isLocale,
-  type Locale,
-  type Messages,
-} from "./types";
+import { DEFAULT_LOCALE, LOCALE_COOKIE, isLocale, type Locale, type Messages } from "./types";
 
 const CATALOGUES: Record<Locale, Messages> = {
   en: en as unknown as Messages,

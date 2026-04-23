@@ -52,7 +52,10 @@ interface RemovePayload {
 export function buildAttachmentUploadInitHandler(
   deps: AttachmentDeps,
 ): CommandHandler<"attachment:upload-init", UploadInitPayload> {
-  return async (cmd: Command<"attachment:upload-init", UploadInitPayload>, _ctx: HandlerContext): Promise<HandlerResult> => {
+  return async (
+    cmd: Command<"attachment:upload-init", UploadInitPayload>,
+    _ctx: HandlerContext,
+  ): Promise<HandlerResult> => {
     const payload = cmd.payload;
     const fileId = `file_${randomId()}`;
     // The "draft" prefix is intentional: we know nothing about a real
@@ -91,15 +94,15 @@ export function buildAttachmentUploadInitHandler(
 export function buildAttachmentUploadFinaliseHandler(
   deps: AttachmentDeps,
 ): CommandHandler<"attachment:upload-finalise", UploadFinalisePayload> {
-  return async (cmd: Command<"attachment:upload-finalise", UploadFinalisePayload>, _ctx: HandlerContext): Promise<HandlerResult> => {
+  return async (
+    cmd: Command<"attachment:upload-finalise", UploadFinalisePayload>,
+    _ctx: HandlerContext,
+  ): Promise<HandlerResult> => {
     const payload = cmd.payload;
     // Refuse to record metadata for an object that didn't actually
     // land in S3 — the browser may have aborted the PUT.
     if (!(await deps.objectStore.exists(payload.objectKey))) {
-      throw new MailaiError(
-        "validation_error",
-        `object ${payload.objectKey} not found in S3`,
-      );
+      throw new MailaiError("validation_error", `object ${payload.objectKey} not found in S3`);
     }
     const row = await withTenant(deps.pool, deps.tenantId, async (tx) => {
       const repo = new DraftAttachmentsRepository(tx);

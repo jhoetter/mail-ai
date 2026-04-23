@@ -9,9 +9,9 @@ explicit and narrow.
 
 1. Each command's overlay write runs in its own DB transaction
    (`withTenant(...)` wraps the whole handler).
-2. Each command's IMAP side-effects run *after* the overlay
+2. Each command's IMAP side-effects run _after_ the overlay
    transaction commits, via the outboxer.
-3. If the IMAP side-effect fails *after* the overlay commit:
+3. If the IMAP side-effect fails _after_ the overlay commit:
    - The mutation is moved to `rolled-back`.
    - A compensating overlay change is enqueued (e.g., a flag flip).
    - The audit log records BOTH the original `applied` and the
@@ -23,10 +23,13 @@ explicit and narrow.
 
 ```ts
 interface BatchResult {
-  results: Array<{ status: "applied" | "rejected" | "failed" | "pending" | "rolled-back"; mutation: Mutation }>;
+  results: Array<{
+    status: "applied" | "rejected" | "failed" | "pending" | "rolled-back";
+    mutation: Mutation;
+  }>;
   appliedCount: number;
-  failedAt?: number;     // index of first failure, if any
-  abortedRest: boolean;  // true if `stopOnError` was set and we stopped
+  failedAt?: number; // index of first failure, if any
+  abortedRest: boolean; // true if `stopOnError` was set and we stopped
 }
 ```
 

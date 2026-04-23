@@ -128,9 +128,10 @@ export function TagChips({ threadId, initialTags, compact, onChanged }: Props) {
           {input && allTags.length > 0 ? (
             <div className="absolute left-0 top-full z-10 mt-1 max-h-40 w-44 overflow-auto rounded-md border border-divider bg-surface shadow-lg">
               {allTags
-                .filter((tag) =>
-                  tag.name.toLowerCase().includes(input.toLowerCase()) &&
-                  !visible.some((v) => v.name === tag.name),
+                .filter(
+                  (tag) =>
+                    tag.name.toLowerCase().includes(input.toLowerCase()) &&
+                    !visible.some((v) => v.name === tag.name),
                 )
                 .slice(0, 6)
                 .map((tag) => (
@@ -141,10 +142,7 @@ export function TagChips({ threadId, initialTags, compact, onChanged }: Props) {
                     onClick={() => void apply(tag.name)}
                     className="flex w-full items-center gap-2 px-2 py-1 text-left text-xs hover:bg-background/60"
                   >
-                    <span
-                      className="h-2 w-2 rounded-full"
-                      style={{ backgroundColor: tag.color }}
-                    />
+                    <span className="h-2 w-2 rounded-full" style={{ backgroundColor: tag.color }} />
                     <span>{tag.name}</span>
                   </button>
                 ))}
@@ -181,10 +179,7 @@ function Chip({
       }
       style={{ borderColor: tag.color, color: tag.color }}
     >
-      <span
-        className="h-1.5 w-1.5 rounded-full"
-        style={{ backgroundColor: tag.color }}
-      />
+      <span className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: tag.color }} />
       <span className="text-foreground">{tag.name}</span>
       {onRemove ? (
         <button
@@ -200,13 +195,7 @@ function Chip({
   );
 }
 
-export function ReadOnlyChips({
-  tags,
-  compact,
-}: {
-  tags: TagDefinition[];
-  compact?: boolean;
-}) {
+export function ReadOnlyChips({ tags, compact }: { tags: TagDefinition[]; compact?: boolean }) {
   if (!tags || tags.length === 0) return null;
   return (
     <div className={"flex flex-wrap gap-1 " + (compact ? "text-[10px]" : "text-xs")}>
@@ -216,10 +205,7 @@ export function ReadOnlyChips({
           className="inline-flex items-center gap-1 rounded-full border bg-surface px-1.5 py-0.5"
           style={{ borderColor: tag.color, color: tag.color }}
         >
-          <span
-            className="h-1.5 w-1.5 rounded-full"
-            style={{ backgroundColor: tag.color }}
-          />
+          <span className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: tag.color }} />
           <span className="text-foreground">{tag.name}</span>
         </span>
       ))}

@@ -126,9 +126,7 @@ export class GoogleMailAdapter implements MailProvider {
   // fine at page-size 100 — well under Gmail's 250 quota-units /
   // user / second budget. The scheduler caller is responsible for
   // looping pages.
-  async listMessages(
-    args: AccessTokenArgs & ListMessagesArgs,
-  ): Promise<ListMessagesPage> {
+  async listMessages(args: AccessTokenArgs & ListMessagesArgs): Promise<ListMessagesPage> {
     const labelId = GMAIL_FOLDER_LABEL_IDS[args.folder];
     if (!labelId) {
       // Gmail has no native "Archive" folder (an archived message
@@ -177,9 +175,7 @@ export class GoogleMailAdapter implements MailProvider {
     };
   }
 
-  async fetchRawMime(
-    args: AccessTokenArgs & { providerMessageId: string },
-  ): Promise<Buffer> {
+  async fetchRawMime(args: AccessTokenArgs & { providerMessageId: string }): Promise<Buffer> {
     return fetchGmailRawMessage({
       accessToken: args.accessToken,
       messageId: args.providerMessageId,
@@ -205,15 +201,11 @@ export class GoogleMailAdapter implements MailProvider {
     });
   }
 
-  async send(
-    args: AccessTokenArgs & { message: ComposedMessage },
-  ): Promise<SendResult> {
+  async send(args: AccessTokenArgs & { message: ComposedMessage }): Promise<SendResult> {
     const result = await sendGmail({
       accessToken: args.accessToken,
       raw: args.message.raw,
-      ...(args.message.providerThreadId
-        ? { threadId: args.message.providerThreadId }
-        : {}),
+      ...(args.message.providerThreadId ? { threadId: args.message.providerThreadId } : {}),
     });
     return {
       providerMessageId: result.id,
@@ -237,9 +229,7 @@ export class GoogleMailAdapter implements MailProvider {
     await modifyGmailMessageLabels({
       accessToken: args.accessToken,
       messageId: args.providerMessageId,
-      ...(args.starred
-        ? { addLabelIds: ["STARRED"] }
-        : { removeLabelIds: ["STARRED"] }),
+      ...(args.starred ? { addLabelIds: ["STARRED"] } : { removeLabelIds: ["STARRED"] }),
     });
   }
 
@@ -256,9 +246,7 @@ export class GoogleMailAdapter implements MailProvider {
   // 404 from Gmail means the watermark is older than ~7 days; we
   // return null nextWatermark so the scheduler clears the column and
   // re-baselines on the next call.
-  async pullDelta(
-    args: AccessTokenArgs & PullDeltaArgs,
-  ): Promise<PullDeltaResult> {
+  async pullDelta(args: AccessTokenArgs & PullDeltaArgs): Promise<PullDeltaResult> {
     if (!args.since) {
       const historyId = await getGmailMailboxHistoryId({
         accessToken: args.accessToken,
@@ -376,9 +364,7 @@ export class GoogleMailAdapter implements MailProvider {
   }
 }
 
-export function gmailLabelIdsToWellKnownFolder(
-  labelIds: ReadonlyArray<string>,
-): WellKnownFolder {
+export function gmailLabelIdsToWellKnownFolder(labelIds: ReadonlyArray<string>): WellKnownFolder {
   const set = new Set(labelIds);
   for (const { label, folder } of WELL_KNOWN_PRIORITY) {
     if (set.has(label)) return folder;
@@ -386,9 +372,7 @@ export function gmailLabelIdsToWellKnownFolder(
   return "other";
 }
 
-export function gmailLabelIdsToUserLabels(
-  labelIds: ReadonlyArray<string>,
-): string[] {
+export function gmailLabelIdsToUserLabels(labelIds: ReadonlyArray<string>): string[] {
   return labelIds.filter((l) => !SYSTEM_LABEL_IDS.has(l));
 }
 
@@ -406,13 +390,9 @@ function toNormalizedMessage(
   return {
     providerMessageId: meta.id,
     providerThreadId: meta.threadId,
-    wellKnownFolder:
-      queriedFolder ?? gmailLabelIdsToWellKnownFolder(meta.labelIds),
+    wellKnownFolder: queriedFolder ?? gmailLabelIdsToWellKnownFolder(meta.labelIds),
     subject: meta.subject,
-    from:
-      meta.fromEmail !== null
-        ? { name: meta.fromName, email: meta.fromEmail }
-        : null,
+    from: meta.fromEmail !== null ? { name: meta.fromName, email: meta.fromEmail } : null,
     to: parseAddressList(meta.to),
     cc: parseAddressList(meta.cc),
     bcc: parseAddressList(meta.bcc),

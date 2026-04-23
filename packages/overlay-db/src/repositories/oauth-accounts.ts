@@ -154,11 +154,7 @@ export class OauthAccountsRepository {
     return inserted;
   }
 
-  async updateTokens(
-    tenantId: string,
-    id: string,
-    upd: OauthAccountTokenUpdate,
-  ): Promise<void> {
+  async updateTokens(tenantId: string, id: string, upd: OauthAccountTokenUpdate): Promise<void> {
     const now = new Date();
     const set: Record<string, unknown> = {
       accessToken: upd.accessToken,
@@ -175,11 +171,7 @@ export class OauthAccountsRepository {
       .where(and(eq(oauthAccounts.tenantId, tenantId), eq(oauthAccounts.id, id)));
   }
 
-  async markStatus(
-    tenantId: string,
-    id: string,
-    status: OauthAccountStatus,
-  ): Promise<void> {
+  async markStatus(tenantId: string, id: string, status: OauthAccountStatus): Promise<void> {
     await this.db
       .update(oauthAccounts)
       .set({ status, updatedAt: new Date() })

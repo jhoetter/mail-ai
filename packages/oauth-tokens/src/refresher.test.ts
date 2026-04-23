@@ -51,16 +51,17 @@ describe("getValidAccessToken", () => {
 
   it("refreshes google token when within skew window", async () => {
     const accounts = makeRepoStub();
-    const fetchImpl = vi.fn(async () =>
-      new Response(
-        JSON.stringify({
-          access_token: "new_at",
-          expires_in: 3600,
-          scope: "https://mail.google.com/",
-          token_type: "Bearer",
-        }),
-        { status: 200, headers: { "content-type": "application/json" } },
-      ),
+    const fetchImpl = vi.fn(
+      async () =>
+        new Response(
+          JSON.stringify({
+            access_token: "new_at",
+            expires_in: 3600,
+            scope: "https://mail.google.com/",
+            token_type: "Bearer",
+          }),
+          { status: 200, headers: { "content-type": "application/json" } },
+        ),
     ) as unknown as typeof fetch;
 
     const got = await getValidAccessToken(
@@ -78,20 +79,17 @@ describe("getValidAccessToken", () => {
 
   it("marks needs-reauth on invalid_grant", async () => {
     const accounts = makeRepoStub();
-    const fetchImpl = vi.fn(async () =>
-      new Response(JSON.stringify({ error: "invalid_grant" }), { status: 400 }),
+    const fetchImpl = vi.fn(
+      async () => new Response(JSON.stringify({ error: "invalid_grant" }), { status: 400 }),
     ) as unknown as typeof fetch;
 
     await expect(
-      getValidAccessToken(
-        fakeAccount({ expiresAt: new Date(Date.now() - 1000) }),
-        {
-          tenantId: "t1",
-          accounts,
-          credentials: { google: { clientId: "x", clientSecret: "y" } },
-          fetchImpl,
-        },
-      ),
+      getValidAccessToken(fakeAccount({ expiresAt: new Date(Date.now() - 1000) }), {
+        tenantId: "t1",
+        accounts,
+        credentials: { google: { clientId: "x", clientSecret: "y" } },
+        fetchImpl,
+      }),
     ).rejects.toThrow(/google refresh failed/);
     expect(accounts.markStatus).toHaveBeenCalledWith("t1", "acc_1", "needs-reauth");
   });

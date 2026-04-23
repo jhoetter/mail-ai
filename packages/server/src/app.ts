@@ -72,10 +72,8 @@ export interface AppDeps {
 export function buildApp(deps: AppDeps): FastifyInstance {
   const app = Fastify({ logger: true });
   const providers = deps.providers ?? buildMailProviderRegistry();
-  const calendarProviders =
-    deps.calendarProviders ?? buildCalendarProviderRegistry();
-  const contactsProviders =
-    deps.contactsProviders ?? buildContactsProviderRegistry();
+  const calendarProviders = deps.calendarProviders ?? buildCalendarProviderRegistry();
+  const contactsProviders = deps.contactsProviders ?? buildContactsProviderRegistry();
 
   if (deps.oauth) {
     registerOauthRoutes(app, {
@@ -164,7 +162,8 @@ export function buildApp(deps: AppDeps): FastifyInstance {
       // "human" — staging was removed when /pending went away. We
       // still record the source for audit trails so we know later
       // whether a human or an agent issued the command.
-      const source: Command["source"] = (headers["x-mailai-source"] as Command["source"]) ?? "human";
+      const source: Command["source"] =
+        (headers["x-mailai-source"] as Command["source"]) ?? "human";
       const cmd: Command = {
         type: v.data.type,
         payload: v.data.payload,

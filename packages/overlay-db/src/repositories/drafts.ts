@@ -106,34 +106,18 @@ export class DraftsRepository {
   async delete(tenantId: string, userId: string, id: string): Promise<void> {
     await this.db
       .delete(drafts)
-      .where(
-        and(
-          eq(drafts.tenantId, tenantId),
-          eq(drafts.userId, userId),
-          eq(drafts.id, id),
-        ),
-      );
+      .where(and(eq(drafts.tenantId, tenantId), eq(drafts.userId, userId), eq(drafts.id, id)));
   }
 
   async byId(tenantId: string, userId: string, id: string): Promise<DraftRow | null> {
     const rows = await this.db
       .select()
       .from(drafts)
-      .where(
-        and(
-          eq(drafts.tenantId, tenantId),
-          eq(drafts.userId, userId),
-          eq(drafts.id, id),
-        ),
-      );
+      .where(and(eq(drafts.tenantId, tenantId), eq(drafts.userId, userId), eq(drafts.id, id)));
     return (rows[0] as DraftRow | undefined) ?? null;
   }
 
-  async listByUser(
-    tenantId: string,
-    userId: string,
-    limit = 100,
-  ): Promise<DraftRow[]> {
+  async listByUser(tenantId: string, userId: string, limit = 100): Promise<DraftRow[]> {
     const rows = await this.db
       .select()
       .from(drafts)

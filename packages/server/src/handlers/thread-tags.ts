@@ -15,11 +15,7 @@
 // demand. This matches the Notion-Mail UX where the user types a
 // new tag and hits enter.
 
-import type {
-  CommandHandler,
-  EntitySnapshot,
-  HandlerResult,
-} from "@mailai/core";
+import type { CommandHandler, EntitySnapshot, HandlerResult } from "@mailai/core";
 import { MailaiError } from "@mailai/core";
 import {
   OauthMessagesRepository,
@@ -60,12 +56,7 @@ export function buildThreadAddTagHandler(
       }
       const tagRow = await tags.ensureByName(deps.tenantId, tag);
       const before = await threadTags.listForThread(deps.tenantId, root.providerThreadId);
-      await threadTags.add(
-        deps.tenantId,
-        root.providerThreadId,
-        tagRow.id,
-        cmd.actorId,
-      );
+      await threadTags.add(deps.tenantId, root.providerThreadId, tagRow.id, cmd.actorId);
       const after = await threadTags.listForThread(deps.tenantId, root.providerThreadId);
       return snapshot(root.providerThreadId, before, after);
     });

@@ -12,11 +12,7 @@
 // we ask Google not to email attendees (`sendUpdates=none`); Graph
 // doesn't email on plain create, so it needs no equivalent flag.
 
-import type {
-  CommandHandler,
-  EntitySnapshot,
-  HandlerResult,
-} from "@mailai/core";
+import type { CommandHandler, EntitySnapshot, HandlerResult } from "@mailai/core";
 import { MailaiError } from "@mailai/core";
 import { randomUUID } from "node:crypto";
 import {
@@ -35,10 +31,7 @@ import {
   type IcsMethod,
   type IcsPartstat,
 } from "@mailai/mime";
-import {
-  getValidAccessToken,
-  type ProviderCredentials,
-} from "@mailai/oauth-tokens";
+import { getValidAccessToken, type ProviderCredentials } from "@mailai/oauth-tokens";
 import type {
   CalendarProvider,
   CalendarProviderRegistry,
@@ -149,9 +142,7 @@ export function buildCalendarCreateEventHandler(
       accessToken: ctx.accessToken,
       calendarId: ctx.calendar.providerCalendarId,
       summary: cmd.payload.summary,
-      ...(cmd.payload.description !== undefined
-        ? { description: cmd.payload.description }
-        : {}),
+      ...(cmd.payload.description !== undefined ? { description: cmd.payload.description } : {}),
       ...(cmd.payload.location !== undefined ? { location: cmd.payload.location } : {}),
       startsAt,
       endsAt,
@@ -249,10 +240,7 @@ export function buildCalendarUpdateEventHandler(
         `provider ${ctx.account.provider} does not support attendee patches`,
       );
     }
-    if (
-      cmd.payload.recurrence !== undefined &&
-      !ctx.calendarAdapter.capabilities.recurrence
-    ) {
+    if (cmd.payload.recurrence !== undefined && !ctx.calendarAdapter.capabilities.recurrence) {
       throw new MailaiError(
         "validation_error",
         `provider ${ctx.account.provider} does not support recurrence patches`,
@@ -527,10 +515,7 @@ async function loadCalendar(
     const accountsRepo = new OauthAccountsRepository(tx);
     const account = await accountsRepo.byId(deps.tenantId, calendar.oauthAccountId);
     if (!account) {
-      throw new MailaiError(
-        "not_found",
-        `oauth account ${calendar.oauthAccountId} not found`,
-      );
+      throw new MailaiError("not_found", `oauth account ${calendar.oauthAccountId} not found`);
     }
     const accessToken = await getValidAccessToken(account, {
       tenantId: deps.tenantId,
@@ -574,9 +559,7 @@ function toRecurrenceRule(payload: RecurrenceRulePayload): RecurrenceRule {
 // Map the UI-facing meeting choice onto the CalendarProvider's
 // `conference` shape. Kept narrow + total so a new MeetingChoice
 // variant becomes a TypeScript error here.
-function meetingChoiceToConference(
-  meeting: MeetingChoice,
-): "google" | "microsoft" | null {
+function meetingChoiceToConference(meeting: MeetingChoice): "google" | "microsoft" | null {
   switch (meeting) {
     case "gmeet":
       return "google";

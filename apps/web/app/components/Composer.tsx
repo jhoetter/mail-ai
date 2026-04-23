@@ -17,14 +17,7 @@
 // dialog Composer — only the chrome around it is new.
 
 import { Button, RichEditor, type RichEditorChange, type RichEditorHandle } from "@mailai/ui";
-import {
-  ChevronUp,
-  Maximize2,
-  Minimize2,
-  Minus,
-  Trash2,
-  X as CloseIcon,
-} from "lucide-react";
+import { ChevronUp, Maximize2, Minimize2, Minus, Trash2, X as CloseIcon } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { client } from "../lib/api";
 import { useTranslator } from "../lib/i18n/useTranslator";
@@ -66,9 +59,7 @@ export function Composer({
   const [showCcBcc, setShowCcBcc] = useState(false);
   const [cc, setCc] = useState<string[]>(initialDraft?.cc ?? []);
   const [bcc, setBcc] = useState<string[]>(initialDraft?.bcc ?? []);
-  const [subject, setSubject] = useState(
-    initialDraft?.subject ?? replyTo?.subject ?? "",
-  );
+  const [subject, setSubject] = useState(initialDraft?.subject ?? replyTo?.subject ?? "");
   const valueRef = useRef<RichEditorChange>({
     html: initialDraft?.bodyHtml ?? "",
     text: initialDraft?.bodyText ?? "",
@@ -405,11 +396,7 @@ export function Composer({
           </div>
 
           {/* Attachments */}
-          <AttachmentTray
-            slots={uploads.slots}
-            onRemove={uploads.remove}
-            onPick={onPickFiles}
-          />
+          <AttachmentTray slots={uploads.slots} onRemove={uploads.remove} onPick={onPickFiles} />
 
           {/* Footer */}
           <div className="flex items-center justify-between gap-2 border-t border-divider px-3 py-2">
@@ -455,9 +442,7 @@ interface FieldRowProps {
 function FieldRow({ label, children }: FieldRowProps) {
   return (
     <div className="flex items-center gap-2 border-b border-divider px-3 py-1.5 last:border-b-0">
-      <span className="w-12 shrink-0 text-xs uppercase tracking-wide text-tertiary">
-        {label}
-      </span>
+      <span className="w-12 shrink-0 text-xs uppercase tracking-wide text-tertiary">{label}</span>
       <div className="flex min-w-0 flex-1 items-center">{children}</div>
     </div>
   );

@@ -11,10 +11,7 @@ import type {
   ContactsProviderCapabilities,
 } from "@mailai/providers";
 import type { NormalizedContact } from "@mailai/providers/contacts";
-import {
-  listGraphContacts,
-  listGraphPeople,
-} from "../contacts.js";
+import { listGraphContacts, listGraphPeople } from "../contacts.js";
 
 const CAPABILITIES: ContactsProviderCapabilities = {
   ownContacts: true,
@@ -29,21 +26,15 @@ export class OutlookContactsAdapter implements ContactsProvider {
   readonly id = "outlook" as const;
   readonly capabilities: ContactsProviderCapabilities = CAPABILITIES;
 
-  async listOwnContacts(
-    args: AccessTokenArgs,
-  ): Promise<ReadonlyArray<NormalizedContact>> {
+  async listOwnContacts(args: AccessTokenArgs): Promise<ReadonlyArray<NormalizedContact>> {
     return listGraphContacts({ accessToken: args.accessToken });
   }
 
-  async listOtherContacts(
-    _args: AccessTokenArgs,
-  ): Promise<ReadonlyArray<NormalizedContact>> {
+  async listOtherContacts(_args: AccessTokenArgs): Promise<ReadonlyArray<NormalizedContact>> {
     return [];
   }
 
-  async listFrequent(
-    args: AccessTokenArgs,
-  ): Promise<ReadonlyArray<NormalizedContact>> {
+  async listFrequent(args: AccessTokenArgs): Promise<ReadonlyArray<NormalizedContact>> {
     return listGraphPeople({ accessToken: args.accessToken });
   }
 }

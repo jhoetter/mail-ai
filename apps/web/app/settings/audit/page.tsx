@@ -46,84 +46,83 @@ export default function AuditPage() {
         subtitle="Every mutation that ever ran — append-only, durable copy of the command bus."
       />
       <PageBody width="wide">
-
-      <form
-        className="flex flex-wrap gap-2 items-end mb-3"
-        onSubmit={(e) => {
-          e.preventDefault();
-          void load();
-        }}
-      >
-        <label className="flex flex-col gap-1 text-xs">
-          <span className="text-secondary">Actor</span>
-          <Input
-            placeholder="u_alice"
-            value={actor}
-            onChange={(e) => setActor(e.target.value)}
-            className="w-40"
-          />
-        </label>
-        <label className="flex flex-col gap-1 text-xs">
-          <span className="text-secondary">Type</span>
-          <Input
-            placeholder="mail:reply"
-            value={type}
-            onChange={(e) => setType(e.target.value)}
-            className="w-44"
-          />
-        </label>
-        <label className="flex flex-col gap-1 text-xs">
-          <span className="text-secondary">Since</span>
-          <Input
-            placeholder="1h, 24h, 7d, or ISO"
-            value={since}
-            onChange={(e) => setSince(e.target.value)}
-            className="w-44"
-          />
-        </label>
-        <Button type="submit" size="sm" variant="primary" disabled={loading}>
-          {loading ? "…" : "Filter"}
-        </Button>
-      </form>
-
-      {err ? <p className="text-sm text-error mb-3">{err}</p> : null}
-
-      {items.length === 0 && !loading ? (
-        <p className="text-sm text-secondary">No entries match the current filters.</p>
-      ) : (
-        <table className="w-full border-collapse text-sm">
-          <thead>
-            <tr className="border-b border-divider text-left text-secondary">
-              <th className="px-3 py-2 font-medium">Time</th>
-              <th className="px-3 py-2 font-medium">Actor</th>
-              <th className="px-3 py-2 font-medium">Type</th>
-              <th className="px-3 py-2 font-medium">Status</th>
-              <th className="px-3 py-2 font-medium">Target</th>
-              <th className="px-3 py-2 font-medium">Diff</th>
-            </tr>
-          </thead>
-          <tbody>
-            {items.map((entry) => (
-              <Row key={entry.seq} entry={entry} />
-            ))}
-          </tbody>
-        </table>
-      )}
-
-      <div className="mt-4">
-        {nextCursor ? (
-          <Button
-            size="sm"
-            variant="secondary"
-            disabled={loading}
-            onClick={() => void load(nextCursor)}
-          >
-            {loading ? "Loading…" : "Load more"}
+        <form
+          className="flex flex-wrap gap-2 items-end mb-3"
+          onSubmit={(e) => {
+            e.preventDefault();
+            void load();
+          }}
+        >
+          <label className="flex flex-col gap-1 text-xs">
+            <span className="text-secondary">Actor</span>
+            <Input
+              placeholder="u_alice"
+              value={actor}
+              onChange={(e) => setActor(e.target.value)}
+              className="w-40"
+            />
+          </label>
+          <label className="flex flex-col gap-1 text-xs">
+            <span className="text-secondary">Type</span>
+            <Input
+              placeholder="mail:reply"
+              value={type}
+              onChange={(e) => setType(e.target.value)}
+              className="w-44"
+            />
+          </label>
+          <label className="flex flex-col gap-1 text-xs">
+            <span className="text-secondary">Since</span>
+            <Input
+              placeholder="1h, 24h, 7d, or ISO"
+              value={since}
+              onChange={(e) => setSince(e.target.value)}
+              className="w-44"
+            />
+          </label>
+          <Button type="submit" size="sm" variant="primary" disabled={loading}>
+            {loading ? "…" : "Filter"}
           </Button>
-        ) : items.length > 0 ? (
-          <p className="text-xs text-secondary">End of log.</p>
-        ) : null}
-      </div>
+        </form>
+
+        {err ? <p className="text-sm text-error mb-3">{err}</p> : null}
+
+        {items.length === 0 && !loading ? (
+          <p className="text-sm text-secondary">No entries match the current filters.</p>
+        ) : (
+          <table className="w-full border-collapse text-sm">
+            <thead>
+              <tr className="border-b border-divider text-left text-secondary">
+                <th className="px-3 py-2 font-medium">Time</th>
+                <th className="px-3 py-2 font-medium">Actor</th>
+                <th className="px-3 py-2 font-medium">Type</th>
+                <th className="px-3 py-2 font-medium">Status</th>
+                <th className="px-3 py-2 font-medium">Target</th>
+                <th className="px-3 py-2 font-medium">Diff</th>
+              </tr>
+            </thead>
+            <tbody>
+              {items.map((entry) => (
+                <Row key={entry.seq} entry={entry} />
+              ))}
+            </tbody>
+          </table>
+        )}
+
+        <div className="mt-4">
+          {nextCursor ? (
+            <Button
+              size="sm"
+              variant="secondary"
+              disabled={loading}
+              onClick={() => void load(nextCursor)}
+            >
+              {loading ? "Loading…" : "Load more"}
+            </Button>
+          ) : items.length > 0 ? (
+            <p className="text-xs text-secondary">End of log.</p>
+          ) : null}
+        </div>
       </PageBody>
     </Shell>
   );
@@ -142,8 +141,7 @@ function Row({ entry }: { entry: AuditEntry }) {
           {new Date(entry.createdAt).toLocaleString()}
         </td>
         <td className="px-3 py-2 align-top text-xs">
-          <code>{entry.actorId}</code>{" "}
-          <span className="text-secondary">({entry.source})</span>
+          <code>{entry.actorId}</code> <span className="text-secondary">({entry.source})</span>
         </td>
         <td className="px-3 py-2 align-top">
           <code className="text-xs">{entry.commandType}</code>
@@ -154,9 +152,7 @@ function Row({ entry }: { entry: AuditEntry }) {
         <td className="px-3 py-2 align-top text-xs">
           {target ? <code>{target}</code> : <span className="text-secondary">—</span>}
         </td>
-        <td className="px-3 py-2 align-top text-xs text-secondary">
-          {open ? "▾ hide" : "▸ show"}
-        </td>
+        <td className="px-3 py-2 align-top text-xs text-secondary">{open ? "▾ hide" : "▸ show"}</td>
       </tr>
       {open ? (
         <tr className="bg-surface">

@@ -68,11 +68,7 @@ export class OauthThreadStateRepository {
     `);
   }
 
-  async unsnooze(
-    tenantId: string,
-    userId: string,
-    providerThreadId: string,
-  ): Promise<void> {
+  async unsnooze(tenantId: string, userId: string, providerThreadId: string): Promise<void> {
     await this.db.execute(sql`
       INSERT INTO oauth_thread_state (
         tenant_id, user_id, provider_thread_id, status, updated_at
@@ -86,11 +82,7 @@ export class OauthThreadStateRepository {
     `);
   }
 
-  async markDone(
-    tenantId: string,
-    userId: string,
-    providerThreadId: string,
-  ): Promise<void> {
+  async markDone(tenantId: string, userId: string, providerThreadId: string): Promise<void> {
     await this.db.execute(sql`
       INSERT INTO oauth_thread_state (
         tenant_id, user_id, provider_thread_id, status, done_at, updated_at
@@ -105,11 +97,7 @@ export class OauthThreadStateRepository {
     `);
   }
 
-  async reopen(
-    tenantId: string,
-    userId: string,
-    providerThreadId: string,
-  ): Promise<void> {
+  async reopen(tenantId: string, userId: string, providerThreadId: string): Promise<void> {
     await this.db.execute(sql`
       INSERT INTO oauth_thread_state (
         tenant_id, user_id, provider_thread_id, status, updated_at

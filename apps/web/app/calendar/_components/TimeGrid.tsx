@@ -67,14 +67,8 @@ export function TimeGrid({
     return Array.from({ length: 7 }, (_, i) => addDays(start, i));
   }, [view, cursor]);
 
-  const allDay = useMemo(
-    () => events.filter((e) => e.allDay),
-    [events],
-  );
-  const timed = useMemo(
-    () => events.filter((e) => !e.allDay),
-    [events],
-  );
+  const allDay = useMemo(() => events.filter((e) => e.allDay), [events]);
+  const timed = useMemo(() => events.filter((e) => !e.allDay), [events]);
 
   // Auto-scroll to a few hours before "now" on first paint so the
   // viewport opens on the working day instead of midnight.
@@ -108,7 +102,10 @@ export function TimeGrid({
         labelAllDay={t("calendar.allDay")}
       />
       <div ref={scrollRef} className="relative flex-1 overflow-y-auto">
-        <div className="grid" style={{ gridTemplateColumns: `4rem repeat(${days.length}, minmax(0, 1fr))` }}>
+        <div
+          className="grid"
+          style={{ gridTemplateColumns: `4rem repeat(${days.length}, minmax(0, 1fr))` }}
+        >
           <HourGutter labels={hourLabels} />
           {days.map((day) => (
             <DayColumn
@@ -286,10 +283,7 @@ function DayColumn({
   const [drag, setDrag] = useState<DragState | null>(null);
   const dayStart = useMemo(() => startOfDay(day), [day]);
   const dayEnd = useMemo(() => addDays(dayStart, 1), [dayStart]);
-  const laid = useMemo(
-    () => layoutDayEvents(events, dayStart, dayEnd),
-    [events, dayStart, dayEnd],
-  );
+  const laid = useMemo(() => layoutDayEvents(events, dayStart, dayEnd), [events, dayStart, dayEnd]);
 
   // Pointer math: convert a clientY → snapped Date inside this day's
   // column. We measure the column rect on every pointer event so the
@@ -386,8 +380,7 @@ function DayColumn({
 
   const now = new Date();
   const showNow = sameDay(now, day);
-  const nowTop =
-    ((now.getHours() * 60 + now.getMinutes()) / 60) * HOUR_HEIGHT;
+  const nowTop = ((now.getHours() * 60 + now.getMinutes()) / 60) * HOUR_HEIGHT;
 
   return (
     <div

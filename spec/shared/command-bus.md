@@ -51,16 +51,16 @@ to react (see [`packages/server/src/events.ts`](../../packages/server/src/events
 
 See [`packages/core/src/command/policy.ts`](../../packages/core/src/command/policy.ts). Summary:
 
-| Command | Default | Configurable? |
-| --- | --- | --- |
-| `mail:mark-read`, `mail:mark-unread` | auto | no |
-| `thread:add-tag`, `thread:remove-tag` | auto | no |
-| `comment:add` | auto | no |
-| `mail:archive`, `mail:move-to-folder`, `mail:flag` | configurable, default approve | yes (per agent / per inbox) |
-| `thread:assign`, `thread:set-status`, `thread:snooze` | configurable, default approve | yes |
-| `comment:edit`, `comment:delete` | configurable, default approve | yes |
-| `account:connect`, `account:resync` | configurable, default approve | yes |
-| `mail:send`, `mail:reply`, `mail:forward`, `mail:delete`, `account:disconnect` | always approve | no |
+| Command                                                                        | Default                       | Configurable?               |
+| ------------------------------------------------------------------------------ | ----------------------------- | --------------------------- |
+| `mail:mark-read`, `mail:mark-unread`                                           | auto                          | no                          |
+| `thread:add-tag`, `thread:remove-tag`                                          | auto                          | no                          |
+| `comment:add`                                                                  | auto                          | no                          |
+| `mail:archive`, `mail:move-to-folder`, `mail:flag`                             | configurable, default approve | yes (per agent / per inbox) |
+| `thread:assign`, `thread:set-status`, `thread:snooze`                          | configurable, default approve | yes                         |
+| `comment:edit`, `comment:delete`                                               | configurable, default approve | yes                         |
+| `account:connect`, `account:resync`                                            | configurable, default approve | yes                         |
+| `mail:send`, `mail:reply`, `mail:forward`, `mail:delete`, `account:disconnect` | always approve                | no                          |
 
 Human-source commands skip staging — humans are not staged.
 

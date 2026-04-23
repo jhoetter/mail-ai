@@ -15,11 +15,7 @@ import {
   type EntitySnapshot,
   type MailaiPlugin,
 } from "@mailai/core";
-import {
-  ThreadsRepository,
-  CommentsRepository,
-  type ThreadStatus,
-} from "@mailai/overlay-db";
+import { ThreadsRepository, CommentsRepository, type ThreadStatus } from "@mailai/overlay-db";
 import { assertTransition } from "./status.js";
 import { extractMentionHandles } from "./comments.js";
 
@@ -42,7 +38,10 @@ export class CollaborationPlugin implements MailaiPlugin {
     bus.register("comment:add", this.addComment);
   }
 
-  private setStatus: CommandHandler<"thread:set-status", { threadId: string; status: ThreadStatus }> = async (cmd) => {
+  private setStatus: CommandHandler<
+    "thread:set-status",
+    { threadId: string; status: ThreadStatus }
+  > = async (cmd) => {
     const cur = await this.ctx.threads.byId(this.ctx.tenantId, cmd.payload.threadId);
     if (!cur) throw new Error(`thread ${cmd.payload.threadId} not found`);
     assertTransition(cur.status, cmd.payload.status);
@@ -53,15 +52,16 @@ export class CollaborationPlugin implements MailaiPlugin {
     };
   };
 
-  private assign: CommandHandler<"thread:assign", { threadId: string; assigneeId: string }> = async (cmd) => {
-    const cur = await this.ctx.threads.byId(this.ctx.tenantId, cmd.payload.threadId);
-    if (!cur) throw new Error(`thread ${cmd.payload.threadId} not found`);
-    await this.ctx.threads.assign(this.ctx.tenantId, cur.id, cmd.payload.assigneeId);
-    return {
-      before: [snap(cur, { assignedTo: cur.assignedTo })],
-      after: [snap(cur, { assignedTo: cmd.payload.assigneeId })],
+  private assign: CommandHandler<"thread:assign", { threadId: string; assigneeId: string }> =
+    async (cmd) => {
+      const cur = await this.ctx.threads.byId(this.ctx.tenantId, cmd.payload.threadId);
+      if (!cur) throw new Error(`thread ${cmd.payload.threadId} not found`);
+      await this.ctx.threads.assign(this.ctx.tenantId, cur.id, cmd.payload.assigneeId);
+      return {
+        before: [snap(cur, { assignedTo: cur.assignedTo })],
+        after: [snap(cur, { assignedTo: cmd.payload.assigneeId })],
+      };
     };
-  };
 
   private unassign: CommandHandler<"thread:unassign", { threadId: string }> = async (cmd) => {
     const cur = await this.ctx.threads.byId(this.ctx.tenantId, cmd.payload.threadId);
@@ -73,7 +73,10 @@ export class CollaborationPlugin implements MailaiPlugin {
     };
   };
 
-  private addComment: CommandHandler<"comment:add", { threadId: string; text: string; mentions?: string[] }> = async (cmd) => {
+  private addComment: CommandHandler<
+    "comment:add",
+    { threadId: string; text: string; mentions?: string[] }
+  > = async (cmd) => {
     const handles = extractMentionHandles(cmd.payload.text);
     const mentions = cmd.payload.mentions ?? handles;
     const id = randomUUID();

@@ -302,8 +302,7 @@ export async function getGmailMessageBody(args: {
 }): Promise<GmailMessageBody> {
   const f = args.fetchImpl ?? fetch;
   const url =
-    `${GMAIL_BASE}/users/me/messages/${encodeURIComponent(args.messageId)}` +
-    `?format=full`;
+    `${GMAIL_BASE}/users/me/messages/${encodeURIComponent(args.messageId)}` + `?format=full`;
   const res = await f(url, {
     headers: { authorization: `Bearer ${args.accessToken}` },
   });
@@ -399,8 +398,7 @@ export async function fetchGmailRawMessage(args: {
   fetchImpl?: typeof fetch;
 }): Promise<Buffer> {
   const f = args.fetchImpl ?? fetch;
-  const url =
-    `${GMAIL_BASE}/users/me/messages/${encodeURIComponent(args.messageId)}?format=raw`;
+  const url = `${GMAIL_BASE}/users/me/messages/${encodeURIComponent(args.messageId)}?format=raw`;
   const res = await f(url, {
     headers: { authorization: `Bearer ${args.accessToken}` },
   });
@@ -422,10 +420,16 @@ export async function fetchGmailRawMessage(args: {
 export interface GmailHistoryEvent {
   readonly id: string;
   readonly messages?: ReadonlyArray<{ id: string; threadId?: string }>;
-  readonly messagesAdded?: ReadonlyArray<{ message: { id: string; threadId?: string; labelIds?: string[] } }>;
+  readonly messagesAdded?: ReadonlyArray<{
+    message: { id: string; threadId?: string; labelIds?: string[] };
+  }>;
   readonly messagesDeleted?: ReadonlyArray<{ message: { id: string; threadId?: string } }>;
-  readonly labelsAdded?: ReadonlyArray<{ message: { id: string; threadId?: string; labelIds?: string[] } }>;
-  readonly labelsRemoved?: ReadonlyArray<{ message: { id: string; threadId?: string; labelIds?: string[] } }>;
+  readonly labelsAdded?: ReadonlyArray<{
+    message: { id: string; threadId?: string; labelIds?: string[] };
+  }>;
+  readonly labelsRemoved?: ReadonlyArray<{
+    message: { id: string; threadId?: string; labelIds?: string[] };
+  }>;
 }
 
 export interface GmailHistoryPage {
@@ -524,8 +528,7 @@ export async function modifyGmailMessageLabels(args: {
   fetchImpl?: typeof fetch;
 }): Promise<void> {
   const f = args.fetchImpl ?? fetch;
-  const url =
-    `${GMAIL_BASE}/users/me/messages/${encodeURIComponent(args.messageId)}/modify`;
+  const url = `${GMAIL_BASE}/users/me/messages/${encodeURIComponent(args.messageId)}/modify`;
   const body: Record<string, unknown> = {};
   if (args.addLabelIds && args.addLabelIds.length > 0) body["addLabelIds"] = args.addLabelIds;
   if (args.removeLabelIds && args.removeLabelIds.length > 0)

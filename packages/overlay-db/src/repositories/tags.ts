@@ -66,11 +66,7 @@ export class TagsRepository {
   // exists yet or not. Color is auto-assigned when missing using a
   // deterministic hash on name so the same tag name lands on the
   // same color for everyone in the tenant.
-  async ensureByName(
-    tenantId: string,
-    name: string,
-    color?: string | null,
-  ): Promise<TagRow> {
+  async ensureByName(tenantId: string, name: string, color?: string | null): Promise<TagRow> {
     const existing = await this.byName(tenantId, name);
     if (existing) return existing;
     const id = `tag_${tenantId}_${slugify(name)}_${shortHash(name)}`;
@@ -85,10 +81,7 @@ export class TagsRepository {
   }
 
   async addToThread(tenantId: string, threadId: string, tagId: string): Promise<void> {
-    await this.db
-      .insert(threadTags)
-      .values({ tenantId, threadId, tagId })
-      .onConflictDoNothing();
+    await this.db.insert(threadTags).values({ tenantId, threadId, tagId }).onConflictDoNothing();
   }
 
   async removeFromThread(tenantId: string, threadId: string, tagId: string): Promise<void> {
@@ -105,12 +98,14 @@ export class TagsRepository {
 }
 
 function slugify(name: string): string {
-  return name
-    .trim()
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "")
-    .slice(0, 32) || "tag";
+  return (
+    name
+      .trim()
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/^-+|-+$/g, "")
+      .slice(0, 32) || "tag"
+  );
 }
 
 function shortHash(s: string): string {

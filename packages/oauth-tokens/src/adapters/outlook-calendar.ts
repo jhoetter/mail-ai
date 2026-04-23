@@ -48,9 +48,7 @@ export class OutlookCalendarAdapter implements CalendarProvider {
   readonly id = "outlook" as const;
   readonly capabilities: CalendarProviderCapabilities = CAPABILITIES;
 
-  async listCalendars(
-    args: AccessTokenArgs,
-  ): Promise<ReadonlyArray<NormalizedCalendar>> {
+  async listCalendars(args: AccessTokenArgs): Promise<ReadonlyArray<NormalizedCalendar>> {
     return listGraphCalendars({ accessToken: args.accessToken });
   }
 
@@ -86,18 +84,12 @@ export class OutlookCalendarAdapter implements CalendarProvider {
     };
   }
 
-  async createEvent(
-    args: AccessTokenArgs & CreateEventArgs,
-  ): Promise<CreatedEvent> {
+  async createEvent(args: AccessTokenArgs & CreateEventArgs): Promise<CreatedEvent> {
     if (args.conference === "google") {
-      throw new Error(
-        "outlook calendar adapter cannot provision a Google Meet meeting",
-      );
+      throw new Error("outlook calendar adapter cannot provision a Google Meet meeting");
     }
     if (args.recurrence) {
-      throw new Error(
-        "outlook calendar adapter does not yet support recurrence on create",
-      );
+      throw new Error("outlook calendar adapter does not yet support recurrence on create");
     }
     return createGraphEvent({
       accessToken: args.accessToken,
@@ -115,23 +107,17 @@ export class OutlookCalendarAdapter implements CalendarProvider {
   async patchEvent(args: AccessTokenArgs & PatchEventArgs): Promise<void> {
     void args.calendarId;
     if (args.scope && args.scope !== "single") {
-      throw new Error(
-        `outlook calendar adapter only supports the "single" edit scope`,
-      );
+      throw new Error(`outlook calendar adapter only supports the "single" edit scope`);
     }
     const p = args.patch;
     if (
       (p.attendeesAdd && p.attendeesAdd.length > 0) ||
       (p.attendeesRemove && p.attendeesRemove.length > 0)
     ) {
-      throw new Error(
-        "outlook calendar adapter does not yet support attendee delta patches",
-      );
+      throw new Error("outlook calendar adapter does not yet support attendee delta patches");
     }
     if (p.recurrence !== undefined) {
-      throw new Error(
-        "outlook calendar adapter does not yet support recurrence patches",
-      );
+      throw new Error("outlook calendar adapter does not yet support recurrence patches");
     }
     const body: Record<string, unknown> = {};
     if (p.summary !== undefined) body["subject"] = p.summary;
@@ -157,9 +143,7 @@ export class OutlookCalendarAdapter implements CalendarProvider {
   async deleteEvent(args: AccessTokenArgs & DeleteEventArgs): Promise<void> {
     void args.calendarId;
     if (args.scope && args.scope !== "single") {
-      throw new Error(
-        `outlook calendar adapter only supports the "single" delete scope`,
-      );
+      throw new Error(`outlook calendar adapter only supports the "single" delete scope`);
     }
     await deleteGraphEvent({
       accessToken: args.accessToken,
@@ -171,9 +155,7 @@ export class OutlookCalendarAdapter implements CalendarProvider {
     void args.calendarId;
     void args.attendeeEmail; // Graph addresses the response to the authenticated user
     if (args.scope && args.scope !== "single") {
-      throw new Error(
-        `outlook calendar adapter only supports the "single" respond scope`,
-      );
+      throw new Error(`outlook calendar adapter only supports the "single" respond scope`);
     }
     await respondGraphEvent({
       accessToken: args.accessToken,

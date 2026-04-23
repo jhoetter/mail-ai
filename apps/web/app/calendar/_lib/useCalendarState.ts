@@ -90,16 +90,11 @@ export function useCalendarState() {
   }, []);
   useMutationEvents("event", onMutation);
 
-  const visibleCalendars = useMemo(
-    () => calendars?.filter((c) => c.isVisible) ?? [],
-    [calendars],
-  );
+  const visibleCalendars = useMemo(() => calendars?.filter((c) => c.isVisible) ?? [], [calendars]);
 
   const events = useMemo<CalendarEvent[]>(
     () =>
-      eventsByCalendar.flatMap((g) =>
-        g.events.map((e) => ({ ...e, calendarId: g.calendarId })),
-      ),
+      eventsByCalendar.flatMap((g) => g.events.map((e) => ({ ...e, calendarId: g.calendarId }))),
     [eventsByCalendar],
   );
 
@@ -127,24 +122,21 @@ export function useCalendarState() {
     }
   }, [refreshCalendars]);
 
-  const onToggleCalendar = useCallback(
-    async (id: string, next: boolean) => {
-      // Optimistic flip — undo on failure.
+  const onToggleCalendar = useCallback(async (id: string, next: boolean) => {
+    // Optimistic flip — undo on failure.
+    setCalendars((prev) =>
+      prev ? prev.map((c) => (c.id === id ? { ...c, isVisible: next } : c)) : prev,
+    );
+    try {
+      await setCalendarVisibility(id, next);
+      setRevision((r) => r + 1);
+    } catch (err) {
       setCalendars((prev) =>
-        prev ? prev.map((c) => (c.id === id ? { ...c, isVisible: next } : c)) : prev,
+        prev ? prev.map((c) => (c.id === id ? { ...c, isVisible: !next } : c)) : prev,
       );
-      try {
-        await setCalendarVisibility(id, next);
-        setRevision((r) => r + 1);
-      } catch (err) {
-        setCalendars((prev) =>
-          prev ? prev.map((c) => (c.id === id ? { ...c, isVisible: !next } : c)) : prev,
-        );
-        setError(err instanceof Error ? err.message : String(err));
-      }
-    },
-    [],
-  );
+      setError(err instanceof Error ? err.message : String(err));
+    }
+  }, []);
 
   const onPrev = useCallback(() => {
     setCursor((c) => {

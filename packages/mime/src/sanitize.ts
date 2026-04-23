@@ -8,5 +8,5 @@ const ON_HANDLERS = /\son[a-z]+="[^"]*"/gi;
 const JS_PROTO = /(href|src)="javascript:[^"]*"/gi;
 
 export function sanitizeHtml(input: string): string {
-  return input.replace(BLOCK_TAGS, "").replace(ON_HANDLERS, "").replace(JS_PROTO, "$1=\"#\"");
+  return input.replace(BLOCK_TAGS, "").replace(ON_HANDLERS, "").replace(JS_PROTO, '$1="#"');
 }

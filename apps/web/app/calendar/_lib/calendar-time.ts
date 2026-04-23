@@ -105,11 +105,7 @@ export function snapMinutes(minutes: number): number {
 // Pixel position → Date for a time grid lane. `dayStart` is the
 // midnight of the day the column represents, `pxPerHour` is the row
 // height in CSS px. Returns a Date snapped to SNAP_MINUTES.
-export function pxToDate(
-  dayStart: Date,
-  pxPerHour: number,
-  py: number,
-): Date {
+export function pxToDate(dayStart: Date, pxPerHour: number, py: number): Date {
   const totalMinutes = (py / pxPerHour) * 60;
   const snapped = snapMinutes(Math.max(0, totalMinutes));
   const out = new Date(dayStart);

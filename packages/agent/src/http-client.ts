@@ -88,13 +88,7 @@ export interface SearchHit {
   readonly accountId: string;
 }
 
-export type SyncFolder =
-  | "inbox"
-  | "sent"
-  | "drafts"
-  | "trash"
-  | "spam"
-  | "archive";
+export type SyncFolder = "inbox" | "sent" | "drafts" | "trash" | "spam" | "archive";
 
 export interface SyncResult {
   readonly fetched: number;
@@ -328,23 +322,18 @@ export class HttpAgentClient {
   }
 
   async addInboxMember(id: string, userId: string, role: InboxRole): Promise<{ ok: true }> {
-    const res = await this.fetchImpl(
-      this.url(`/api/inboxes/${encodeURIComponent(id)}/members`),
-      {
-        method: "POST",
-        headers: this.headers(),
-        body: JSON.stringify({ userId, role }),
-      },
-    );
+    const res = await this.fetchImpl(this.url(`/api/inboxes/${encodeURIComponent(id)}/members`), {
+      method: "POST",
+      headers: this.headers(),
+      body: JSON.stringify({ userId, role }),
+    });
     if (!res.ok) await throwHttp(res);
     return (await res.json()) as { ok: true };
   }
 
   async removeInboxMember(id: string, userId: string): Promise<{ ok: true }> {
     const res = await this.fetchImpl(
-      this.url(
-        `/api/inboxes/${encodeURIComponent(id)}/members/${encodeURIComponent(userId)}`,
-      ),
+      this.url(`/api/inboxes/${encodeURIComponent(id)}/members/${encodeURIComponent(userId)}`),
       { method: "DELETE", headers: this.headers() },
     );
     if (!res.ok) await throwHttp(res);

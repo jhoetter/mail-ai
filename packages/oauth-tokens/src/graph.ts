@@ -172,9 +172,7 @@ function toMetadata(m: GraphMessage): GraphMessageMetadata {
 
 function joinRecipients(rs: GraphRecipient[] | undefined): string | null {
   if (!rs || rs.length === 0) return null;
-  const out = rs
-    .map((r) => r.emailAddress?.address)
-    .filter((s): s is string => !!s);
+  const out = rs.map((r) => r.emailAddress?.address).filter((s): s is string => !!s);
   return out.length > 0 ? out.join(", ") : null;
 }
 
@@ -295,8 +293,7 @@ export async function fetchGraphRawMessage(args: {
   fetchImpl?: typeof fetch;
 }): Promise<Buffer> {
   const f = args.fetchImpl ?? fetch;
-  const url =
-    `https://graph.microsoft.com/v1.0/me/messages/${encodeURIComponent(args.messageId)}/$value`;
+  const url = `https://graph.microsoft.com/v1.0/me/messages/${encodeURIComponent(args.messageId)}/$value`;
   const res = await f(url, {
     headers: { authorization: `Bearer ${args.accessToken}` },
   });
@@ -402,8 +399,7 @@ export async function patchGraphMessage(args: {
   fetchImpl?: typeof fetch;
 }): Promise<void> {
   const f = args.fetchImpl ?? fetch;
-  const url =
-    `https://graph.microsoft.com/v1.0/me/messages/${encodeURIComponent(args.messageId)}`;
+  const url = `https://graph.microsoft.com/v1.0/me/messages/${encodeURIComponent(args.messageId)}`;
   const res = await f(url, {
     method: "PATCH",
     headers: {
@@ -468,9 +464,7 @@ export async function createGraphMailSubscription(args: {
   });
   if (!res.ok) {
     const text = await safeText(res);
-    throw new Error(
-      `graph subscriptions create failed: ${res.status} ${text.slice(0, 400)}`,
-    );
+    throw new Error(`graph subscriptions create failed: ${res.status} ${text.slice(0, 400)}`);
   }
   return (await res.json()) as GraphSubscriptionResponse;
 }
@@ -496,9 +490,7 @@ export async function renewGraphMailSubscription(args: {
   });
   if (!res.ok) {
     const text = await safeText(res);
-    throw new Error(
-      `graph subscriptions renew failed: ${res.status} ${text.slice(0, 400)}`,
-    );
+    throw new Error(`graph subscriptions renew failed: ${res.status} ${text.slice(0, 400)}`);
   }
   return (await res.json()) as GraphSubscriptionResponse;
 }
@@ -518,9 +510,7 @@ export async function deleteGraphMailSubscription(args: {
   if (res.status === 404 || res.status === 410) return;
   if (!res.ok) {
     const text = await safeText(res);
-    throw new Error(
-      `graph subscriptions delete failed: ${res.status} ${text.slice(0, 200)}`,
-    );
+    throw new Error(`graph subscriptions delete failed: ${res.status} ${text.slice(0, 200)}`);
   }
 }
 

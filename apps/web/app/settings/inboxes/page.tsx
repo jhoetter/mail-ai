@@ -1,4 +1,13 @@
-import { Button, DataTable, Dialog, Input, PageBody, PageHeader, Shell, useDialogs } from "@mailai/ui";
+import {
+  Button,
+  DataTable,
+  Dialog,
+  Input,
+  PageBody,
+  PageHeader,
+  Shell,
+  useDialogs,
+} from "@mailai/ui";
 import { useCallback, useEffect, useState } from "react";
 import { AppNav } from "../../components/AppNav";
 import {
@@ -38,36 +47,36 @@ export default function InboxesSettingsPage() {
         subtitle="Shared queues that route mail from one or more accounts to a team."
       />
       <PageBody>
-      <div className="flex justify-end mb-3">
-        <Button size="sm" variant="primary" onClick={() => setCreating(true)}>
-          New inbox
-        </Button>
-      </div>
-
-      {error ? <p className="text-sm text-error mb-3">{error}</p> : null}
-
-      {rows === null ? (
-        <p className="text-sm text-secondary">Loading…</p>
-      ) : rows.length === 0 ? (
-        <div className="rounded-md border border-dashed border-divider p-6 text-sm text-secondary">
-          No inboxes yet. Click <span className="font-medium text-foreground">New inbox</span> to
-          create one — pick a name now, wire accounts and members from the row drawer.
+        <div className="flex justify-end mb-3">
+          <Button size="sm" variant="primary" onClick={() => setCreating(true)}>
+            New inbox
+          </Button>
         </div>
-      ) : (
-        <DataTable<InboxRow>
-          rows={rows}
-          columns={[
-            { key: "name", header: "Name" },
-            {
-              key: "description",
-              header: "Description",
-              render: (r) => r.description ?? "—",
-            },
-            { key: "id", header: "ID", render: (r) => <code className="text-xs">{r.id}</code> },
-          ]}
-          onRowClick={(r) => setDrawerId(r.id)}
-        />
-      )}
+
+        {error ? <p className="text-sm text-error mb-3">{error}</p> : null}
+
+        {rows === null ? (
+          <p className="text-sm text-secondary">Loading…</p>
+        ) : rows.length === 0 ? (
+          <div className="rounded-md border border-dashed border-divider p-6 text-sm text-secondary">
+            No inboxes yet. Click <span className="font-medium text-foreground">New inbox</span> to
+            create one — pick a name now, wire accounts and members from the row drawer.
+          </div>
+        ) : (
+          <DataTable<InboxRow>
+            rows={rows}
+            columns={[
+              { key: "name", header: "Name" },
+              {
+                key: "description",
+                header: "Description",
+                render: (r) => r.description ?? "—",
+              },
+              { key: "id", header: "ID", render: (r) => <code className="text-xs">{r.id}</code> },
+            ]}
+            onRowClick={(r) => setDrawerId(r.id)}
+          />
+        )}
       </PageBody>
 
       <CreateDialog
@@ -220,7 +229,10 @@ function InboxDrawer({
                 <li className="text-secondary">No members yet.</li>
               ) : (
                 detail.members.map((m) => (
-                  <li key={`${m.inboxId}:${m.userId}`} className="flex items-center justify-between">
+                  <li
+                    key={`${m.inboxId}:${m.userId}`}
+                    className="flex items-center justify-between"
+                  >
                     <span>
                       <code className="text-xs">{m.userId}</code>{" "}
                       <span className="text-secondary">({m.role})</span>

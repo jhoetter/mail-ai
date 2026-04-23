@@ -58,10 +58,7 @@ export function ThemeToggle({ className, compact, labels }: ThemeToggleProps) {
 
   return (
     <div
-      className={cn(
-        "inline-flex items-center gap-0.5 rounded-md bg-hover p-0.5",
-        className,
-      )}
+      className={cn("inline-flex items-center gap-0.5 rounded-md bg-hover p-0.5", className)}
       role="radiogroup"
       aria-label="Theme"
     >

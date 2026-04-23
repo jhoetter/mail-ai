@@ -1,20 +1,9 @@
-import {
-  useCallback,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-  type KeyboardEvent,
-} from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent } from "react";
 import { cn } from "../lib/cn";
 
 // Status dot shown next to attendee chips. Maps onto Google's RSVP
 // states; "needsAction" / undefined render with no dot.
-export type ContactPickerResponse =
-  | "accepted"
-  | "declined"
-  | "tentative"
-  | "needsAction";
+export type ContactPickerResponse = "accepted" | "declined" | "tentative" | "needsAction";
 
 export interface ContactPickerValue {
   readonly email: string;
@@ -63,10 +52,7 @@ export function ContactPicker({
   const inputRef = useRef<HTMLInputElement | null>(null);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const known = useMemo(
-    () => new Set(value.map((v) => v.email.toLowerCase())),
-    [value],
-  );
+  const known = useMemo(() => new Set(value.map((v) => v.email.toLowerCase())), [value]);
 
   const commit = useCallback(
     (entry: ContactPickerValue) => {
@@ -160,9 +146,7 @@ export function ContactPicker({
         >
           <ResponseDot {...(v.response ? { response: v.response } : {})} />
           <span className="font-medium text-foreground">{v.name ?? v.email}</span>
-          {v.name && (
-            <span className="text-tertiary">&lt;{v.email}&gt;</span>
-          )}
+          {v.name && <span className="text-tertiary">&lt;{v.email}&gt;</span>}
           {!readOnly && !v.organizer && (
             <button
               type="button"
@@ -211,12 +195,8 @@ export function ContactPicker({
                 i === hi ? "bg-hover" : "bg-transparent",
               )}
             >
-              <span className="font-medium text-foreground">
-                {s.name ?? s.email}
-              </span>
-              {s.name && (
-                <span className="text-xs text-tertiary">{s.email}</span>
-              )}
+              <span className="font-medium text-foreground">{s.name ?? s.email}</span>
+              {s.name && <span className="text-xs text-tertiary">{s.email}</span>}
             </button>
           ))}
         </div>
@@ -228,10 +208,6 @@ export function ContactPicker({
 function ResponseDot({ response }: { response?: ContactPickerResponse }) {
   if (!response || response === "needsAction") return null;
   const cls =
-    response === "accepted"
-      ? "bg-success"
-      : response === "declined"
-        ? "bg-error"
-        : "bg-warning";
+    response === "accepted" ? "bg-success" : response === "declined" ? "bg-error" : "bg-warning";
   return <span className={cn("inline-block h-2 w-2 rounded-full", cls)} aria-hidden />;
 }

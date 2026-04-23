@@ -23,12 +23,7 @@ export class AttachmentsRepository {
     const rows = await this.db
       .select()
       .from(attachmentsMeta)
-      .where(
-        and(
-          eq(attachmentsMeta.tenantId, tenantId),
-          eq(attachmentsMeta.messageId, messageId),
-        ),
-      );
+      .where(and(eq(attachmentsMeta.tenantId, tenantId), eq(attachmentsMeta.messageId, messageId)));
     return rows as AttachmentRow[];
   }
 }

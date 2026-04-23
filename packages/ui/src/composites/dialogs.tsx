@@ -89,9 +89,7 @@ const DialogsContext = createContext<DialogsApi | null>(null);
 export function useDialogs(): DialogsApi {
   const ctx = useContext(DialogsContext);
   if (!ctx) {
-    throw new Error(
-      "useDialogs() requires <DialogsProvider> to be mounted higher in the tree.",
-    );
+    throw new Error("useDialogs() requires <DialogsProvider> to be mounted higher in the tree.");
   }
   return ctx;
 }
@@ -190,13 +188,7 @@ function ActiveDialog({ entry, onDone }: ActiveDialogProps) {
   }
 }
 
-function ConfirmBody({
-  opts,
-  onResult,
-}: {
-  opts: ConfirmOptions;
-  onResult: (v: boolean) => void;
-}) {
+function ConfirmBody({ opts, onResult }: { opts: ConfirmOptions; onResult: (v: boolean) => void }) {
   return (
     <Dialog open onClose={() => onResult(false)} fullScreenOnMobile={false}>
       <DialogHeader title={opts.title} description={opts.description} />
@@ -217,13 +209,7 @@ function ConfirmBody({
   );
 }
 
-function AlertBody({
-  opts,
-  onResult,
-}: {
-  opts: AlertOptions;
-  onResult: () => void;
-}) {
+function AlertBody({ opts, onResult }: { opts: AlertOptions; onResult: () => void }) {
   return (
     <Dialog open onClose={() => onResult()} fullScreenOnMobile={false}>
       <DialogHeader title={opts.title} description={opts.description} />
@@ -280,13 +266,7 @@ function PromptBody({
   );
 }
 
-function DialogHeader({
-  title,
-  description,
-}: {
-  title: string;
-  description?: ReactNode;
-}) {
+function DialogHeader({ title, description }: { title: string; description?: ReactNode }) {
   return (
     <header>
       <h2 className="text-base font-semibold">{title}</h2>

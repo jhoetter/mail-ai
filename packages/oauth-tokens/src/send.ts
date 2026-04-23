@@ -85,9 +85,7 @@ export async function sendGraph(args: GraphSendArgs): Promise<{ ok: true }> {
         ? { contentType: "HTML", content: args.bodyHtml }
         : { contentType: "Text", content: args.body },
     toRecipients: args.to.map((address) => ({ emailAddress: { address } })),
-    ...(args.cc
-      ? { ccRecipients: args.cc.map((address) => ({ emailAddress: { address } })) }
-      : {}),
+    ...(args.cc ? { ccRecipients: args.cc.map((address) => ({ emailAddress: { address } })) } : {}),
     ...(args.bcc
       ? { bccRecipients: args.bcc.map((address) => ({ emailAddress: { address } })) }
       : {}),

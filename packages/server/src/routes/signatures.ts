@@ -6,11 +6,7 @@
 // here is a plain query.
 
 import type { FastifyInstance } from "fastify";
-import {
-  OauthAccountsRepository,
-  withTenant,
-  type Pool,
-} from "@mailai/overlay-db";
+import { OauthAccountsRepository, withTenant, type Pool } from "@mailai/overlay-db";
 
 export interface SignatureRoutesDeps {
   readonly pool: Pool;
@@ -20,10 +16,7 @@ export interface SignatureRoutesDeps {
   }>;
 }
 
-export function registerSignatureRoutes(
-  app: FastifyInstance,
-  deps: SignatureRoutesDeps,
-): void {
+export function registerSignatureRoutes(app: FastifyInstance, deps: SignatureRoutesDeps): void {
   app.get("/api/accounts/signatures", async (req) => {
     const ident = await deps.identity({ headers: req.headers as Record<string, unknown> });
     return withTenant(deps.pool, ident.tenantId, async (tx) => {

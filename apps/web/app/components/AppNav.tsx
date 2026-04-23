@@ -58,9 +58,7 @@ interface NavSection {
 const SECTIONS: NavSection[] = [
   {
     labelKey: "nav.calendar",
-    items: [
-      { href: "/calendar", labelKey: "nav.calendar", icon: Calendar },
-    ],
+    items: [{ href: "/calendar", labelKey: "nav.calendar", icon: Calendar }],
   },
   {
     labelKey: "nav.settings",

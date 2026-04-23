@@ -140,7 +140,7 @@ export function registerViewRoutes(app: FastifyInstance, deps: ViewRoutesDeps): 
     const ident = await deps.identity({ headers: req.headers as Record<string, unknown> });
     const { id } = req.params as { id: string };
     const limit = Math.min(
-      Math.max(parseInt(((req.query as { limit?: string }).limit ?? "100"), 10) || 100, 1),
+      Math.max(parseInt((req.query as { limit?: string }).limit ?? "100", 10) || 100, 1),
       500,
     );
     return withTenant(deps.pool, ident.tenantId, async (tx) => {
@@ -181,9 +181,8 @@ export function registerViewRoutes(app: FastifyInstance, deps: ViewRoutesDeps): 
             // ran). The composer always assigns one before save,
             // so this is rare and the value is harmless either way.
             provider:
-              (d.oauthAccountId
-                ? providerByAccount.get(d.oauthAccountId)
-                : undefined) ?? "google-mail",
+              (d.oauthAccountId ? providerByAccount.get(d.oauthAccountId) : undefined) ??
+              "google-mail",
             subject: d.subject ?? "(no subject)",
             from: "you",
             fromEmail: null,
@@ -225,7 +224,7 @@ export function registerViewRoutes(app: FastifyInstance, deps: ViewRoutesDeps): 
       const folderFiltered = folderScope
         ? all.filter((m) => m.wellKnownFolder === folderScope)
         : all;
-      const byThread = new Map<string, typeof all[number]>();
+      const byThread = new Map<string, (typeof all)[number]>();
       for (const m of folderFiltered) {
         const existing = byThread.get(m.providerThreadId);
         if (!existing || m.internalDate.getTime() > existing.internalDate.getTime()) {
@@ -249,9 +248,7 @@ export function registerViewRoutes(app: FastifyInstance, deps: ViewRoutesDeps): 
       const statusFilter = filter.status;
       if (statusFilter && statusFilter.length > 0) {
         const states = await Promise.all(
-          candidates.map((m) =>
-            stateRepo.get(ident.tenantId, ident.userId, m.providerThreadId),
-          ),
+          candidates.map((m) => stateRepo.get(ident.tenantId, ident.userId, m.providerThreadId)),
         );
         candidates = candidates.filter((_, i) => {
           const s = states[i];
@@ -261,8 +258,10 @@ export function registerViewRoutes(app: FastifyInstance, deps: ViewRoutesDeps): 
       }
 
       // Tag filters.
-      if ((filter.tagsAny && filter.tagsAny.length > 0) ||
-        (filter.tagsNone && filter.tagsNone.length > 0)) {
+      if (
+        (filter.tagsAny && filter.tagsAny.length > 0) ||
+        (filter.tagsNone && filter.tagsNone.length > 0)
+      ) {
         const tagsRepo = new OauthThreadTagsRepository(tx);
         const tagsByThread = await tagsRepo.listForThreads(
           ident.tenantId,
@@ -276,8 +275,8 @@ export function registerViewRoutes(app: FastifyInstance, deps: ViewRoutesDeps): 
         }
         if (filter.tagsNone && filter.tagsNone.length > 0) {
           const banned = new Set(filter.tagsNone);
-          candidates = candidates.filter((c) =>
-            !(tagsByThread.get(c.providerThreadId) ?? []).some((t) => banned.has(t.id)),
+          candidates = candidates.filter(
+            (c) => !(tagsByThread.get(c.providerThreadId) ?? []).some((t) => banned.has(t.id)),
           );
         }
       }
@@ -350,10 +349,12 @@ function toApi(v: ViewRow) {
 }
 
 function slug(s: string): string {
-  return s
-    .trim()
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "")
-    .slice(0, 24) || "view";
+  return (
+    s
+      .trim()
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/^-+|-+$/g, "")
+      .slice(0, 24) || "view"
+  );
 }

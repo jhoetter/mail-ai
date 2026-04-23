@@ -44,9 +44,7 @@ export class OutlookMailPushAdapter implements PushProvider {
   readonly id = "outlook" as const;
   readonly capabilities: PushProviderCapabilities = CAPABILITIES;
 
-  async subscribe(
-    args: AccessTokenArgs & SubscribeArgs,
-  ): Promise<PushSubscription> {
+  async subscribe(args: AccessTokenArgs & SubscribeArgs): Promise<PushSubscription> {
     const sub = await createGraphMailSubscription({
       accessToken: args.accessToken,
       notificationUrl: args.notificationUrl,
@@ -99,9 +97,7 @@ export class OutlookMailPushAdapter implements PushProvider {
     }
   }
 
-  async unsubscribe(
-    args: AccessTokenArgs & { subscription: PushSubscription },
-  ): Promise<void> {
+  async unsubscribe(args: AccessTokenArgs & { subscription: PushSubscription }): Promise<void> {
     await deleteGraphMailSubscription({
       accessToken: args.accessToken,
       subscriptionId: args.subscription.providerSubscriptionId,

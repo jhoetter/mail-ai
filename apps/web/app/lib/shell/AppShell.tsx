@@ -10,10 +10,7 @@ import { useTheme } from "next-themes";
 import { useTranslator } from "../i18n/useTranslator";
 import { useI18n } from "../i18n/I18nProvider";
 import { CommandPalette } from "./CommandPalette";
-import {
-  PaletteRegistryProvider,
-  usePaletteRegistry,
-} from "./paletteRegistry";
+import { PaletteRegistryProvider, usePaletteRegistry } from "./paletteRegistry";
 import type { PaletteCommand } from "./types";
 import { CommandErrorToast } from "../../components/CommandErrorToast";
 import { TopBar } from "../../components/TopBar";

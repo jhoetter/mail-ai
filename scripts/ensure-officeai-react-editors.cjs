@@ -112,7 +112,11 @@ function shamefullyHoistDeployedTree(targetDir) {
       if (pkg.startsWith("@")) {
         const scopeDir = path.join(innerNm, pkg);
         let scopeEntries;
-        try { scopeEntries = fs.readdirSync(scopeDir); } catch { continue; }
+        try {
+          scopeEntries = fs.readdirSync(scopeDir);
+        } catch {
+          continue;
+        }
         for (const sub of scopeEntries) {
           const fullName = `${pkg}/${sub}`;
           if (seen.has(fullName)) continue;
@@ -156,15 +160,17 @@ function ensureFromSiblingRepo(repoRoot) {
         log(`Already at ${stamp}; nothing to do.`);
         return true;
       }
-    } catch { /* re-stage */ }
+    } catch {
+      /* re-stage */
+    }
   }
   log(`Staging ${PKG} from sibling repo (v${version})`);
   const stageRoot = fs.mkdtempSync(path.join(os.tmpdir(), "officeai-re-sibling-"));
   try {
-    execSync(
-      `pnpm --filter ${PKG} --prod deploy "${stageRoot}/officeai-react-editors"`,
-      { cwd: siblingRoot, stdio: "inherit" },
-    );
+    execSync(`pnpm --filter ${PKG} --prod deploy "${stageRoot}/officeai-react-editors"`, {
+      cwd: siblingRoot,
+      stdio: "inherit",
+    });
     const stagedDir = path.join(stageRoot, "officeai-react-editors");
     const distEntry = path.join(stagedDir, "dist", "index.js");
     if (!fs.existsSync(distEntry)) {
@@ -181,7 +187,9 @@ function ensureFromSiblingRepo(repoRoot) {
     warn(`Sibling staging failed: ${err && err.message ? err.message : err}`);
     return false;
   } finally {
-    try { fs.rmSync(stageRoot, { recursive: true, force: true }); } catch {}
+    try {
+      fs.rmSync(stageRoot, { recursive: true, force: true });
+    } catch {}
   }
 }
 
@@ -196,9 +204,13 @@ async function main() {
   const version = (lock && (lock.react_editors_version || lock.version)) || "";
 
   if (!tarball || !version) {
-    log("Skip tarball install: lockfile missing react_editors_tarball / version (bump office-ai release).");
+    log(
+      "Skip tarball install: lockfile missing react_editors_tarball / version (bump office-ai release).",
+    );
     if (ensureFromSiblingRepo(repo.repoRoot)) return;
-    log("No sibling office-ai checkout; @officeai/react-editors will be unavailable until the lockfile is updated.");
+    log(
+      "No sibling office-ai checkout; @officeai/react-editors will be unavailable until the lockfile is updated.",
+    );
     return;
   }
 
@@ -210,7 +222,9 @@ async function main() {
         log(`Already at v${version}; nothing to do.`);
         return;
       }
-    } catch { /* re-install */ }
+    } catch {
+      /* re-install */
+    }
   }
 
   log(`Installing ${PKG} v${version} from ${tarball}`);
@@ -230,7 +244,9 @@ async function main() {
     fs.writeFileSync(stampFile, version);
     log(`Installed at ${targetDir}`);
   } finally {
-    try { fs.rmSync(tmpRoot, { recursive: true, force: true }); } catch {}
+    try {
+      fs.rmSync(tmpRoot, { recursive: true, force: true });
+    } catch {}
   }
 }
 

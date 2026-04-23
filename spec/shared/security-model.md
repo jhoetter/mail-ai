@@ -2,15 +2,15 @@
 
 ## Threat model
 
-| Threat | Mitigation |
-| --- | --- |
-| Cross-tenant data leak | RLS + `tenant_id` everywhere; integration test boots two tenants and asserts no row crossing. |
-| Stolen IMAP password from disk | `accounts.credential_blob` is AES-256-GCM with a per-tenant DEK wrapped by a KMS-managed master key. |
-| Replay of a captured Bearer token | Tokens are short-lived (60 min); refresh requires the refresh token (per provider). |
-| Smuggling overlay metadata into IMAP | Architecture rule + isolation snapshot test. |
-| Agent sends mail you didn't sanction | Staging policy: `mail:send`/`reply`/`forward` are never auto-applied from agents. |
-| MCP-driven tool consumes more than allowed | OAuth device-flow scopes per agent; bus enforces RBAC at the actor level. |
-| Compromised browser steals attachments | Attachments are streamed through an authenticated mail-ai endpoint; the host never sees the S3 bucket directly. |
+| Threat                                     | Mitigation                                                                                                      |
+| ------------------------------------------ | --------------------------------------------------------------------------------------------------------------- |
+| Cross-tenant data leak                     | RLS + `tenant_id` everywhere; integration test boots two tenants and asserts no row crossing.                   |
+| Stolen IMAP password from disk             | `accounts.credential_blob` is AES-256-GCM with a per-tenant DEK wrapped by a KMS-managed master key.            |
+| Replay of a captured Bearer token          | Tokens are short-lived (60 min); refresh requires the refresh token (per provider).                             |
+| Smuggling overlay metadata into IMAP       | Architecture rule + isolation snapshot test.                                                                    |
+| Agent sends mail you didn't sanction       | Staging policy: `mail:send`/`reply`/`forward` are never auto-applied from agents.                               |
+| MCP-driven tool consumes more than allowed | OAuth device-flow scopes per agent; bus enforces RBAC at the actor level.                                       |
+| Compromised browser steals attachments     | Attachments are streamed through an authenticated mail-ai endpoint; the host never sees the S3 bucket directly. |
 
 ## Encryption-at-rest
 

@@ -10,9 +10,7 @@ import type { NormalizedContactEmail } from "./types.js";
 // non-empty entry. Lower-cased so the index-backed prefix lookup in
 // the repo is a straight ILIKE without a per-row lower() at query
 // time.
-export function pickPrimaryEmail(
-  emails: readonly NormalizedContactEmail[],
-): string | null {
+export function pickPrimaryEmail(emails: readonly NormalizedContactEmail[]): string | null {
   const primary = emails.find((e) => e.primary);
   const chosen = (primary ?? emails[0])?.address;
   if (!chosen) return null;

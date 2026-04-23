@@ -103,7 +103,9 @@ export async function assignThread(db: Database, m: IngestMessage): Promise<Thre
         inArray(messages.messageId, cluster.length ? cluster : [m.messageId]),
       ),
     );
-  const threadIds = Array.from(new Set(existing.map((r) => r.threadId).filter((x): x is string => !!x)));
+  const threadIds = Array.from(
+    new Set(existing.map((r) => r.threadId).filter((x): x is string => !!x)),
+  );
 
   // Decide canonical thread.
   let canonicalThreadId: string;

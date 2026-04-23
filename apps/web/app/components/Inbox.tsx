@@ -152,31 +152,21 @@ export function Inbox() {
       labels: t.labels ?? [],
     })) ?? [];
 
-  const onToggleStar = useCallback(
-    (row: ThreadRow) => {
-      const next = !row.starred;
-      // Optimistic patch
+  const onToggleStar = useCallback((row: ThreadRow) => {
+    const next = !row.starred;
+    // Optimistic patch
+    setThreads((prev) =>
+      prev ? prev.map((tr) => (tr.id === row.id ? { ...tr, starred: next } : tr)) : prev,
+    );
+    void dispatchCommand({
+      type: "mail:star",
+      payload: { providerMessageId: row.providerMessageId, starred: next },
+    }).catch(() => {
       setThreads((prev) =>
-        prev
-          ? prev.map((tr) => (tr.id === row.id ? { ...tr, starred: next } : tr))
-          : prev,
+        prev ? prev.map((tr) => (tr.id === row.id ? { ...tr, starred: !next } : tr)) : prev,
       );
-      void dispatchCommand({
-        type: "mail:star",
-        payload: { providerMessageId: row.providerMessageId, starred: next },
-      })
-        .catch(() => {
-          setThreads((prev) =>
-            prev
-              ? prev.map((tr) =>
-                  tr.id === row.id ? { ...tr, starred: !next } : tr,
-                )
-              : prev,
-          );
-        });
-    },
-    [],
-  );
+    });
+  }, []);
 
   return (
     <Shell sidebar={<AppNav />}>
@@ -269,11 +259,7 @@ export function Inbox() {
                             : "text-tertiary hover:text-foreground")
                         }
                       >
-                        <Star
-                          size={13}
-                          aria-hidden
-                          fill={r.starred ? "currentColor" : "none"}
-                        />
+                        <Star size={13} aria-hidden fill={r.starred ? "currentColor" : "none"} />
                       </button>
                       <div className="flex min-w-0 flex-1 flex-col">
                         <div className="flex items-baseline justify-between gap-2">
@@ -287,11 +273,7 @@ export function Inbox() {
                           </span>
                           <div className="flex shrink-0 items-center gap-1">
                             {r.hasAttachments ? (
-                              <Paperclip
-                                size={11}
-                                aria-hidden
-                                className="text-tertiary"
-                              />
+                              <Paperclip size={11} aria-hidden className="text-tertiary" />
                             ) : null}
                             <span className="text-[11px] text-tertiary tabular-nums">
                               {formatShort(r.date)}
@@ -306,14 +288,10 @@ export function Inbox() {
                         >
                           {r.subject}
                         </span>
-                        <span className="truncate text-xs text-tertiary">
-                          {r.snippet}
-                        </span>
+                        <span className="truncate text-xs text-tertiary">{r.snippet}</span>
                         {r.tags.length > 0 || r.labels.length > 0 ? (
                           <div className="mt-1 flex flex-wrap items-center gap-1">
-                            {r.tags.length > 0 ? (
-                              <ReadOnlyChips tags={r.tags} compact />
-                            ) : null}
+                            {r.tags.length > 0 ? <ReadOnlyChips tags={r.tags} compact /> : null}
                             {r.labels
                               .filter((l) => !isSystemLabel(l))
                               .slice(0, 4)

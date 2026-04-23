@@ -72,10 +72,7 @@ export class OauthPushSubscriptionsRepository {
     `);
   }
 
-  async byAccount(
-    tenantId: string,
-    oauthAccountId: string,
-  ): Promise<PushSubscriptionRow | null> {
+  async byAccount(tenantId: string, oauthAccountId: string): Promise<PushSubscriptionRow | null> {
     const rows = await this.db
       .select()
       .from(oauthPushSubscriptions)
@@ -89,10 +86,7 @@ export class OauthPushSubscriptionsRepository {
   }
 
   // Lookup by Graph clientState (echoed back on every webhook).
-  async byClientState(
-    tenantId: string,
-    clientState: string,
-  ): Promise<PushSubscriptionRow | null> {
+  async byClientState(tenantId: string, clientState: string): Promise<PushSubscriptionRow | null> {
     const rows = await this.db
       .select()
       .from(oauthPushSubscriptions)
@@ -119,10 +113,7 @@ export class OauthPushSubscriptionsRepository {
         and(
           eq(oauthPushSubscriptions.tenantId, tenantId),
           eq(oauthPushSubscriptions.provider, provider),
-          eq(
-            oauthPushSubscriptions.providerSubscriptionId,
-            providerSubscriptionId,
-          ),
+          eq(oauthPushSubscriptions.providerSubscriptionId, providerSubscriptionId),
         ),
       );
     return (rows[0] as PushSubscriptionRow | undefined) ?? null;
@@ -131,10 +122,7 @@ export class OauthPushSubscriptionsRepository {
   // All subscriptions inside the renewal window for a tenant. The
   // scheduler tick uses this to find candidates without scanning the
   // whole table.
-  async dueForRenewal(
-    tenantId: string,
-    horizon: Date,
-  ): Promise<PushSubscriptionRow[]> {
+  async dueForRenewal(tenantId: string, horizon: Date): Promise<PushSubscriptionRow[]> {
     const rows = await this.db
       .select()
       .from(oauthPushSubscriptions)
@@ -159,10 +147,7 @@ export class OauthPushSubscriptionsRepository {
 
   // Remove a subscription. Used after unsubscribe() succeeds, or
   // after a renew loop has exhausted retries.
-  async deleteByAccount(
-    tenantId: string,
-    oauthAccountId: string,
-  ): Promise<void> {
+  async deleteByAccount(tenantId: string, oauthAccountId: string): Promise<void> {
     await this.db
       .delete(oauthPushSubscriptions)
       .where(
@@ -173,11 +158,7 @@ export class OauthPushSubscriptionsRepository {
       );
   }
 
-  async markError(
-    tenantId: string,
-    oauthAccountId: string,
-    error: string,
-  ): Promise<void> {
+  async markError(tenantId: string, oauthAccountId: string, error: string): Promise<void> {
     await this.db
       .update(oauthPushSubscriptions)
       .set({ lastError: error.slice(0, 500), updatedAt: new Date() })

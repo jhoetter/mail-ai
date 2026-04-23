@@ -73,21 +73,15 @@ export interface MailProvider {
 
   // List messages in a single folder, page by page. The caller is
   // responsible for paging until nextCursor is null.
-  listMessages(
-    args: AccessTokenArgs & ListMessagesArgs,
-  ): Promise<ListMessagesPage>;
+  listMessages(args: AccessTokenArgs & ListMessagesArgs): Promise<ListMessagesPage>;
 
   // Lazy body fetch. Returns null/null body when the provider
   // genuinely has nothing for that id (rare).
-  fetchMessageBody(
-    args: AccessTokenArgs & { providerMessageId: string },
-  ): Promise<NormalizedBody>;
+  fetchMessageBody(args: AccessTokenArgs & { providerMessageId: string }): Promise<NormalizedBody>;
 
   // Raw RFC 822 bytes for download / forward / .eml export. Cached
   // by the caller in the object store; the adapter never caches.
-  fetchRawMime(
-    args: AccessTokenArgs & { providerMessageId: string },
-  ): Promise<Buffer>;
+  fetchRawMime(args: AccessTokenArgs & { providerMessageId: string }): Promise<Buffer>;
 
   // Lazy attachment fetch. Returns just the bytes; metadata comes
   // from the message body fetch (NormalizedBody is only the body
@@ -101,9 +95,7 @@ export interface MailProvider {
 
   send(args: AccessTokenArgs & { message: ComposedMessage }): Promise<SendResult>;
 
-  setRead(
-    args: AccessTokenArgs & { providerMessageId: string; read: boolean },
-  ): Promise<void>;
+  setRead(args: AccessTokenArgs & { providerMessageId: string; read: boolean }): Promise<void>;
 
   setStarred(
     args: AccessTokenArgs & { providerMessageId: string; starred: boolean },

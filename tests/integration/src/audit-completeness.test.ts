@@ -5,11 +5,7 @@
 // regression here would silently break compliance export and replay.
 
 import { describe, it, expect } from "vitest";
-import {
-  CommandBus,
-  type Command,
-  type Mutation,
-} from "@mailai/core";
+import { CommandBus, type Command, type Mutation } from "@mailai/core";
 import { CollaborationPlugin } from "@mailai/collaboration";
 
 interface FakeThread {

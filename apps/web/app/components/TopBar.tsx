@@ -205,15 +205,7 @@ function buildSearchUrl(parsed: ParsedQuery): string | null {
 
 type Tab = "all" | "messages" | "files" | "people" | "mailboxes" | "tags" | "calendar";
 
-const TAB_ORDER: Tab[] = [
-  "all",
-  "messages",
-  "files",
-  "people",
-  "mailboxes",
-  "tags",
-  "calendar",
-];
+const TAB_ORDER: Tab[] = ["all", "messages", "files", "people", "mailboxes", "tags", "calendar"];
 
 interface FlatRow {
   key: string;
@@ -340,10 +332,7 @@ export function TopBar() {
       // inbox list and surface a warn so anyone debugging knows
       // why the deep link doesn't navigate further. Once the
       // route lands this becomes a thread URL.
-      console.warn(
-        "[TopBar] thread deep-link not routed; navigating to /inbox",
-        hit.threadId,
-      );
+      console.warn("[TopBar] thread deep-link not routed; navigating to /inbox", hit.threadId);
       navigate(`/inbox?thread=${encodeURIComponent(hit.threadId)}`);
       setOpen(false);
       setRecents(rememberRecent(query));
@@ -496,29 +485,15 @@ export function TopBar() {
             active={isActive}
             icon={<Calendar size={14} />}
             title={highlight(e.summary ?? "(untitled)", highlightTerms)}
-            hint={
-              [
-                e.location ?? "",
-                new Date(e.startsAt).toLocaleString(),
-              ]
-                .filter(Boolean)
-                .join(" · ")
-            }
+            hint={[e.location ?? "", new Date(e.startsAt).toLocaleString()]
+              .filter(Boolean)
+              .join(" · ")}
           />
         ),
       });
     }
     return out;
-  }, [
-    result,
-    highlightTerms,
-    openMailbox,
-    openTag,
-    openPerson,
-    openFile,
-    openMessage,
-    openEvent,
-  ]);
+  }, [result, highlightTerms, openMailbox, openTag, openPerson, openFile, openMessage, openEvent]);
 
   // Apply the active tab filter on top of the flat list.
   const visibleRows = useMemo(() => {
@@ -672,9 +647,7 @@ export function TopBar() {
               <div className="px-3 py-4 text-xs text-tertiary">{t("topbar.hint")}</div>
             )}
             {error && (
-              <div className="px-3 py-4 text-sm text-error">
-                {t("topbar.error", { error })}
-              </div>
+              <div className="px-3 py-4 text-sm text-error">{t("topbar.error", { error })}</div>
             )}
             {showNoMatches && (
               <div className="px-3 py-4 text-sm text-tertiary">{t("topbar.empty")}</div>
@@ -845,9 +818,7 @@ function FooterHint({ t }: { t: ReturnType<typeof useTranslator>["t"] }) {
 function Group({ label, children }: { label: string; children: ReactNode }) {
   return (
     <div>
-      <p className="px-3 pb-0.5 pt-2 text-[10px] uppercase tracking-wider text-tertiary">
-        {label}
-      </p>
+      <p className="px-3 pb-0.5 pt-2 text-[10px] uppercase tracking-wider text-tertiary">{label}</p>
       {children}
     </div>
   );
@@ -985,9 +956,7 @@ export function loadRecents(): string[] {
     const raw = window.localStorage.getItem(RECENT_KEY);
     if (!raw) return [];
     const parsed = JSON.parse(raw) as unknown;
-    return Array.isArray(parsed)
-      ? parsed.filter((x): x is string => typeof x === "string")
-      : [];
+    return Array.isArray(parsed) ? parsed.filter((x): x is string => typeof x === "string") : [];
   } catch {
     return [];
   }

@@ -15,15 +15,21 @@ export interface ObjectStore {
   // Mint short-lived signed URLs so the browser can upload / download
   // bytes without round-tripping through the API. Expiration is in
   // seconds (S3 cap is 7 days, but we keep ours <= 1h).
-  presignPut(key: string, opts: {
-    contentType: string;
-    expiresInSeconds?: number;
-  }): Promise<{ url: string; headers: Record<string, string>; expiresAt: number }>;
-  presignGet(key: string, opts?: {
-    expiresInSeconds?: number;
-    responseContentDisposition?: string;
-    responseContentType?: string;
-  }): Promise<{ url: string; expiresAt: number }>;
+  presignPut(
+    key: string,
+    opts: {
+      contentType: string;
+      expiresInSeconds?: number;
+    },
+  ): Promise<{ url: string; headers: Record<string, string>; expiresAt: number }>;
+  presignGet(
+    key: string,
+    opts?: {
+      expiresInSeconds?: number;
+      responseContentDisposition?: string;
+      responseContentType?: string;
+    },
+  ): Promise<{ url: string; expiresAt: number }>;
 }
 
 // Object-key namespacing. Two namespaces:

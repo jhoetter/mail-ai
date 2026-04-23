@@ -86,10 +86,7 @@ export function Shell({ sidebar, children }: Props) {
     };
   }, [open]);
 
-  const api = useMemo<SidebarApi>(
-    () => ({ open, toggle, close }),
-    [open, toggle, close],
-  );
+  const api = useMemo<SidebarApi>(() => ({ open, toggle, close }), [open, toggle, close]);
 
   return (
     <SidebarContext.Provider value={api}>
@@ -129,9 +126,7 @@ export function Shell({ sidebar, children }: Props) {
           />
         ) : null}
 
-        <main className="flex min-w-0 min-h-0 flex-1 flex-col overflow-hidden">
-          {children}
-        </main>
+        <main className="flex min-w-0 min-h-0 flex-1 flex-col overflow-hidden">{children}</main>
       </div>
     </SidebarContext.Provider>
   );

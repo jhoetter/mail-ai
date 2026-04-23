@@ -12,7 +12,12 @@
 // mutation row regardless can catch the error and read `.mutation`.
 
 import { client } from "./api";
-import { MailaiError, type CommandTypeString, type MailaiErrorCode, type Mutation } from "@mailai/core";
+import {
+  MailaiError,
+  type CommandTypeString,
+  type MailaiErrorCode,
+  type Mutation,
+} from "@mailai/core";
 import { publishCommandError } from "./command-errors";
 
 const KNOWN_CODES: ReadonlySet<MailaiErrorCode> = new Set<MailaiErrorCode>([

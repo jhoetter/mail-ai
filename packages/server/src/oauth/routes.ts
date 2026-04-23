@@ -389,20 +389,11 @@ function parseFolders(
   raw: string | undefined,
 ): ReadonlyArray<"inbox" | "sent" | "drafts" | "trash" | "spam" | "archive"> | null {
   if (!raw) return null;
-  const allowed = new Set([
-    "inbox",
-    "sent",
-    "drafts",
-    "trash",
-    "spam",
-    "archive",
-  ]);
+  const allowed = new Set(["inbox", "sent", "drafts", "trash", "spam", "archive"]);
   const parts = raw
     .split(",")
     .map((s) => s.trim().toLowerCase())
-    .filter((s): s is "inbox" | "sent" | "drafts" | "trash" | "spam" | "archive" =>
-      allowed.has(s),
-    );
+    .filter((s): s is "inbox" | "sent" | "drafts" | "trash" | "spam" | "archive" => allowed.has(s));
   return parts.length > 0 ? parts : null;
 }
 

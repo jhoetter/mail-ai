@@ -16,12 +16,12 @@ mail-agent --help
 
 ## Configuration
 
-| Env var            | Default                  | Purpose                              |
-|--------------------|--------------------------|--------------------------------------|
-| `MAILAI_API_URL`   | `http://127.0.0.1:8200`  | mail-ai HTTP API base URL            |
-| `MAILAI_TOKEN`     | (empty; ok in dev)       | Bearer token used by `Authorization` |
-| `MAILAI_WEB_URL`   | derived from `API_URL`   | Web UI base (used by `account connect`) |
-| `MAILAI_RT_PORT`   | `1235`                   | Realtime WebSocket port (`watch`)    |
+| Env var          | Default                 | Purpose                                 |
+| ---------------- | ----------------------- | --------------------------------------- |
+| `MAILAI_API_URL` | `http://127.0.0.1:8200` | mail-ai HTTP API base URL               |
+| `MAILAI_TOKEN`   | (empty; ok in dev)      | Bearer token used by `Authorization`    |
+| `MAILAI_WEB_URL` | derived from `API_URL`  | Web UI base (used by `account connect`) |
+| `MAILAI_RT_PORT` | `1235`                  | Realtime WebSocket port (`watch`)       |
 
 Equivalent CLI flags: `--api-url`, `--token`. Add `--json` (alias for `--format json`) for explicit machine output, or `--format table|markdown` for human reading.
 
@@ -31,14 +31,14 @@ Equivalent CLI flags: `--api-url`, `--token`. Add `--json` (alias for `--format 
 - **Errors also emit a JSON object on stdout** (in addition to a non-zero exit code), so callers that scrape stdout still get a structured error. This matches the parsing convention used by `hof-os`' `_try_parse_first_json_object` and similar shell-out wrappers.
 - **Banners** (e.g. "Visit URL …" for device-flow login) go to **stderr** so they never poison the JSON stream.
 
-| Exit code | Meaning              |
-|-----------|----------------------|
-| 0         | success              |
+| Exit code | Meaning                       |
+| --------- | ----------------------------- |
+| 0         | success                       |
 | 1         | user / validation / not-found |
-| 2         | auth                 |
-| 3         | network              |
-| 4         | conflict             |
-| 5         | internal             |
+| 2         | auth                          |
+| 3         | network                       |
+| 4         | conflict                      |
+| 5         | internal                      |
 
 ## Commands
 

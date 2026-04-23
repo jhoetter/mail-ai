@@ -71,9 +71,7 @@ export function registerSearchRoutes(app: FastifyInstance, deps: SearchRoutesDep
     // Optional uniform per-domain cap. The repository defaults are
     // tuned per category; this just lets a caller force-clip them
     // (e.g. for embeds) without exposing six distinct knobs.
-    const limit = params.limit
-      ? Math.min(Math.max(Number(params.limit) || 0, 1), 50)
-      : undefined;
+    const limit = params.limit ? Math.min(Math.max(Number(params.limit) || 0, 1), 50) : undefined;
     const limits = limit
       ? {
           messages: limit,

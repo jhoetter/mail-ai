@@ -251,8 +251,14 @@
     "go-calendar": { "label": "Go to calendar", "description": "Open the calendar." },
     "go-accounts": { "label": "Go to accounts", "description": "Open connected accounts." },
     "go-audit": { "label": "Go to audit log", "description": "Open the durable audit log." },
-    "go-inboxes": { "label": "Go to shared inboxes", "description": "Open the shared inbox manager." },
-    "compose-new": { "label": "New message", "description": "Open the composer for a new message." },
+    "go-inboxes": {
+      "label": "Go to shared inboxes",
+      "description": "Open the shared inbox manager."
+    },
+    "compose-new": {
+      "label": "New message",
+      "description": "Open the composer for a new message."
+    },
     "thread-reply": { "label": "Reply", "description": "Reply to the open thread." },
     "thread-snooze": { "label": "Snooze thread", "description": "Snooze the open thread." },
     "thread-done": { "label": "Mark thread done", "description": "Mark the open thread as done." },

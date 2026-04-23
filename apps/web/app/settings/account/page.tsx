@@ -166,103 +166,97 @@ export default function AccountSettingsPage() {
         }
       />
       <PageBody>
-      <Card>
-        <div className="flex items-center justify-between gap-4 py-1">
-          <div>
-            <p className="text-sm font-medium">{t("common.language")}</p>
-            <p className="text-xs text-secondary">
-              {t("common.english")} / {t("common.german")}
-            </p>
+        <Card>
+          <div className="flex items-center justify-between gap-4 py-1">
+            <div>
+              <p className="text-sm font-medium">{t("common.language")}</p>
+              <p className="text-xs text-secondary">
+                {t("common.english")} / {t("common.german")}
+              </p>
+            </div>
+            <LocaleToggle />
           </div>
-          <LocaleToggle />
-        </div>
-      </Card>
-      <Card>
-        {loadError ? (
-          <p className="text-sm text-error">
-            Couldn&apos;t load accounts: {loadError}
-          </p>
-        ) : loading ? (
-          <p className="text-sm text-secondary">Loading…</p>
-        ) : rows.length === 0 ? (
-          <EmptyState onConnect={() => setOpen(true)} />
-        ) : (
-          <DataTable<AccountRow>
-            rows={rows}
-            columns={[
-              {
-                key: "provider",
-                header: "Provider",
-                render: (r) => providerLabel(r.provider),
-              },
-              { key: "email", header: "Email" },
-              {
-                key: "status",
-                header: "Status",
-                render: (r) => (
-                  <span
-                    className={
-                      r.status === "ok"
-                        ? "text-success"
-                        : r.status === "needs-reauth"
-                          ? "text-warning"
-                          : "text-error"
-                    }
-                  >
-                    {statusLabel(r.status)}
-                  </span>
-                ),
-              },
-              {
-                key: "lastSyncedAt",
-                header: "Last synced",
-                render: (r) => (
-                  <span className="text-secondary">
-                    {r.lastSyncError
-                      ? `error: ${truncate(r.lastSyncError, 60)}`
-                      : r.lastSyncedAt
-                        ? formatRelative(new Date(r.lastSyncedAt))
-                        : "never"}
-                  </span>
-                ),
-              },
-              {
-                key: "id",
-                header: "",
-                render: (r) => (
-                  <div className="flex gap-2 justify-end">
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      disabled={syncingId === r.id}
-                      onClick={() => void onSync(r.id)}
+        </Card>
+        <Card>
+          {loadError ? (
+            <p className="text-sm text-error">Couldn&apos;t load accounts: {loadError}</p>
+          ) : loading ? (
+            <p className="text-sm text-secondary">Loading…</p>
+          ) : rows.length === 0 ? (
+            <EmptyState onConnect={() => setOpen(true)} />
+          ) : (
+            <DataTable<AccountRow>
+              rows={rows}
+              columns={[
+                {
+                  key: "provider",
+                  header: "Provider",
+                  render: (r) => providerLabel(r.provider),
+                },
+                { key: "email", header: "Email" },
+                {
+                  key: "status",
+                  header: "Status",
+                  render: (r) => (
+                    <span
+                      className={
+                        r.status === "ok"
+                          ? "text-success"
+                          : r.status === "needs-reauth"
+                            ? "text-warning"
+                            : "text-error"
+                      }
                     >
-                      {syncingId === r.id ? "Syncing…" : "Sync now"}
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      disabled={backfillingId === r.id}
-                      onClick={() => void onBackfill(r.id)}
-                    >
-                      {backfillingId === r.id ? "Backfilling…" : "Backfill"}
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => void onDisconnect(r.id)}
-                    >
-                      Disconnect
-                    </Button>
-                  </div>
-                ),
-              },
-            ]}
-          />
-        )}
-      </Card>
+                      {statusLabel(r.status)}
+                    </span>
+                  ),
+                },
+                {
+                  key: "lastSyncedAt",
+                  header: "Last synced",
+                  render: (r) => (
+                    <span className="text-secondary">
+                      {r.lastSyncError
+                        ? `error: ${truncate(r.lastSyncError, 60)}`
+                        : r.lastSyncedAt
+                          ? formatRelative(new Date(r.lastSyncedAt))
+                          : "never"}
+                    </span>
+                  ),
+                },
+                {
+                  key: "id",
+                  header: "",
+                  render: (r) => (
+                    <div className="flex gap-2 justify-end">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        disabled={syncingId === r.id}
+                        onClick={() => void onSync(r.id)}
+                      >
+                        {syncingId === r.id ? "Syncing…" : "Sync now"}
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        disabled={backfillingId === r.id}
+                        onClick={() => void onBackfill(r.id)}
+                      >
+                        {backfillingId === r.id ? "Backfilling…" : "Backfill"}
+                      </Button>
+                      <Button variant="ghost" size="sm" onClick={() => void onDisconnect(r.id)}>
+                        Disconnect
+                      </Button>
+                    </div>
+                  ),
+                },
+              ]}
+            />
+          )}
+        </Card>
 
-      <SignatureCard />
+        <SignatureCard />
       </PageBody>
 
       <ConnectAccountDialog
@@ -298,8 +292,7 @@ function EmptyState({ onConnect }: { onConnect: () => void }) {
   return (
     <div className="flex flex-col items-start gap-3 py-6">
       <p className="text-sm text-secondary">
-        No accounts connected yet. Connect Gmail or Outlook to start syncing
-        mail into mail-ai.
+        No accounts connected yet. Connect Gmail or Outlook to start syncing mail into mail-ai.
       </p>
       <Button variant="primary" size="sm" onClick={onConnect}>
         Connect your first account
@@ -319,4 +312,3 @@ function statusLabel(s: AccountSummary["status"]): string {
   if (s === "needs-reauth") return "Re-auth required";
   return "Revoked";
 }
-

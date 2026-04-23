@@ -9,7 +9,4 @@
 // exposed here.
 
 export { fetchGoogleUserInfo, type GoogleUserInfo } from "./gmail.js";
-export {
-  fetchMicrosoftUserInfo,
-  type MicrosoftUserInfo,
-} from "./graph.js";
+export { fetchMicrosoftUserInfo, type MicrosoftUserInfo } from "./graph.js";

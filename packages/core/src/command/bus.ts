@@ -33,10 +33,10 @@ export interface HandlerResult {
   readonly imapSideEffects?: readonly ImapSideEffect[];
 }
 
-export type CommandHandler<TType extends CommandTypeString = CommandTypeString, TPayload = unknown> = (
-  cmd: Command<TType, TPayload>,
-  ctx: HandlerContext,
-) => Promise<HandlerResult>;
+export type CommandHandler<
+  TType extends CommandTypeString = CommandTypeString,
+  TPayload = unknown,
+> = (cmd: Command<TType, TPayload>, ctx: HandlerContext) => Promise<HandlerResult>;
 
 export type AuditSink = (mutation: Mutation) => Promise<void> | void;
 
@@ -122,11 +122,17 @@ export class CommandBus {
     createdAt: number,
   ): Promise<Mutation> {
     try {
-      const result = await handler(cmd, { nowMs: this.now(), ...(ctx.inboxId ? { inboxId: ctx.inboxId } : {}) });
+      const result = await handler(cmd, {
+        nowMs: this.now(),
+        ...(ctx.inboxId ? { inboxId: ctx.inboxId } : {}),
+      });
       const diffs = result.before.map((b, i) => {
         const a = result.after[i];
         if (!a) {
-          throw new MailaiError("internal_error", "handler returned mismatched before/after lengths");
+          throw new MailaiError(
+            "internal_error",
+            "handler returned mismatched before/after lengths",
+          );
         }
         return { kind: a.kind, id: a.id, ops: shallowDiffOps(b.data, a.data) };
       });

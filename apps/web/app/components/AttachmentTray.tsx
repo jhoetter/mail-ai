@@ -62,17 +62,11 @@ function Chip({ slot, onRemove }: ChipProps) {
     >
       <Icon size={14} aria-hidden className="shrink-0" />
       <span className="truncate">{slot.filename}</span>
-      <span className="shrink-0 text-[10px] text-tertiary">
-        {formatSize(slot.sizeBytes)}
-      </span>
+      <span className="shrink-0 text-[10px] text-tertiary">{formatSize(slot.sizeBytes)}</span>
       {isUploading ? (
-        <span className="shrink-0 text-[10px] text-secondary">
-          {t("composer.uploading")}
-        </span>
+        <span className="shrink-0 text-[10px] text-secondary">{t("composer.uploading")}</span>
       ) : null}
-      {isFailed ? (
-        <span className="shrink-0 text-[10px]">{t("composer.uploadFailed")}</span>
-      ) : null}
+      {isFailed ? <span className="shrink-0 text-[10px]">{t("composer.uploadFailed")}</span> : null}
       <button
         type="button"
         onClick={() => onRemove(slot.id)}

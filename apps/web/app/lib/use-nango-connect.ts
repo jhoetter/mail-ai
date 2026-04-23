@@ -5,14 +5,9 @@
 // Exposes a state machine the dialog can render (`idle` | `starting`
 // | `awaiting-user` | `finalizing` | `success` | `error`).
 
-
 import { useCallback, useRef, useState } from "react";
 import Nango from "@nangohq/frontend";
-import {
-  OauthHttpError,
-  createConnectSession,
-  finalizeConnection,
-} from "./oauth-client";
+import { OauthHttpError, createConnectSession, finalizeConnection } from "./oauth-client";
 import type { AccountSummary, ConnectProvider } from "./oauth-client";
 
 export type ConnectStage =
@@ -62,8 +57,7 @@ export function useNangoConnect(opts?: {
             provider,
             code: "nango_not_configured",
             message:
-              err.body.message ??
-              "Nango is not configured. Set NANGO_SECRET_KEY in the API env.",
+              err.body.message ?? "Nango is not configured. Set NANGO_SECRET_KEY in the API env.",
             ...(err.body.docs ? { docs: err.body.docs } : {}),
           });
           return;

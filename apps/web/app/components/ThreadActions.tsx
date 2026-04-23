@@ -29,7 +29,10 @@ export function ThreadActions({ providerThreadId, status = "open", onChanged }: 
   const dispatch = async (type: string, payload: Record<string, unknown>) => {
     setBusy(true);
     try {
-      await dispatchCommand({ type: type as Parameters<typeof dispatchCommand>[0]["type"], payload });
+      await dispatchCommand({
+        type: type as Parameters<typeof dispatchCommand>[0]["type"],
+        payload,
+      });
       onChanged?.();
     } catch (err) {
       console.warn(type, err);
@@ -43,12 +46,7 @@ export function ThreadActions({ providerThreadId, status = "open", onChanged }: 
     <div className="flex items-center gap-1">
       {status === "open" || status === "snoozed" ? (
         <div className="relative">
-          <Button
-            size="sm"
-            variant="secondary"
-            disabled={busy}
-            onClick={() => setOpen((v) => !v)}
-          >
+          <Button size="sm" variant="secondary" disabled={busy} onClick={() => setOpen((v) => !v)}>
             <span className="inline-flex items-center gap-1.5">
               <Clock size={14} aria-hidden />
               {t("thread.tags.snooze")}

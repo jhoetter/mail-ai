@@ -17,11 +17,7 @@
       brief flash before the network sheet lands.
     -->
     <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link
-      rel="preconnect"
-      href="https://fonts.gstatic.com"
-      crossorigin="anonymous"
-    />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous" />
     <link
       rel="stylesheet"
       href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Inter:wght@400;500;600;700&display=swap"
@@ -38,15 +34,9 @@
       (function () {
         try {
           var stored = localStorage.getItem("theme");
-          var systemDark = window.matchMedia(
-            "(prefers-color-scheme: dark)",
-          ).matches;
+          var systemDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
           var resolved =
-            stored === "light" || stored === "dark"
-              ? stored
-              : systemDark
-                ? "dark"
-                : "light";
+            stored === "light" || stored === "dark" ? stored : systemDark ? "dark" : "light";
           document.documentElement.classList.add(resolved);
         } catch (_) {
           /* localStorage / matchMedia missing — let React handle it */

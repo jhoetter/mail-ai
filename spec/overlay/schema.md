@@ -5,11 +5,13 @@ Authoritative reference for the Postgres schema. Source of truth is [`packages/o
 ## Tables (v1)
 
 ### `tenants`
+
 - `id` text PK
 - `name` text NOT NULL
 - `created_at` timestamptz default now()
 
 ### `users`
+
 - `id` text PK
 - `tenant_id` text REFERENCES tenants(id)
 - `email` text NOT NULL
@@ -18,6 +20,7 @@ Authoritative reference for the Postgres schema. Source of truth is [`packages/o
 - `created_at` timestamptz default now()
 
 ### `accounts`
+
 - `id` text PK
 - `tenant_id`, `user_id`
 - `provider` text CHECK (provider IN ('gmail','microsoft','imap'))
@@ -30,6 +33,7 @@ Authoritative reference for the Postgres schema. Source of truth is [`packages/o
 - `created_at` timestamptz default now()
 
 ### `mailboxes`
+
 - `id` text PK
 - `tenant_id`, `account_id`
 - `path` text NOT NULL
@@ -43,6 +47,7 @@ Authoritative reference for the Postgres schema. Source of truth is [`packages/o
 - UNIQUE (account_id, path)
 
 ### `messages`
+
 - `id` text PK (UUIDv7)
 - `tenant_id`, `account_id`, `mailbox_id`
 - `uid` bigint NOT NULL
@@ -59,17 +64,18 @@ Authoritative reference for the Postgres schema. Source of truth is [`packages/o
 - `in_reply_to_json` jsonb DEFAULT '[]'
 - `references_json` jsonb DEFAULT '[]'
 - `text_excerpt` text
-- `body_text_ref` text NULL  -- S3 ref
-- `body_html_ref` text NULL  -- S3 ref
-- `body_raw_ref` text NULL   -- S3 ref to raw RFC 822 (for replay)
+- `body_text_ref` text NULL -- S3 ref
+- `body_html_ref` text NULL -- S3 ref
+- `body_raw_ref` text NULL -- S3 ref to raw RFC 822 (for replay)
 - `body_skipped` boolean DEFAULT false
 - `thread_id` text REFERENCES threads(id) NULL
-- `tsv` tsvector NOT NULL  -- maintained by trigger
+- `tsv` tsvector NOT NULL -- maintained by trigger
 - `created_at` timestamptz DEFAULT now()
 - UNIQUE (mailbox_id, uid)
 - INDEX (tenant_id, message_id)
 
 ### `threads`
+
 - `id` text PK
 - `tenant_id`
 - `subject_norm` text NOT NULL
@@ -81,15 +87,18 @@ Authoritative reference for the Postgres schema. Source of truth is [`packages/o
 - `created_at` timestamptz DEFAULT now()
 
 ### `tags`
+
 - `id` text PK
 - `tenant_id`, `name` text, `color` text
 - UNIQUE (tenant_id, name)
 
 ### `thread_tags`
+
 - `tenant_id`, `thread_id`, `tag_id`
 - PRIMARY KEY (thread_id, tag_id)
 
 ### `comments`
+
 - `id` text PK
 - `tenant_id`, `thread_id`, `author_user_id`
 - `body_md` text NOT NULL
@@ -99,14 +108,16 @@ Authoritative reference for the Postgres schema. Source of truth is [`packages/o
 - `deleted_at` timestamptz NULL
 
 ### `attachments`
+
 - `id` text PK
 - `tenant_id`, `message_id`
 - `filename` text, `content_type` text
 - `size` bigint, `disposition` text, `content_id` text
 - `checksum` text
-- `storage_ref` text NOT NULL  -- S3 key
+- `storage_ref` text NOT NULL -- S3 key
 
 ### `audit_log` (append-only)
+
 - `id` text PK
 - `tenant_id`
 - `actor_id` text
@@ -124,6 +135,7 @@ Authoritative reference for the Postgres schema. Source of truth is [`packages/o
 - INDEX (tenant_id, created_at DESC)
 
 ### `pending_mutations`
+
 - `id` text PK
 - `tenant_id`, `actor_id`
 - `command_type` text NOT NULL

@@ -37,7 +37,9 @@ export class Outboxer {
           case "set-flag": {
             const lock = await client.getMailboxLock(effect.mailbox);
             try {
-              await client.messageFlagsAdd({ uid: String(effect.uid) }, [effect.flag], { uid: true });
+              await client.messageFlagsAdd({ uid: String(effect.uid) }, [effect.flag], {
+                uid: true,
+              });
             } finally {
               lock.release();
             }
@@ -47,7 +49,9 @@ export class Outboxer {
           case "unset-flag": {
             const lock = await client.getMailboxLock(effect.mailbox);
             try {
-              await client.messageFlagsRemove({ uid: String(effect.uid) }, [effect.flag], { uid: true });
+              await client.messageFlagsRemove({ uid: String(effect.uid) }, [effect.flag], {
+                uid: true,
+              });
             } finally {
               lock.release();
             }
@@ -57,7 +61,9 @@ export class Outboxer {
           case "move": {
             const lock = await client.getMailboxLock(effect.mailbox);
             try {
-              await client.messageMove({ uid: String(effect.uid) }, effect.toMailbox, { uid: true });
+              await client.messageMove({ uid: String(effect.uid) }, effect.toMailbox, {
+                uid: true,
+              });
             } finally {
               lock.release();
             }
@@ -78,7 +84,12 @@ export class Outboxer {
             const flags = effect.flags ? Array.from(effect.flags) : undefined;
             const appendRes = await client.append(effect.mailbox, effect.raw, flags);
             const out: SideEffectResult = { effect, ok: true };
-            if (appendRes && typeof appendRes === "object" && "uid" in appendRes && typeof appendRes.uid === "number") {
+            if (
+              appendRes &&
+              typeof appendRes === "object" &&
+              "uid" in appendRes &&
+              typeof appendRes.uid === "number"
+            ) {
               (out as { newUid?: number }).newUid = appendRes.uid;
             }
             results.push(out);

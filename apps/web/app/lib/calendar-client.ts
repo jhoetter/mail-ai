@@ -75,9 +75,11 @@ export async function listCalendars(): Promise<CalendarSummary[]> {
   const res = await fetch(`${baseUrl()}/api/calendars`);
   if (!res.ok) throw new Error(`/api/calendars ${res.status}`);
   const data = (await res.json()) as {
-    calendars: ReadonlyArray<Omit<CalendarSummary, "capabilities"> & {
-      capabilities?: Partial<CalendarCapabilities>;
-    }>;
+    calendars: ReadonlyArray<
+      Omit<CalendarSummary, "capabilities"> & {
+        capabilities?: Partial<CalendarCapabilities>;
+      }
+    >;
   };
   // Normalize any older server response that hasn't shipped the full
   // capability set yet so the rest of the UI can treat it as required.
@@ -97,10 +99,7 @@ export async function syncCalendars(): Promise<void> {
   await fetch(`${baseUrl()}/api/calendars/sync`, { method: "POST" });
 }
 
-export async function setCalendarVisibility(
-  id: string,
-  isVisible: boolean,
-): Promise<void> {
+export async function setCalendarVisibility(id: string, isVisible: boolean): Promise<void> {
   const res = await fetch(`${baseUrl()}/api/calendars/${encodeURIComponent(id)}`, {
     method: "PATCH",
     headers: { "content-type": "application/json" },
@@ -138,10 +137,7 @@ export interface EventsRangeResponse {
   }>;
 }
 
-export async function listEventsRange(
-  from: Date,
-  to: Date,
-): Promise<EventsRangeResponse> {
+export async function listEventsRange(from: Date, to: Date): Promise<EventsRangeResponse> {
   const u = new URL(
     `${baseUrl()}/api/calendars/events`,
     typeof window === "undefined" ? "http://localhost" : window.location.href,
@@ -186,20 +182,14 @@ export interface UpdateEventInput {
   scope?: CalendarEditScope;
 }
 
-export async function updateEvent(
-  eventId: string,
-  patch: UpdateEventInput,
-): Promise<void> {
+export async function updateEvent(eventId: string, patch: UpdateEventInput): Promise<void> {
   await dispatchCommand({
     type: "calendar:update-event",
     payload: { eventId, ...patch },
   });
 }
 
-export async function deleteEvent(
-  eventId: string,
-  scope?: CalendarEditScope,
-): Promise<void> {
+export async function deleteEvent(eventId: string, scope?: CalendarEditScope): Promise<void> {
   await dispatchCommand({
     type: "calendar:delete-event",
     payload: { eventId, ...(scope ? { scope } : {}) },

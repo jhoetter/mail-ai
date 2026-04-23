@@ -53,9 +53,7 @@ export function CommandErrorToast() {
           {isAuth ? (
             <>
               <p className="font-medium text-foreground">{t("toast.authTitle")}</p>
-              <p className="mt-0.5 text-xs text-secondary">
-                {t("toast.authBody", { command })}
-              </p>
+              <p className="mt-0.5 text-xs text-secondary">{t("toast.authBody", { command })}</p>
               <p className="mt-1 break-words text-[11px] text-tertiary">
                 {t("toast.authDetails", { message: err.message })}
               </p>
@@ -69,9 +67,7 @@ export function CommandErrorToast() {
             </>
           ) : (
             <>
-              <p className="font-medium text-foreground">
-                {t("toast.commandFailed", { command })}
-              </p>
+              <p className="font-medium text-foreground">{t("toast.commandFailed", { command })}</p>
               <p className="mt-0.5 break-words text-xs text-secondary">{err.message}</p>
             </>
           )}

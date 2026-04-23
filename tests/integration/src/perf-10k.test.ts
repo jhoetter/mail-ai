@@ -7,11 +7,7 @@
 import { describe, it, expect } from "vitest";
 import { ImapFlow } from "imapflow";
 import nodemailer from "nodemailer";
-import {
-  ImapConnection,
-  MailboxSyncer,
-  type AccountCredentials,
-} from "@mailai/imap-sync";
+import { ImapConnection, MailboxSyncer, type AccountCredentials } from "@mailai/imap-sync";
 
 const ENABLED = process.env["MAILAI_PERF"] === "1";
 const HOST = process.env["MAILAI_IMAP_HOST"] ?? "127.0.0.1";
@@ -60,7 +56,11 @@ describeIf("perf: 10k messages", () => {
       expect(initialMs).toBeLessThan(TARGET_INITIAL_MS);
 
       // Seed 10 more for delta
-      const transporter = nodemailer.createTransport({ host: HOST, port: SMTP_PORT, secure: false });
+      const transporter = nodemailer.createTransport({
+        host: HOST,
+        port: SMTP_PORT,
+        secure: false,
+      });
       for (let i = 0; i < 10; i++) {
         await transporter.sendMail({
           from: "seeder@mailai.test",

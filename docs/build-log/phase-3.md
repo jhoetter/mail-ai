@@ -65,4 +65,3 @@ Three new integration suites under `tests/integration/src/`:
 Overlay isolation re-check is covered by the existing
 `overlay-isolation.test.ts` snapshot diff (no overlay-db change in
 Phase 3 touched the IMAP-side path).
-

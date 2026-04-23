@@ -12,10 +12,7 @@ export class PushProviderRegistry {
 
   register(adapter: PushProvider): void {
     if (this.adapters.has(adapter.id)) {
-      throw new MailaiError(
-        "validation_error",
-        `push provider ${adapter.id} already registered`,
-      );
+      throw new MailaiError("validation_error", `push provider ${adapter.id} already registered`);
     }
     this.adapters.set(adapter.id, adapter);
   }
@@ -30,10 +27,7 @@ export class PushProviderRegistry {
         return this.adapters.get(provider) ?? null;
       default: {
         const _exhaustive: never = provider;
-        throw new MailaiError(
-          "validation_error",
-          `unhandled push provider ${String(_exhaustive)}`,
-        );
+        throw new MailaiError("validation_error", `unhandled push provider ${String(_exhaustive)}`);
       }
     }
   }

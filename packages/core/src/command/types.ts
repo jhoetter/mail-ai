@@ -8,10 +8,7 @@ export type CommandSource = "human" | "agent" | "system";
 
 export type CommandTypeString = `${string}:${string}`;
 
-export interface Command<
-  TType extends CommandTypeString = CommandTypeString,
-  TPayload = unknown,
-> {
+export interface Command<TType extends CommandTypeString = CommandTypeString, TPayload = unknown> {
   readonly type: TType;
   readonly payload: TPayload;
   readonly source: CommandSource;
@@ -55,11 +52,40 @@ export interface EntityDiff {
 }
 
 export type ImapSideEffect =
-  | { readonly kind: "set-flag"; readonly accountId: string; readonly mailbox: string; readonly uid: number; readonly flag: string }
-  | { readonly kind: "unset-flag"; readonly accountId: string; readonly mailbox: string; readonly uid: number; readonly flag: string }
-  | { readonly kind: "move"; readonly accountId: string; readonly fromMailbox: string; readonly uid: number; readonly toMailbox: string }
-  | { readonly kind: "expunge"; readonly accountId: string; readonly mailbox: string; readonly uid: number }
-  | { readonly kind: "append"; readonly accountId: string; readonly mailbox: string; readonly bytes: number; readonly messageId: string }
+  | {
+      readonly kind: "set-flag";
+      readonly accountId: string;
+      readonly mailbox: string;
+      readonly uid: number;
+      readonly flag: string;
+    }
+  | {
+      readonly kind: "unset-flag";
+      readonly accountId: string;
+      readonly mailbox: string;
+      readonly uid: number;
+      readonly flag: string;
+    }
+  | {
+      readonly kind: "move";
+      readonly accountId: string;
+      readonly fromMailbox: string;
+      readonly uid: number;
+      readonly toMailbox: string;
+    }
+  | {
+      readonly kind: "expunge";
+      readonly accountId: string;
+      readonly mailbox: string;
+      readonly uid: number;
+    }
+  | {
+      readonly kind: "append";
+      readonly accountId: string;
+      readonly mailbox: string;
+      readonly bytes: number;
+      readonly messageId: string;
+    }
   | { readonly kind: "smtp-submit"; readonly accountId: string; readonly messageId: string };
 
 // `applied` and `failed` are the only end states. The pending /

@@ -6,10 +6,7 @@ export { Input } from "./primitives/input";
 export { Card } from "./primitives/card";
 export { Dialog } from "./primitives/dialog";
 export { Popover, type PopoverPlacement } from "./primitives/popover";
-export {
-  SegmentedControl,
-  type SegmentedControlOption,
-} from "./primitives/segmented-control";
+export { SegmentedControl, type SegmentedControlOption } from "./primitives/segmented-control";
 export {
   ContactPicker,
   type ContactPickerValue,

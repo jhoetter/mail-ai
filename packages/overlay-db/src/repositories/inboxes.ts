@@ -34,10 +34,7 @@ export class InboxesRepository {
   constructor(private readonly db: Database) {}
 
   async list(tenantId: string): Promise<InboxRow[]> {
-    const rows = await this.db
-      .select()
-      .from(inboxes)
-      .where(eq(inboxes.tenantId, tenantId));
+    const rows = await this.db.select().from(inboxes).where(eq(inboxes.tenantId, tenantId));
     return rows as unknown as InboxRow[];
   }
 
@@ -125,9 +122,7 @@ export class InboxesRepository {
     await this.db
       .delete(inboxMailboxes)
       .where(and(eq(inboxMailboxes.tenantId, tenantId), eq(inboxMailboxes.inboxId, id)));
-    await this.db
-      .delete(inboxes)
-      .where(and(eq(inboxes.tenantId, tenantId), eq(inboxes.id, id)));
+    await this.db.delete(inboxes).where(and(eq(inboxes.tenantId, tenantId), eq(inboxes.id, id)));
   }
 
   async listMailboxes(tenantId: string, inboxId: string): Promise<InboxMailboxRow[]> {

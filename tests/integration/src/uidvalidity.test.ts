@@ -23,7 +23,9 @@ describe("UIDVALIDITY change", () => {
       getMailboxLock: async () => ({ release: () => undefined }),
       fetch: () => fetchIter,
     };
-    const conn = { raw: () => fakeClient } as unknown as ConstructorParameters<typeof MailboxSyncer>[0];
+    const conn = { raw: () => fakeClient } as unknown as ConstructorParameters<
+      typeof MailboxSyncer
+    >[0];
     const syncer = new MailboxSyncer(conn);
     const result = await syncer.deltaSync({
       mailboxPath: "INBOX",

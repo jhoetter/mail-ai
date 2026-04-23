@@ -44,11 +44,7 @@ export class OauthThreadTagsRepository {
     `);
   }
 
-  async remove(
-    tenantId: string,
-    providerThreadId: string,
-    tagId: string,
-  ): Promise<void> {
+  async remove(tenantId: string, providerThreadId: string, tagId: string): Promise<void> {
     await this.db
       .delete(oauthThreadTags)
       .where(
@@ -62,10 +58,7 @@ export class OauthThreadTagsRepository {
 
   // Tags currently applied to one thread. Joined to the definitions
   // table so callers get name + color in a single round trip.
-  async listForThread(
-    tenantId: string,
-    providerThreadId: string,
-  ): Promise<ThreadTagSummary[]> {
+  async listForThread(tenantId: string, providerThreadId: string): Promise<ThreadTagSummary[]> {
     const rows = await this.db
       .select({
         id: tags.id,
@@ -130,10 +123,7 @@ export class OauthThreadTagsRepository {
 
   // Provider thread ids carrying any of the given tag ids — drives
   // the "tag filter" view predicate in Phase 4.
-  async listThreadIdsWithAnyTag(
-    tenantId: string,
-    tagIds: readonly string[],
-  ): Promise<string[]> {
+  async listThreadIdsWithAnyTag(tenantId: string, tagIds: readonly string[]): Promise<string[]> {
     if (tagIds.length === 0) return [];
     const rows = await this.db
       .selectDistinct({ providerThreadId: oauthThreadTags.providerThreadId })

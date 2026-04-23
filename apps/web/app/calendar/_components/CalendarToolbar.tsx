@@ -98,9 +98,7 @@ export function CalendarToolbar({
           ›
         </button>
       </div>
-      <h2 className="text-base font-semibold text-foreground">
-        {formatRangeLabel(view, cursor)}
-      </h2>
+      <h2 className="text-base font-semibold text-foreground">{formatRangeLabel(view, cursor)}</h2>
       <div className="ml-auto flex items-center gap-2">
         <Button
           size="sm"

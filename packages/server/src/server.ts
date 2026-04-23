@@ -44,10 +44,7 @@ import {
   buildAttachmentUploadInitHandler,
 } from "./handlers/attachments.js";
 import { buildAccountSetSignatureHandler } from "./handlers/account-signature.js";
-import {
-  buildThreadAddTagHandler,
-  buildThreadRemoveTagHandler,
-} from "./handlers/thread-tags.js";
+import { buildThreadAddTagHandler, buildThreadRemoveTagHandler } from "./handlers/thread-tags.js";
 import {
   buildThreadMarkDoneHandler,
   buildThreadReopenHandler,
@@ -70,11 +67,9 @@ import { SyncScheduler } from "./sync/scheduler.js";
 import { buildHofJwtIdentity } from "./auth/hof-jwt.js";
 
 async function main() {
-
   const pool = createPool({
     connectionString:
-      process.env["DATABASE_URL"] ??
-      "postgres://mailai:mailai@localhost:5532/mailai",
+      process.env["DATABASE_URL"] ?? "postgres://mailai:mailai@localhost:5532/mailai",
   });
   // Single dev tenant for now — production will derive this from the
   // authenticated identity. Audit fan-out runs inside a tenant tx so
@@ -118,9 +113,7 @@ async function main() {
     }
     objectStore = s3;
   } else {
-    console.warn(
-      "S3_* env vars not set; using InMemoryObjectStore — presigned URLs will not work",
-    );
+    console.warn("S3_* env vars not set; using InMemoryObjectStore — presigned URLs will not work");
     objectStore = new InMemoryObjectStore();
   }
   // When mail-ai runs as a hof-os sidecar, the data-app injects
@@ -159,46 +152,16 @@ async function main() {
     "account:set-signature",
     buildAccountSetSignatureHandler({ pool, tenantId: DEV_TENANT }),
   );
-  bus.register(
-    "thread:add-tag",
-    buildThreadAddTagHandler({ pool, tenantId: DEV_TENANT }),
-  );
-  bus.register(
-    "thread:remove-tag",
-    buildThreadRemoveTagHandler({ pool, tenantId: DEV_TENANT }),
-  );
-  bus.register(
-    "thread:snooze",
-    buildThreadSnoozeHandler({ pool, tenantId: DEV_TENANT }),
-  );
-  bus.register(
-    "thread:unsnooze",
-    buildThreadUnsnoozeHandler({ pool, tenantId: DEV_TENANT }),
-  );
-  bus.register(
-    "thread:mark-done",
-    buildThreadMarkDoneHandler({ pool, tenantId: DEV_TENANT }),
-  );
-  bus.register(
-    "thread:reopen",
-    buildThreadReopenHandler({ pool, tenantId: DEV_TENANT }),
-  );
-  bus.register(
-    "draft:create",
-    buildDraftCreateHandler({ pool, tenantId: DEV_TENANT, bus }),
-  );
-  bus.register(
-    "draft:update",
-    buildDraftUpdateHandler({ pool, tenantId: DEV_TENANT, bus }),
-  );
-  bus.register(
-    "draft:delete",
-    buildDraftDeleteHandler({ pool, tenantId: DEV_TENANT, bus }),
-  );
-  bus.register(
-    "draft:send",
-    buildDraftSendHandler({ pool, tenantId: DEV_TENANT, bus }),
-  );
+  bus.register("thread:add-tag", buildThreadAddTagHandler({ pool, tenantId: DEV_TENANT }));
+  bus.register("thread:remove-tag", buildThreadRemoveTagHandler({ pool, tenantId: DEV_TENANT }));
+  bus.register("thread:snooze", buildThreadSnoozeHandler({ pool, tenantId: DEV_TENANT }));
+  bus.register("thread:unsnooze", buildThreadUnsnoozeHandler({ pool, tenantId: DEV_TENANT }));
+  bus.register("thread:mark-done", buildThreadMarkDoneHandler({ pool, tenantId: DEV_TENANT }));
+  bus.register("thread:reopen", buildThreadReopenHandler({ pool, tenantId: DEV_TENANT }));
+  bus.register("draft:create", buildDraftCreateHandler({ pool, tenantId: DEV_TENANT, bus }));
+  bus.register("draft:update", buildDraftUpdateHandler({ pool, tenantId: DEV_TENANT, bus }));
+  bus.register("draft:delete", buildDraftDeleteHandler({ pool, tenantId: DEV_TENANT, bus }));
+  bus.register("draft:send", buildDraftSendHandler({ pool, tenantId: DEV_TENANT, bus }));
   const calendarDeps = {
     pool,
     tenantId: DEV_TENANT,
@@ -218,10 +181,10 @@ async function main() {
     // Seed the dev tenant + user the stub identity returns. Uses
     // INSERT ... ON CONFLICT so it's idempotent across reboots and
     // safe alongside real tenants in shared databases.
-    await pool.query(
-      "INSERT INTO tenants(id, name) VALUES ($1, $2) ON CONFLICT (id) DO NOTHING",
-      ["t_dev", "Dev Tenant"],
-    );
+    await pool.query("INSERT INTO tenants(id, name) VALUES ($1, $2) ON CONFLICT (id) DO NOTHING", [
+      "t_dev",
+      "Dev Tenant",
+    ]);
     await pool.query(
       "INSERT INTO users(id, tenant_id, email, display_name, role) VALUES ($1, $2, $3, $4, $5) ON CONFLICT (id) DO NOTHING",
       ["u_dev", "t_dev", "dev@mail-ai.local", "Dev User", "admin"],
@@ -266,8 +229,7 @@ async function main() {
   const pushConfig = pushEnabled
     ? {
         registry: buildPushProviderRegistry(),
-        notificationUrlFor: (provider: string) =>
-          pushDestinations.get(provider) ?? null,
+        notificationUrlFor: (provider: string) => pushDestinations.get(provider) ?? null,
       }
     : null;
 

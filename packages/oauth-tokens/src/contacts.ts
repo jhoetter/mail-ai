@@ -132,10 +132,7 @@ export async function listGoogleOtherContacts(args: {
   return out;
 }
 
-function normalizeGooglePerson(
-  p: GooglePerson,
-  source: ContactSource,
-): NormalizedContact | null {
+function normalizeGooglePerson(p: GooglePerson, source: ContactSource): NormalizedContact | null {
   const emails = (p.emailAddresses ?? [])
     .map((e) => {
       const address = (e.value ?? "").trim();
@@ -235,9 +232,7 @@ function normalizeGraphContact(c: GraphContact): NormalizedContact | null {
     .filter((e): e is NormalizedContactEmail => e !== null);
   if (emails.length === 0) return null;
   if (!c.id) return null;
-  const lastInteractionAt = c.lastModifiedDateTime
-    ? new Date(c.lastModifiedDateTime)
-    : undefined;
+  const lastInteractionAt = c.lastModifiedDateTime ? new Date(c.lastModifiedDateTime) : undefined;
   const out: NormalizedContact = {
     providerContactId: c.id,
     source: "my",
@@ -302,9 +297,7 @@ function normalizeGraphPerson(p: GraphPerson): NormalizedContact | null {
 // flag the provider gave us, falls back to the first non-empty entry.
 // Lower-cased so the index-backed prefix lookup in the repo is a
 // straight ILIKE without a per-row lower() at query time.
-export function pickPrimaryEmail(
-  emails: readonly NormalizedContactEmail[],
-): string | null {
+export function pickPrimaryEmail(emails: readonly NormalizedContactEmail[]): string | null {
   const primary = emails.find((e) => e.primary);
   const chosen = (primary ?? emails[0])?.address;
   if (!chosen) return null;

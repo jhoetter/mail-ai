@@ -1,12 +1,7 @@
 // @vitest-environment jsdom
 
 import { describe, expect, it } from "vitest";
-import {
-  buildIframeDoc,
-  rewriteEmailHtml,
-  sanitizeEmailHtml,
-  stripAngles,
-} from "./email-html";
+import { buildIframeDoc, rewriteEmailHtml, sanitizeEmailHtml, stripAngles } from "./email-html";
 
 const inlineUrl = (id: string) =>
   `https://test.local/api/attachments/${encodeURIComponent(id)}/inline`;
@@ -30,9 +25,7 @@ describe("rewriteEmailHtml", () => {
       allowRemoteImages: false,
       attachmentInlineUrl: inlineUrl,
     });
-    expect(result.html).toContain(
-      `src="https://test.local/api/attachments/att_42/inline"`,
-    );
+    expect(result.html).toContain(`src="https://test.local/api/attachments/att_42/inline"`);
     expect(result.blockedRemote).toBe(false);
   });
 
@@ -61,9 +54,7 @@ describe("rewriteEmailHtml", () => {
     // can opt-in via the "Display images" prompt without re-fetching
     // the message; we just have to make sure it isn't loaded as src.
     expect(result.html).not.toMatch(/<img[^>]*(?:^|\s)src=/);
-    expect(result.html).toContain(
-      `data-mailai-remote-src="https://tracker.example/pixel.gif"`,
-    );
+    expect(result.html).toContain(`data-mailai-remote-src="https://tracker.example/pixel.gif"`);
   });
 
   it("keeps remote images when allowRemoteImages is true", () => {

@@ -30,10 +30,7 @@ import {
   type OauthMessageRow,
   type Pool,
 } from "@mailai/overlay-db";
-import {
-  getValidAccessToken,
-  type ProviderCredentials,
-} from "@mailai/oauth-tokens";
+import { getValidAccessToken, type ProviderCredentials } from "@mailai/oauth-tokens";
 import type { MailProviderRegistry, NormalizedAttachment } from "@mailai/providers";
 import { randomId } from "@mailai/core";
 
@@ -78,9 +75,7 @@ export function registerThreadRoutes(app: FastifyInstance, deps: ThreadRoutesDep
       providerThreadId: initial.root.providerThreadId,
       provider: initial.root.provider,
       unreadCount,
-      messages: filled.map((m) =>
-        toMessage(m, attachmentsByMsg.get(m.id) ?? []),
-      ),
+      messages: filled.map((m) => toMessage(m, attachmentsByMsg.get(m.id) ?? [])),
     };
   });
 
@@ -111,11 +106,7 @@ async function loadAttachments(
   await withTenant(deps.pool, tenantId, async (tx) => {
     const repo = new OauthAttachmentsRepository(tx);
     for (const row of rows) {
-      const list = await repo.listForMessage(
-        tenantId,
-        row.oauthAccountId,
-        row.providerMessageId,
-      );
+      const list = await repo.listForMessage(tenantId, row.oauthAccountId, row.providerMessageId);
       out.set(row.id, list);
     }
   });
@@ -154,10 +145,10 @@ async function fillBodiesIfMissing(
         // Surface the failure on the row level (body stays null) but
         // don't fail the whole request — other accounts in the thread
         // might still be reachable.
-        console.warn(
-          "[threads] failed to refresh token for body fetch",
-          { accountId: aid, err: String(err) },
-        );
+        console.warn("[threads] failed to refresh token for body fetch", {
+          accountId: aid,
+          err: String(err),
+        });
       }
     }
   });
@@ -184,12 +175,10 @@ async function fillBodiesIfMissing(
       return { ...base, text: null, html: null, attachments: [] };
     }
     try {
-      const body = await deps.providers
-        .for(tok.account.provider)
-        .fetchMessageBody({
-          accessToken: tok.accessToken,
-          providerMessageId: m.providerMessageId,
-        });
+      const body = await deps.providers.for(tok.account.provider).fetchMessageBody({
+        accessToken: tok.accessToken,
+        providerMessageId: m.providerMessageId,
+      });
       return {
         ...base,
         text: body.text,

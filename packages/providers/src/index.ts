@@ -17,21 +17,11 @@ export * from "./push/index.js";
 // types are re-exported under an explicit submodule to keep the
 // barrel shape predictable.
 export * as calendar from "./calendar/index.js";
-export {
-  CalendarProviderRegistry,
-} from "./calendar/registry.js";
-export type {
-  CalendarProvider,
-  CalendarProviderCapabilities,
-} from "./calendar/port.js";
+export { CalendarProviderRegistry } from "./calendar/registry.js";
+export type { CalendarProvider, CalendarProviderCapabilities } from "./calendar/port.js";
 // Contacts mirrors calendar's submodule barrel: shared names like
 // `NormalizedContact` would otherwise clash with the legacy re-exports
 // from @mailai/oauth-tokens during the migration.
 export * as contacts from "./contacts/index.js";
-export {
-  ContactsProviderRegistry,
-} from "./contacts/registry.js";
-export type {
-  ContactsProvider,
-  ContactsProviderCapabilities,
-} from "./contacts/port.js";
+export { ContactsProviderRegistry } from "./contacts/registry.js";
+export type { ContactsProvider, ContactsProviderCapabilities } from "./contacts/port.js";

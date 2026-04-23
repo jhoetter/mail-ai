@@ -45,7 +45,11 @@ interface EmbeddedMailaiProps {
 
   // Outbound mail policy. Host can intercept every mail:send before it
   // actually leaves; lets hof-os enforce DLP / signature insertion / etc.
-  onBeforeSend?(draft: { to: string[]; subject: string; bodyHash: string }): Promise<"allow" | "deny">;
+  onBeforeSend?(draft: {
+    to: string[];
+    subject: string;
+    bodyHash: string;
+  }): Promise<"allow" | "deny">;
 
   // Mount point — used so the embedded app routes inside the host's
   // shell rather than hijacking window.history.

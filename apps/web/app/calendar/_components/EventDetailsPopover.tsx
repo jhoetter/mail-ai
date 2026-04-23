@@ -1,10 +1,7 @@
 import { useState } from "react";
 import { Button, Popover, SegmentedControl } from "@mailai/ui";
 import { useTranslator } from "../../lib/i18n/useTranslator";
-import type {
-  CalendarEditScope,
-  CalendarSummary,
-} from "../../lib/calendar-client";
+import type { CalendarEditScope, CalendarSummary } from "../../lib/calendar-client";
 import type { CalendarEvent } from "../_lib/useCalendarState";
 
 type RsvpResponse = "accepted" | "declined" | "tentative";
@@ -17,10 +14,7 @@ interface Props {
   readonly onClose: () => void;
   readonly onEdit: (event: CalendarEvent, scope: CalendarEditScope) => void;
   readonly onDelete: (event: CalendarEvent, scope: CalendarEditScope) => void;
-  readonly onRespond: (
-    event: CalendarEvent,
-    response: RsvpResponse,
-  ) => Promise<void> | void;
+  readonly onRespond: (event: CalendarEvent, response: RsvpResponse) => Promise<void> | void;
 }
 
 // Google's read-view popover: shows the event meta, attendee list,
@@ -53,7 +47,7 @@ export function EventDetailsPopover({
   const editScopes = calendar?.capabilities.editScopes ?? ["single"];
   const recurring = Boolean(
     (event as { recurringEventId?: string | null }).recurringEventId ??
-      (event as { recurrenceRule?: string | null }).recurrenceRule,
+    (event as { recurrenceRule?: string | null }).recurrenceRule,
   );
 
   const start = new Date(event.startsAt);
@@ -67,13 +61,9 @@ export function EventDetailsPopover({
           style={{ backgroundColor: calendar?.color ?? "#94a3b8" }}
         />
         <div className="flex-1">
-          <h3 className="text-sm font-semibold leading-tight">
-            {event.summary || "(no title)"}
-          </h3>
+          <h3 className="text-sm font-semibold leading-tight">{event.summary || "(no title)"}</h3>
           <p className="mt-0.5 text-xs text-secondary">{formatRange(start, end, event.allDay)}</p>
-          {calendar && (
-            <p className="mt-0.5 text-[11px] text-tertiary">{calendar.name}</p>
-          )}
+          {calendar && <p className="mt-0.5 text-[11px] text-tertiary">{calendar.name}</p>}
         </div>
         <button
           type="button"
@@ -85,9 +75,7 @@ export function EventDetailsPopover({
         </button>
       </header>
 
-      {event.location && (
-        <p className="mt-3 text-sm text-secondary">📍 {event.location}</p>
-      )}
+      {event.location && <p className="mt-3 text-sm text-secondary">📍 {event.location}</p>}
       {event.description && (
         <p
           className="mt-2 max-h-32 overflow-auto whitespace-pre-wrap text-sm text-foreground"
@@ -102,9 +90,7 @@ export function EventDetailsPopover({
           rel="noreferrer noopener"
           className="mt-3 inline-flex items-center gap-1 rounded-md bg-accent px-3 py-1.5 text-sm font-medium text-white hover:brightness-110"
         >
-          {event.meetingProvider === "ms-teams"
-            ? t("calendar.joinTeams")
-            : t("calendar.joinMeet")}
+          {event.meetingProvider === "ms-teams" ? t("calendar.joinTeams") : t("calendar.joinMeet")}
         </a>
       )}
 
@@ -234,10 +220,6 @@ function ResponseDot({ response }: { response?: string }) {
     return <span className="inline-block h-2 w-2 rounded-full bg-divider" />;
   }
   const cls =
-    response === "accepted"
-      ? "bg-success"
-      : response === "declined"
-        ? "bg-error"
-        : "bg-warning";
+    response === "accepted" ? "bg-success" : response === "declined" ? "bg-error" : "bg-warning";
   return <span className={"inline-block h-2 w-2 rounded-full " + cls} />;
 }

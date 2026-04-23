@@ -25,7 +25,12 @@ describe("OAuth device flow", () => {
         }),
       )
       .mockResolvedValueOnce(
-        jsonResponse({ access_token: "tok-1", refresh_token: "rt", token_type: "Bearer", expires_in: 3600 }),
+        jsonResponse({
+          access_token: "tok-1",
+          refresh_token: "rt",
+          token_type: "Bearer",
+          expires_in: 3600,
+        }),
       );
 
     const display = vi.fn();
@@ -95,7 +100,9 @@ describe("OAuth device flow", () => {
 
   it("sad path: deadline exceeded throws auth_error", async () => {
     let now = 0;
-    const fetchImpl = vi.fn().mockResolvedValue(jsonResponse({ error: "authorization_pending" }, false, 400));
+    const fetchImpl = vi
+      .fn()
+      .mockResolvedValue(jsonResponse({ error: "authorization_pending" }, false, 400));
     await expect(
       pollForToken(
         {

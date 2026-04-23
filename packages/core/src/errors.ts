@@ -20,7 +20,11 @@ export class MailaiError extends Error {
   override readonly cause?: unknown;
   readonly meta?: Record<string, unknown>;
 
-  constructor(code: MailaiErrorCode, message: string, opts: { cause?: unknown; meta?: Record<string, unknown> } = {}) {
+  constructor(
+    code: MailaiErrorCode,
+    message: string,
+    opts: { cause?: unknown; meta?: Record<string, unknown> } = {},
+  ) {
     super(message);
     this.name = "MailaiError";
     this.code = code;

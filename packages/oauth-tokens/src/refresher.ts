@@ -9,10 +9,7 @@
 // IMPORTANT: this module never calls Nango. Nango's role ends after
 // the initial connect; from there on we own the refresh cycle.
 
-import type {
-  OauthAccountRow,
-  OauthAccountsRepository,
-} from "@mailai/overlay-db";
+import type { OauthAccountRow, OauthAccountsRepository } from "@mailai/overlay-db";
 import { MailaiError } from "@mailai/core";
 import { OauthRefreshError, type OauthCredentials, type RefreshedToken } from "./types.js";
 import { refreshGoogleAccessToken } from "./google.js";
@@ -41,8 +38,7 @@ export async function getValidAccessToken(
   const now = deps.now ?? (() => new Date());
   const skew = deps.skewMs ?? DEFAULT_SKEW_MS;
 
-  const fresh =
-    account.expiresAt && account.expiresAt.getTime() - now().getTime() > skew;
+  const fresh = account.expiresAt && account.expiresAt.getTime() - now().getTime() > skew;
   if (fresh) return account.accessToken;
 
   if (account.status === "revoked") {
@@ -114,7 +110,9 @@ async function refreshOnce(
   }
 }
 
-export function loadProviderCredentialsFromEnv(env: NodeJS.ProcessEnv = process.env): ProviderCredentials {
+export function loadProviderCredentialsFromEnv(
+  env: NodeJS.ProcessEnv = process.env,
+): ProviderCredentials {
   const out: { google?: OauthCredentials; microsoft?: OauthCredentials } = {};
   const gId = env["GOOGLE_OAUTH_CLIENT_ID"];
   const gSecret = env["GOOGLE_OAUTH_CLIENT_SECRET"];

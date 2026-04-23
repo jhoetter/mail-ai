@@ -17,9 +17,7 @@ function mockFetch(body: unknown, status = 200): ReturnType<typeof vi.fn> {
 
 describe("suggestContacts", () => {
   beforeEach(() => {
-    delete (import.meta.env as Record<string, string | undefined>)[
-      "VITE_MAILAI_API_URL"
-    ];
+    delete (import.meta.env as Record<string, string | undefined>)["VITE_MAILAI_API_URL"];
   });
 
   afterEach(() => {
@@ -59,9 +57,8 @@ describe("suggestContacts", () => {
   });
 
   it("uses VITE_MAILAI_API_URL when set", async () => {
-    (import.meta.env as Record<string, string | undefined>)[
-      "VITE_MAILAI_API_URL"
-    ] = "https://api.example.com";
+    (import.meta.env as Record<string, string | undefined>)["VITE_MAILAI_API_URL"] =
+      "https://api.example.com";
     const fn = mockFetch({ items: [], reconnect: [] });
     await suggestContacts("jt");
     const calledUrl = String(fn.mock.calls[0]![0]);

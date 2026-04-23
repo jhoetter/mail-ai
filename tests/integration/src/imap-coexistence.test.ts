@@ -44,7 +44,12 @@ function creds(user: string, pass = user): AccountCredentials {
   };
 }
 
-async function deliver(subject: string, to = "alice@mailai.test", from = "carol@mailai.test", body = "hi") {
+async function deliver(
+  subject: string,
+  to = "alice@mailai.test",
+  from = "carol@mailai.test",
+  body = "hi",
+) {
   const transporter = nodemailer.createTransport({ host: HOST, port: SMTP_PORT, secure: false });
   await transporter.sendMail({ from, to, subject, text: body });
   await new Promise((r) => setTimeout(r, 250));
@@ -154,7 +159,10 @@ describeIf("IMAP coexistence", () => {
     const conn = new ImapConnection(creds("alice"));
     await conn.connect();
     try {
-      await conn.raw()!.mailboxCreate("Sent").catch(() => undefined);
+      await conn
+        .raw()!
+        .mailboxCreate("Sent")
+        .catch(() => undefined);
       const composed = composeMessage({
         from: "alice@mailai.test",
         to: ["bob@mailai.test"],

@@ -97,10 +97,7 @@ export function MonthGrid({
           const inMonth = sameMonth(day, monthStart);
           const isToday = sameDay(day, today);
           const list = eventsByDay.get(isoOf(day)) ?? [];
-          list.sort(
-            (a, b) =>
-              new Date(a.startsAt).getTime() - new Date(b.startsAt).getTime(),
-          );
+          list.sort((a, b) => new Date(a.startsAt).getTime() - new Date(b.startsAt).getTime());
           const visible = list.slice(0, MAX_CHIPS);
           const hidden = list.length - visible.length;
           return (
@@ -141,9 +138,7 @@ export function MonthGrid({
                     key={ev.id}
                     event={ev}
                     color={colorForCalendar(ev.calendarId)}
-                    onPick={(e) =>
-                      onSelectEvent(ev, e.currentTarget as HTMLElement)
-                    }
+                    onPick={(e) => onSelectEvent(ev, e.currentTarget as HTMLElement)}
                     onDragStart={() => setDragId(ev.id)}
                     onDragEnd={() => setDragId(null)}
                   />
@@ -198,9 +193,7 @@ export function MonthGrid({
                     className="h-2 w-2 rounded-full"
                     style={{ backgroundColor: colorForCalendar(ev.calendarId) }}
                   />
-                  <span className="flex-1 truncate">
-                    {ev.summary || "(no title)"}
-                  </span>
+                  <span className="flex-1 truncate">{ev.summary || "(no title)"}</span>
                 </button>
               </li>
             ))}
@@ -225,13 +218,7 @@ interface MonthChipProps {
   readonly onDragEnd: () => void;
 }
 
-function MonthChip({
-  event,
-  color,
-  onPick,
-  onDragStart,
-  onDragEnd,
-}: MonthChipProps) {
+function MonthChip({ event, color, onPick, onDragStart, onDragEnd }: MonthChipProps) {
   const ref = useRef<HTMLButtonElement | null>(null);
   return (
     <button
@@ -248,9 +235,7 @@ function MonthChip({
       className="flex items-center gap-1 truncate rounded px-1 py-0.5 text-left text-[11px] text-white"
       style={{ backgroundColor: color }}
     >
-      <span className="truncate font-medium">
-        {event.summary || "(no title)"}
-      </span>
+      <span className="truncate font-medium">{event.summary || "(no title)"}</span>
     </button>
   );
 }

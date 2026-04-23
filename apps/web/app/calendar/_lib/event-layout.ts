@@ -59,9 +59,7 @@ export function layoutDayEvents(
 
   for (const it of items) {
     if (it.startMs >= clusterEnd) flush();
-    const taken = new Set(
-      cluster.filter((s) => s.endMs > it.startMs).map((s) => s.column),
-    );
+    const taken = new Set(cluster.filter((s) => s.endMs > it.startMs).map((s) => s.column));
     let col = 0;
     while (taken.has(col)) col += 1;
     cluster.push({ event: it.event, startMs: it.startMs, endMs: it.endMs, column: col });

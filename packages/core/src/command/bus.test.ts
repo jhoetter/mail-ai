@@ -2,7 +2,12 @@ import { describe, expect, it } from "vitest";
 import { CommandBus } from "./bus.js";
 import type { Command } from "./types.js";
 
-function mkCmd<T>(overrides: Partial<Command<`${string}:${string}`, T>> & { type: `${string}:${string}`; payload: T }): Command<`${string}:${string}`, T> {
+function mkCmd<T>(
+  overrides: Partial<Command<`${string}:${string}`, T>> & {
+    type: `${string}:${string}`;
+    payload: T;
+  },
+): Command<`${string}:${string}`, T> {
   return {
     source: "human",
     actorId: "u_1",

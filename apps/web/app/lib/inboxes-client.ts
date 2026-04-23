@@ -73,19 +73,12 @@ export async function deleteInbox(id: string): Promise<void> {
   await asJson<{ ok: true }>(res);
 }
 
-export async function addMember(
-  id: string,
-  userId: string,
-  role: InboxRole,
-): Promise<void> {
-  const res = await fetch(
-    `${baseUrl()}/api/inboxes/${encodeURIComponent(id)}/members`,
-    {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ userId, role }),
-    },
-  );
+export async function addMember(id: string, userId: string, role: InboxRole): Promise<void> {
+  const res = await fetch(`${baseUrl()}/api/inboxes/${encodeURIComponent(id)}/members`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ userId, role }),
+  });
   await asJson<{ ok: true }>(res);
 }
 
@@ -102,13 +95,10 @@ export async function addMailbox(
   accountId: string,
   mailboxPath: string,
 ): Promise<void> {
-  const res = await fetch(
-    `${baseUrl()}/api/inboxes/${encodeURIComponent(id)}/mailboxes`,
-    {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ accountId, mailboxPath }),
-    },
-  );
+  const res = await fetch(`${baseUrl()}/api/inboxes/${encodeURIComponent(id)}/mailboxes`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ accountId, mailboxPath }),
+  });
   await asJson<{ ok: true }>(res);
 }

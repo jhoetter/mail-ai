@@ -14,11 +14,7 @@ interface Props<T> {
   onRowClick?: (row: T) => void;
 }
 
-export function DataTable<T extends { id: string }>({
-  rows,
-  columns,
-  onRowClick,
-}: Props<T>) {
+export function DataTable<T extends { id: string }>({ rows, columns, onRowClick }: Props<T>) {
   return (
     <table className="w-full border-collapse text-sm">
       <thead>

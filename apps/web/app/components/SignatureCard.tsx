@@ -68,13 +68,7 @@ export function SignatureCard() {
   );
 }
 
-function SignatureEditor({
-  account,
-  onSaved,
-}: {
-  account: AccountSignature;
-  onSaved: () => void;
-}) {
+function SignatureEditor({ account, onSaved }: { account: AccountSignature; onSaved: () => void }) {
   const { t } = useTranslator();
   const valueRef = useRef<RichEditorChange>({
     html: account.signatureHtml ?? "",

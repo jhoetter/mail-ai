@@ -15,12 +15,7 @@
 // Read/star/forward are colocated here because they share the
 // account-pick + token-refresh setup with send.
 
-import type {
-  CommandHandler,
-  EntitySnapshot,
-  HandlerContext,
-  HandlerResult,
-} from "@mailai/core";
+import type { CommandHandler, EntitySnapshot, HandlerContext, HandlerResult } from "@mailai/core";
 import { MailaiError, randomId } from "@mailai/core";
 import {
   DraftAttachmentsRepository,
@@ -34,10 +29,7 @@ import {
   type OauthAccountRow,
   type Pool,
 } from "@mailai/overlay-db";
-import {
-  getValidAccessToken,
-  type ProviderCredentials,
-} from "@mailai/oauth-tokens";
+import { getValidAccessToken, type ProviderCredentials } from "@mailai/oauth-tokens";
 import type { MailProviderId, MailProviderRegistry } from "@mailai/providers";
 import { composeMessage, type AttachmentSpec } from "@mailai/mime";
 
@@ -105,9 +97,7 @@ interface StarPayload {
   accountId?: string;
 }
 
-export function buildMailSendHandler(
-  deps: MailSendDeps,
-): CommandHandler<"mail:send", SendPayload> {
+export function buildMailSendHandler(deps: MailSendDeps): CommandHandler<"mail:send", SendPayload> {
   return async (cmd, ctx) => {
     const payload = cmd.payload;
     const account = await pickAccount(deps, payload.accountId);
@@ -147,16 +137,9 @@ export function buildMailReplyHandler(
     // nothing, preserving the original simple-reply contract used by
     // CLI / agent callers.
     const to =
-      payload.to && payload.to.length > 0
-        ? payload.to
-        : root.fromEmail
-          ? [root.fromEmail]
-          : [];
+      payload.to && payload.to.length > 0 ? payload.to : root.fromEmail ? [root.fromEmail] : [];
     if (to.length === 0) {
-      throw new MailaiError(
-        "validation_error",
-        "source message has no from address to reply to",
-      );
+      throw new MailaiError("validation_error", "source message has no from address to reply to");
     }
 
     const subject = root.subject ? prefixRe(root.subject) : "(no subject)";
@@ -236,9 +219,9 @@ function buildMarkReadOrUnread<T extends "mail:mark-read" | "mail:mark-unread">(
     const payload = cmd.payload;
     const rows = await withTenant(deps.pool, deps.tenantId, async (tx) => {
       const repo = new OauthMessagesRepository(tx);
-      return (
-        await repo.listByTenant(deps.tenantId, { limit: 500 })
-      ).filter((m) => m.providerThreadId === payload.providerThreadId);
+      return (await repo.listByTenant(deps.tenantId, { limit: 500 })).filter(
+        (m) => m.providerThreadId === payload.providerThreadId,
+      );
     });
     if (rows.length === 0) {
       // Nothing to do — return an empty snapshot rather than failing,
@@ -281,9 +264,7 @@ function buildMarkReadOrUnread<T extends "mail:mark-read" | "mail:mark-unread">(
   }) as CommandHandler<T, MarkReadPayload>;
 }
 
-export function buildMailStarHandler(
-  deps: MailSendDeps,
-): CommandHandler<"mail:star", StarPayload> {
+export function buildMailStarHandler(deps: MailSendDeps): CommandHandler<"mail:star", StarPayload> {
   return async (cmd) => {
     const payload = cmd.payload;
     const message = await withTenant(deps.pool, deps.tenantId, async (tx) => {
@@ -292,10 +273,7 @@ export function buildMailStarHandler(
       return all.find((m) => m.providerMessageId === payload.providerMessageId) ?? null;
     });
     if (!message) {
-      throw new MailaiError(
-        "not_found",
-        `message ${payload.providerMessageId} not found locally`,
-      );
+      throw new MailaiError("not_found", `message ${payload.providerMessageId} not found locally`);
     }
     const account = await pickAccount(deps, payload.accountId ?? message.oauthAccountId);
     const accessToken = await refreshToken(deps, account);
@@ -320,9 +298,7 @@ export function buildMailStarHandler(
       data: { starred: payload.starred },
     };
     return {
-      before: [
-        { kind: "message", id: payload.providerMessageId, version: 0, data: {} },
-      ],
+      before: [{ kind: "message", id: payload.providerMessageId, version: 0, data: {} }],
       after: [snapshot],
       imapSideEffects: [],
     };
@@ -394,9 +370,7 @@ async function sendAndSnapshot(
     message: {
       raw: composed.raw,
       rfc822MessageId: messageId,
-      ...(intent.providerThreadId
-        ? { providerThreadId: intent.providerThreadId }
-        : {}),
+      ...(intent.providerThreadId ? { providerThreadId: intent.providerThreadId } : {}),
     },
   });
   const providerMessageId = sendResult.providerMessageId;
@@ -417,12 +391,7 @@ async function sendAndSnapshot(
   // so the freshly-sent message renders with its tray on the next
   // sync, even if the provider hasn't returned the message yet.
   if (attachments.length > 0) {
-    await mirrorAttachmentsToMessage(
-      deps,
-      account,
-      providerMessageId,
-      intent.attachmentRefs ?? [],
-    );
+    await mirrorAttachmentsToMessage(deps, account, providerMessageId, intent.attachmentRefs ?? []);
   }
 
   // Discard the draft staging tree so the AttachmentTray clears for
@@ -572,11 +541,7 @@ async function mirrorAttachmentsToMessage(
       const row = await drafts.byId(deps.tenantId, r.fileId);
       if (!row) continue;
       const id = `att_${randomId()}`;
-      const newKey = attachmentKeys.accountMessageAtt(
-        account.id,
-        providerMessageId,
-        id,
-      );
+      const newKey = attachmentKeys.accountMessageAtt(account.id, providerMessageId, id);
       // Best-effort copy from drafts/* to accounts/*. We don't fail
       // the send if the copy errors — the draft key is still readable
       // until the janitor sweeps; the next thread render will fall
@@ -626,10 +591,7 @@ async function loadRawForMessage(
   return buf;
 }
 
-async function pickAccount(
-  deps: MailSendDeps,
-  requestedId?: string,
-): Promise<OauthAccountRow> {
+async function pickAccount(deps: MailSendDeps, requestedId?: string): Promise<OauthAccountRow> {
   return withTenant(deps.pool, deps.tenantId, async (tx) => {
     const repo = new OauthAccountsRepository(tx);
     if (requestedId) {
@@ -689,11 +651,7 @@ function prefixFwd(subject: string): string {
   return /^fwd?:\s*/i.test(subject) ? subject : `Fwd: ${subject}`;
 }
 
-function applySignature(
-  kind: "text" | "html",
-  body: string,
-  signature: string | null,
-): string {
+function applySignature(kind: "text" | "html", body: string, signature: string | null): string {
   if (!signature || signature.trim().length === 0) return body;
   if (kind === "text") {
     if (body.includes(signature.slice(0, 60))) return body;

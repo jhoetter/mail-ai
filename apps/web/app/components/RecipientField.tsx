@@ -192,7 +192,10 @@ export function RecipientField({
       const text = e.clipboardData.getData("text/plain");
       if (!text || !/[,;\n]/.test(text)) return;
       e.preventDefault();
-      const parts = text.split(/[,;\n]/).map((p) => p.trim()).filter(Boolean);
+      const parts = text
+        .split(/[,;\n]/)
+        .map((p) => p.trim())
+        .filter(Boolean);
       if (parts.length === 0) return;
       const taken = new Set(value.map((v) => v.toLowerCase()));
       const additions: string[] = [];
@@ -212,9 +215,7 @@ export function RecipientField({
 
   const showDropdown = open && draft.trim().length > 0;
   const activeId =
-    showDropdown && filteredItems.length > 0
-      ? `${optionIdPrefix}-opt-${highlight}`
-      : undefined;
+    showDropdown && filteredItems.length > 0 ? `${optionIdPrefix}-opt-${highlight}` : undefined;
 
   return (
     <div className="relative flex w-full min-w-0 flex-1 flex-wrap items-center gap-1">

@@ -240,8 +240,6 @@ export class CalendarRepository {
   }
 
   async deleteEvent(tenantId: string, id: string): Promise<void> {
-    await this.db
-      .delete(events)
-      .where(and(eq(events.tenantId, tenantId), eq(events.id, id)));
+    await this.db.delete(events).where(and(eq(events.tenantId, tenantId), eq(events.id, id)));
   }
 }

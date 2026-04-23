@@ -42,10 +42,7 @@ interface Props {
   readonly intent: CreateMode | EditMode | null;
   readonly calendars: ReadonlyArray<CalendarSummary>;
   readonly onClose: () => void;
-  readonly onSubmit: (
-    intent: CreateMode | EditMode,
-    payload: EventEditorOutput,
-  ) => Promise<void>;
+  readonly onSubmit: (intent: CreateMode | EditMode, payload: EventEditorOutput) => Promise<void>;
 }
 
 export interface EventEditorOutput {
@@ -70,13 +67,7 @@ export interface EventEditorOutput {
 // optional UI section is gated off the selected calendar's
 // capability flags so adapters that don't support a feature simply
 // hide it instead of rejecting the command server-side.
-export function EventEditorDialog({
-  open,
-  intent,
-  calendars,
-  onClose,
-  onSubmit,
-}: Props) {
+export function EventEditorDialog({ open, intent, calendars, onClose, onSubmit }: Props) {
   const { t } = useTranslator();
   const initial = useMemo(() => intentToForm(intent), [intent]);
 
@@ -87,9 +78,7 @@ export function EventEditorDialog({
   const [allDay, setAllDay] = useState(initial.allDay);
   const [startsAt, setStartsAt] = useState(initial.startsAt);
   const [endsAt, setEndsAt] = useState(initial.endsAt);
-  const [attendees, setAttendees] = useState<ReadonlyArray<ContactPickerValue>>(
-    initial.attendees,
-  );
+  const [attendees, setAttendees] = useState<ReadonlyArray<ContactPickerValue>>(initial.attendees);
   const [meeting, setMeeting] = useState<MeetingChoice>(initial.meeting);
   const [preset, setPreset] = useState<RecurrencePreset>(initial.preset);
   const [timeZone, setTimeZone] = useState(initial.timeZone);
@@ -145,16 +134,10 @@ export function EventEditorDialog({
       const end = allDay ? new Date(endsAt) : new Date(endsAt);
       const recurrence = presetToRecurrence(preset, start);
 
-      const originalEmails = new Set(
-        (original?.attendees ?? []).map((a) => a.email.toLowerCase()),
-      );
-      const currentEmails = new Set(
-        attendees.map((a) => a.email.toLowerCase()),
-      );
+      const originalEmails = new Set((original?.attendees ?? []).map((a) => a.email.toLowerCase()));
+      const currentEmails = new Set(attendees.map((a) => a.email.toLowerCase()));
       const attendeesAdd = supportsAttendeePatch
-        ? attendees
-            .filter((a) => !originalEmails.has(a.email.toLowerCase()))
-            .map((a) => a.email)
+        ? attendees.filter((a) => !originalEmails.has(a.email.toLowerCase())).map((a) => a.email)
         : [];
       const attendeesRemove = supportsAttendeePatch
         ? Array.from(originalEmails).filter((e) => !currentEmails.has(e))
@@ -228,11 +211,7 @@ export function EventEditorDialog({
 
         <div className="flex items-center gap-4">
           <label className="flex items-center gap-2 text-sm">
-            <input
-              type="checkbox"
-              checked={allDay}
-              onChange={(e) => setAllDay(e.target.checked)}
-            />
+            <input type="checkbox" checked={allDay} onChange={(e) => setAllDay(e.target.checked)} />
             {t("calendar.allDay")}
           </label>
           {supportsTimeZones && !allDay && (
@@ -306,9 +285,7 @@ export function EventEditorDialog({
 
         {supportsRecurrence && (
           <div className="flex flex-col gap-1">
-            <span className="text-xs text-secondary">
-              {t("calendar.recurrence.label")}
-            </span>
+            <span className="text-xs text-secondary">{t("calendar.recurrence.label")}</span>
             <SegmentedControl<RecurrencePreset>
               value={preset}
               onChange={setPreset}
@@ -410,10 +387,7 @@ function trimToType(value: string, allDay: boolean): string {
   return value;
 }
 
-function presetToRecurrence(
-  preset: RecurrencePreset,
-  start: Date,
-): RecurrenceRule | null {
+function presetToRecurrence(preset: RecurrencePreset, start: Date): RecurrenceRule | null {
   switch (preset) {
     case "none":
       return null;

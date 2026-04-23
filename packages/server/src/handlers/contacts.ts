@@ -23,10 +23,7 @@ import {
   type OauthContactInsert,
   type OauthContactsRepository,
 } from "@mailai/overlay-db";
-import {
-  getValidAccessToken,
-  type ProviderCredentials,
-} from "@mailai/oauth-tokens";
+import { getValidAccessToken, type ProviderCredentials } from "@mailai/oauth-tokens";
 import type { ContactsProviderRegistry } from "@mailai/providers";
 import {
   pickPrimaryEmail,
@@ -65,10 +62,7 @@ export const REQUIRED_SCOPES: Record<"google-mail" | "outlook", readonly string[
     "https://www.googleapis.com/auth/contacts.readonly",
     "https://www.googleapis.com/auth/contacts.other.readonly",
   ],
-  outlook: [
-    "https://graph.microsoft.com/Contacts.Read",
-    "https://graph.microsoft.com/People.Read",
-  ],
+  outlook: ["https://graph.microsoft.com/Contacts.Read", "https://graph.microsoft.com/People.Read"],
 };
 
 export function hasRequiredContactScopes(account: OauthAccountRow): boolean {
@@ -100,9 +94,7 @@ export async function syncContactsForAccount(
 
   const adapter = deps.contactsProviders.for(account.provider);
   if (!adapter) {
-    throw new Error(
-      `no contacts adapter registered for provider ${account.provider}`,
-    );
+    throw new Error(`no contacts adapter registered for provider ${account.provider}`);
   }
 
   // Fan out across the three normalized sources. Adapters that don't
@@ -110,15 +102,21 @@ export async function syncContactsForAccount(
   // applySource below handles correctly: it will delete-missing the
   // empty set, leaving any prior cache for that source intact.
   if (adapter.capabilities.ownContacts) {
-    const my = await safeList(() => Promise.resolve(adapter.listOwnContacts({ accessToken })).then((r) => [...r]));
+    const my = await safeList(() =>
+      Promise.resolve(adapter.listOwnContacts({ accessToken })).then((r) => [...r]),
+    );
     perSource.push(await applySource(deps, account, "my", my));
   }
   if (adapter.capabilities.otherContacts) {
-    const other = await safeList(() => Promise.resolve(adapter.listOtherContacts({ accessToken })).then((r) => [...r]));
+    const other = await safeList(() =>
+      Promise.resolve(adapter.listOtherContacts({ accessToken })).then((r) => [...r]),
+    );
     perSource.push(await applySource(deps, account, "other", other));
   }
   if (adapter.capabilities.frequentPeople) {
-    const people = await safeList(() => Promise.resolve(adapter.listFrequent({ accessToken })).then((r) => [...r]));
+    const people = await safeList(() =>
+      Promise.resolve(adapter.listFrequent({ accessToken })).then((r) => [...r]),
+    );
     perSource.push(await applySource(deps, account, "people", people));
   }
 
@@ -161,9 +159,7 @@ async function applySource(
   return { source, fetched: inserts.length, deleted };
 }
 
-async function safeList(
-  fn: () => Promise<NormalizedContact[]>,
-): Promise<NormalizedContact[]> {
+async function safeList(fn: () => Promise<NormalizedContact[]>): Promise<NormalizedContact[]> {
   try {
     return await fn();
   } catch (err) {
@@ -174,4 +170,3 @@ async function safeList(
     return [];
   }
 }
-

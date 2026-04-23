@@ -124,7 +124,9 @@ const auth = program.command("auth").description("Authentication");
 
 auth
   .command("login")
-  .description("Authenticate via OAuth2 RFC 8628 device-code flow (advanced; most users connect via the web UI)")
+  .description(
+    "Authenticate via OAuth2 RFC 8628 device-code flow (advanced; most users connect via the web UI)",
+  )
   .requiredOption("--provider <provider>", "google|microsoft|generic")
   .requiredOption("--client-id <id>", "OAuth client id")
   .requiredOption("--device-endpoint <url>")
@@ -277,16 +279,14 @@ thread
   .description("Set thread status")
   .requiredOption("--status <s>", "open|snoozed|resolved|archived")
   .option("--idempotency-key <key>", "idempotency key")
-  .action(
-    async (threadId: string, opts: { status: string; idempotencyKey?: string }) => {
-      const m = await client().applyCommand({
-        type: "thread:set-status",
-        payload: { threadId, status: opts.status },
-        ...(opts.idempotencyKey ? { idempotencyKey: opts.idempotencyKey } : {}),
-      });
-      emit(ok(m));
-    },
-  );
+  .action(async (threadId: string, opts: { status: string; idempotencyKey?: string }) => {
+    const m = await client().applyCommand({
+      type: "thread:set-status",
+      payload: { threadId, status: opts.status },
+      ...(opts.idempotencyKey ? { idempotencyKey: opts.idempotencyKey } : {}),
+    });
+    emit(ok(m));
+  });
 
 thread
   .command("tag <threadId>")
@@ -453,7 +453,9 @@ audit
 
 // -------------------------------------------------------------- COMMENT
 
-const comment = program.command("comment").description("Internal comments (overlay-only, never sent over IMAP)");
+const comment = program
+  .command("comment")
+  .description("Internal comments (overlay-only, never sent over IMAP)");
 
 comment
   .command("add <threadId>")
@@ -600,10 +602,7 @@ program
 
 // --------------------------------------------------------------- HELPERS
 
-async function resolveBody(opts: {
-  body?: string;
-  bodyFile?: string;
-}): Promise<string> {
+async function resolveBody(opts: { body?: string; bodyFile?: string }): Promise<string> {
   if (opts.body !== undefined) return opts.body;
   if (opts.bodyFile) return readFile(opts.bodyFile, "utf8");
   // Fall through to stdin if it isn't a TTY (so `cat draft.md | mail-agent send ...`
@@ -674,7 +673,9 @@ function exitForError(err: unknown): never {
           ? 3
           : err.code === "conflict_error"
             ? 4
-            : err.code === "validation_error" || err.code === "user_error" || err.code === "not_found"
+            : err.code === "validation_error" ||
+                err.code === "user_error" ||
+                err.code === "not_found"
               ? 1
               : 5;
     const payload = { ok: false, error: err.code, message: err.message };

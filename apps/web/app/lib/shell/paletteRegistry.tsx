@@ -117,9 +117,7 @@ export function PaletteRegistryProvider({
   }, []);
 
   return (
-    <InternalRegistryContext.Provider value={internal}>
-      {children}
-    </InternalRegistryContext.Provider>
+    <InternalRegistryContext.Provider value={internal}>{children}</InternalRegistryContext.Provider>
   );
 }
 

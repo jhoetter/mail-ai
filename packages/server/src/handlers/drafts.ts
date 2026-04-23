@@ -14,12 +14,7 @@ import type {
   HandlerResult,
 } from "@mailai/core";
 import { MailaiError } from "@mailai/core";
-import {
-  DraftsRepository,
-  withTenant,
-  type DraftRow,
-  type Pool,
-} from "@mailai/overlay-db";
+import { DraftsRepository, withTenant, type DraftRow, type Pool } from "@mailai/overlay-db";
 
 export interface DraftHandlerDeps {
   readonly pool: Pool;
@@ -63,12 +58,8 @@ export function buildDraftCreateHandler(
         tenantId: deps.tenantId,
         userId: cmd.actorId,
         ...(cmd.payload.accountId ? { oauthAccountId: cmd.payload.accountId } : {}),
-        ...(cmd.payload.replyToMessageId
-          ? { replyToMessageId: cmd.payload.replyToMessageId }
-          : {}),
-        ...(cmd.payload.providerThreadId
-          ? { providerThreadId: cmd.payload.providerThreadId }
-          : {}),
+        ...(cmd.payload.replyToMessageId ? { replyToMessageId: cmd.payload.replyToMessageId } : {}),
+        ...(cmd.payload.providerThreadId ? { providerThreadId: cmd.payload.providerThreadId } : {}),
         ...(cmd.payload.to ? { to: cmd.payload.to } : {}),
         ...(cmd.payload.cc ? { cc: cmd.payload.cc } : {}),
         ...(cmd.payload.bcc ? { bcc: cmd.payload.bcc } : {}),
@@ -195,11 +186,7 @@ function wrap(row: DraftRow, isCreate: boolean): HandlerResult {
   return { before: [before], after: [after], imapSideEffects: [] };
 }
 
-function diff(
-  before: DraftRow | null,
-  after: DraftRow | null,
-  fallbackId?: string,
-): HandlerResult {
+function diff(before: DraftRow | null, after: DraftRow | null, fallbackId?: string): HandlerResult {
   const id = after?.id ?? before?.id ?? fallbackId ?? "draft_unknown";
   return {
     before: [

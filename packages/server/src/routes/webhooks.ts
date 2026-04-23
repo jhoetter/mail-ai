@@ -62,10 +62,7 @@ interface GraphNotificationBatch {
   value?: GraphChangeNotification[];
 }
 
-export function registerWebhookRoutes(
-  app: FastifyInstance,
-  deps: WebhookRoutesDeps,
-): void {
+export function registerWebhookRoutes(app: FastifyInstance, deps: WebhookRoutesDeps): void {
   // ── Gmail / Pub/Sub ────────────────────────────────────────────
   //
   // Pub/Sub POSTs an envelope wrapping a base64-encoded data field.
@@ -115,10 +112,7 @@ export function registerWebhookRoutes(
       break;
     }
     if (!triggered) {
-      req.log.warn(
-        { email },
-        "[webhook/gmail] no matching account for Pub/Sub push",
-      );
+      req.log.warn({ email }, "[webhook/gmail] no matching account for Pub/Sub push");
     }
     return reply.code(204).send();
   });

@@ -82,4 +82,3 @@ export class AuditRepository {
     return { items: trimmed, nextCursor };
   }
 }
-

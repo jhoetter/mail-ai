@@ -67,9 +67,7 @@ export interface PushProvider {
   // Adapters are responsible for any provider-specific handshake
   // (Graph's POST → 200 validationToken handshake is server-side;
   // the adapter just initiates the subscription).
-  subscribe(
-    args: AccessTokenArgs & SubscribeArgs,
-  ): Promise<PushSubscription>;
+  subscribe(args: AccessTokenArgs & SubscribeArgs): Promise<PushSubscription>;
 
   // Refresh an existing subscription so it doesn't expire. Returns
   // the new expiresAt + (potentially new) providerSubscriptionId.
@@ -89,7 +87,5 @@ export interface PushProvider {
   // Tear down a subscription. Idempotent — adapters MUST treat
   // 404/410 as success since the only thing the caller can do on
   // failure is retry-then-give-up anyway.
-  unsubscribe(
-    args: AccessTokenArgs & { subscription: PushSubscription },
-  ): Promise<void>;
+  unsubscribe(args: AccessTokenArgs & { subscription: PushSubscription }): Promise<void>;
 }

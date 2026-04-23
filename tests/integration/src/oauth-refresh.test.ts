@@ -60,7 +60,10 @@ describe("Google OAuth refresh", () => {
     // out-of-the-box; we instead spy on its internal refreshAccessToken
     // via prototype patching. Pure unit isolation.
     const fn = vi
-      .spyOn((oauth as unknown as { client: { refreshAccessToken: () => Promise<unknown> } }).client, "refreshAccessToken")
+      .spyOn(
+        (oauth as unknown as { client: { refreshAccessToken: () => Promise<unknown> } }).client,
+        "refreshAccessToken",
+      )
       .mockResolvedValue({
         credentials: { access_token: "tok-2", expiry_date: Date.now() + 3500_000 },
       } as never);
@@ -80,7 +83,10 @@ describe("Google OAuth refresh", () => {
       redirectUri: "http://127.0.0.1/cb",
     });
     const fn = vi
-      .spyOn((oauth as unknown as { client: { refreshAccessToken: () => Promise<unknown> } }).client, "refreshAccessToken")
+      .spyOn(
+        (oauth as unknown as { client: { refreshAccessToken: () => Promise<unknown> } }).client,
+        "refreshAccessToken",
+      )
       .mockRejectedValue(new Error("invalid_grant"));
     try {
       await expect(oauth.refresh("rt-bad")).rejects.toThrow(/invalid_grant/);

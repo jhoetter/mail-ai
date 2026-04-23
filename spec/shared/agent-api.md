@@ -12,7 +12,11 @@ class MailAgent {
 
   whoAmI(): MailAgentIdentity;
 
-  applyCommand(input: { type: CommandTypeString; payload: unknown; idempotencyKey?: string }): Promise<Mutation>;
+  applyCommand(input: {
+    type: CommandTypeString;
+    payload: unknown;
+    idempotencyKey?: string;
+  }): Promise<Mutation>;
   applyCommands(inputs: Array<{ type; payload }>): Promise<Mutation[]>;
 
   getPendingMutations(filter?: { actorId?: string; type?: CommandTypeString }): Promise<Mutation[]>;

@@ -218,9 +218,7 @@ export function ThreadView({ threadId, subject, refreshKey, onBack }: Props) {
             {t("thread.loadError", { error })}
           </p>
         ) : detail === null ? (
-          <p className="px-3 py-3 text-sm text-secondary sm:px-4 sm:py-4">
-            {t("thread.loading")}
-          </p>
+          <p className="px-3 py-3 text-sm text-secondary sm:px-4 sm:py-4">{t("thread.loading")}</p>
         ) : (
           <ol className="flex flex-col">
             {detail.messages.map((m, i) => (
@@ -259,7 +257,6 @@ export function ThreadView({ threadId, subject, refreshKey, onBack }: Props) {
           />
         </div>
       ) : null}
-
     </div>
   );
 }
@@ -325,13 +322,9 @@ function MessageCard({
         <div className="min-w-0 flex-1">
           <div className="flex items-baseline justify-between gap-2">
             <div className="min-w-0">
-              <span className={message.unread ? "font-semibold" : "font-medium"}>
-                {senderName}
-              </span>
+              <span className={message.unread ? "font-semibold" : "font-medium"}>{senderName}</span>
               {message.fromEmail && message.fromName ? (
-                <span className="ml-1.5 text-xs text-tertiary">
-                  &lt;{message.fromEmail}&gt;
-                </span>
+                <span className="ml-1.5 text-xs text-tertiary">&lt;{message.fromEmail}&gt;</span>
               ) : null}
             </div>
             <div className="flex shrink-0 items-center gap-1">
@@ -348,11 +341,7 @@ function MessageCard({
                   (starred ? "text-amber-500 hover:text-amber-600" : "")
                 }
               >
-                <Star
-                  size={14}
-                  aria-hidden
-                  fill={starred ? "currentColor" : "none"}
-                />
+                <Star size={14} aria-hidden fill={starred ? "currentColor" : "none"} />
               </button>
               {message.hasAttachments ? (
                 <Paperclip size={12} aria-hidden className="text-tertiary" />
@@ -450,9 +439,7 @@ function AttachmentsList({ attachments }: { attachments: readonly ThreadAttachme
         >
           <AttachmentIcon mime={a.mime} />
           <span className="truncate">{a.filename}</span>
-          <span className="shrink-0 text-[10px] text-tertiary">
-            {formatSize(a.sizeBytes)}
-          </span>
+          <span className="shrink-0 text-[10px] text-tertiary">{formatSize(a.sizeBytes)}</span>
           <Download size={12} aria-hidden className="shrink-0 text-tertiary" />
         </a>
       ))}
@@ -461,8 +448,7 @@ function AttachmentsList({ attachments }: { attachments: readonly ThreadAttachme
 }
 
 function AttachmentIcon({ mime }: { mime: string }) {
-  if (mime.startsWith("image/"))
-    return <FileImage size={14} aria-hidden className="shrink-0" />;
+  if (mime.startsWith("image/")) return <FileImage size={14} aria-hidden className="shrink-0" />;
   if (mime.startsWith("text/") || mime === "application/pdf")
     return <FileText size={14} aria-hidden className="shrink-0" />;
   return <File size={14} aria-hidden className="shrink-0" />;
@@ -499,7 +485,9 @@ function MessageBody({ message, allowRemoteImages, onAllowImages }: MessageBodyP
     return <p className="text-xs text-secondary">{t("thread.fetchingBody")}</p>;
   }
   return (
-    <p className="whitespace-pre-wrap text-foreground/90">{message.snippet || t("thread.noBody")}</p>
+    <p className="whitespace-pre-wrap text-foreground/90">
+      {message.snippet || t("thread.noBody")}
+    </p>
   );
 }
 
@@ -605,8 +593,7 @@ function HtmlBody({ html, attachments, allowRemoteImages, onAllowImages }: HtmlB
   }, [attachments]);
 
   const inlineUrl = useCallback(
-    (attId: string) =>
-      `${baseUrl()}/api/attachments/${encodeURIComponent(attId)}/inline`,
+    (attId: string) => `${baseUrl()}/api/attachments/${encodeURIComponent(attId)}/inline`,
     [],
   );
 
@@ -623,10 +610,7 @@ function HtmlBody({ html, attachments, allowRemoteImages, onAllowImages }: HtmlB
     [html, mounted, cidMap, allowRemoteImages, inlineUrl],
   );
 
-  const safe = useMemo(() => (mounted ? sanitizeEmailHtml(rewritten) : ""), [
-    rewritten,
-    mounted,
-  ]);
+  const safe = useMemo(() => (mounted ? sanitizeEmailHtml(rewritten) : ""), [rewritten, mounted]);
   // Match the iframe canvas to the app theme. We don't try to invert
   // sender-pinned colours (see email-html.ts for the rationale) — we
   // just blend the default canvas so personal/plain mail stops being
@@ -792,4 +776,3 @@ function formatExact(iso: string): string {
     minute: "2-digit",
   });
 }
-

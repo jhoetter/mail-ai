@@ -3,12 +3,7 @@ import { useCallback, useEffect, useState } from "react";
 import { AppNav } from "../components/AppNav";
 import { Composer } from "../components/Composer";
 import { useTranslator } from "../lib/i18n/useTranslator";
-import {
-  deleteDraft,
-  listDrafts,
-  sendDraft,
-  type DraftSummary,
-} from "../lib/drafts-client";
+import { deleteDraft, listDrafts, sendDraft, type DraftSummary } from "../lib/drafts-client";
 
 export default function DraftsPage() {
   const { t } = useTranslator();
@@ -68,61 +63,56 @@ export default function DraftsPage() {
     <Shell sidebar={<AppNav />}>
       <PageHeader title={t("drafts.title")} subtitle={t("drafts.subtitle")} />
       <PageBody>
-      <Card>
-        {error ? (
-          <p className="text-sm text-error">{error}</p>
-        ) : drafts === null ? (
-          <p className="text-sm text-secondary">{t("common.loading")}</p>
-        ) : drafts.length === 0 ? (
-          <p className="text-sm text-secondary">{t("drafts.empty")}</p>
-        ) : (
-          <ul className="divide-y divide-divider">
-            {drafts.map((draft) => (
-              <li
-                key={draft.id}
-                className="flex items-center gap-3 py-3"
-              >
-                <button
-                  type="button"
-                  className="flex-1 text-left"
-                  onClick={() => setEditingDraft(draft)}
-                >
-                  <div className="font-medium">
-                    {draft.subject || t("common.untitled")}
-                  </div>
-                  <div className="text-xs text-secondary">
-                    {draft.to.length > 0 ? draft.to.join(", ") : "—"} ·{" "}
-                    {t("drafts.lastEdited", { when: formatRelative(draft.updatedAt) })}
-                  </div>
-                  {draft.bodyText ? (
-                    <div className="mt-1 line-clamp-2 text-xs text-secondary">
-                      {draft.bodyText}
+        <Card>
+          {error ? (
+            <p className="text-sm text-error">{error}</p>
+          ) : drafts === null ? (
+            <p className="text-sm text-secondary">{t("common.loading")}</p>
+          ) : drafts.length === 0 ? (
+            <p className="text-sm text-secondary">{t("drafts.empty")}</p>
+          ) : (
+            <ul className="divide-y divide-divider">
+              {drafts.map((draft) => (
+                <li key={draft.id} className="flex items-center gap-3 py-3">
+                  <button
+                    type="button"
+                    className="flex-1 text-left"
+                    onClick={() => setEditingDraft(draft)}
+                  >
+                    <div className="font-medium">{draft.subject || t("common.untitled")}</div>
+                    <div className="text-xs text-secondary">
+                      {draft.to.length > 0 ? draft.to.join(", ") : "—"} ·{" "}
+                      {t("drafts.lastEdited", { when: formatRelative(draft.updatedAt) })}
                     </div>
-                  ) : null}
-                </button>
-                <div className="flex shrink-0 gap-1">
-                  <Button
-                    size="sm"
-                    variant="primary"
-                    disabled={busyId === draft.id}
-                    onClick={() => void onSend(draft)}
-                  >
-                    {t("drafts.send")}
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    disabled={busyId === draft.id}
-                    onClick={() => void onDelete(draft)}
-                  >
-                    {t("drafts.discard")}
-                  </Button>
-                </div>
-              </li>
-            ))}
-          </ul>
-        )}
-      </Card>
+                    {draft.bodyText ? (
+                      <div className="mt-1 line-clamp-2 text-xs text-secondary">
+                        {draft.bodyText}
+                      </div>
+                    ) : null}
+                  </button>
+                  <div className="flex shrink-0 gap-1">
+                    <Button
+                      size="sm"
+                      variant="primary"
+                      disabled={busyId === draft.id}
+                      onClick={() => void onSend(draft)}
+                    >
+                      {t("drafts.send")}
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      disabled={busyId === draft.id}
+                      onClick={() => void onDelete(draft)}
+                    >
+                      {t("drafts.discard")}
+                    </Button>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          )}
+        </Card>
       </PageBody>
       {editingDraft ? (
         <Composer

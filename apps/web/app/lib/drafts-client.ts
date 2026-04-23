@@ -47,7 +47,10 @@ export async function createDraft(input: CreateDraftInput): Promise<void> {
   await dispatchCommand({ type: "draft:create", payload: input });
 }
 
-export async function updateDraft(id: string, patch: Omit<CreateDraftInput, "accountId" | "replyToMessageId" | "providerThreadId">): Promise<void> {
+export async function updateDraft(
+  id: string,
+  patch: Omit<CreateDraftInput, "accountId" | "replyToMessageId" | "providerThreadId">,
+): Promise<void> {
   await dispatchCommand({ type: "draft:update", payload: { id, ...patch } });
 }
 

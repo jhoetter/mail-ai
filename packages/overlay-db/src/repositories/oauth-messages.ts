@@ -14,14 +14,7 @@ export type OauthMessageProvider = "google-mail" | "outlook";
 // Mirrors WellKnownFolder in @mailai/providers. Re-declared here so
 // the overlay-db package stays free of provider-shape coupling.
 // Phase 3's migration enforces the same enum at the SQL layer.
-export type WellKnownFolder =
-  | "inbox"
-  | "sent"
-  | "drafts"
-  | "trash"
-  | "spam"
-  | "archive"
-  | "other";
+export type WellKnownFolder = "inbox" | "sent" | "drafts" | "trash" | "spam" | "archive" | "other";
 
 export interface OauthMessageRow {
   readonly id: string;

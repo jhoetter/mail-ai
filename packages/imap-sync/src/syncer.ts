@@ -147,11 +147,7 @@ function toHeader(msg: {
         ? new Date(msg.internalDate)
         : new Date(0);
   const envDate =
-    env.date instanceof Date
-      ? env.date
-      : typeof env.date === "string"
-        ? new Date(env.date)
-        : null;
+    env.date instanceof Date ? env.date : typeof env.date === "string" ? new Date(env.date) : null;
   return {
     uid: msg.uid ?? 0,
     flags: msg.flags ? Array.from(msg.flags) : [],

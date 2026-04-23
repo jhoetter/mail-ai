@@ -3,10 +3,7 @@ export {
   gmailLabelIdsToUserLabels,
   gmailLabelIdsToWellKnownFolder,
 } from "./google-mail.js";
-export {
-  OutlookMailAdapter,
-  graphLabelIdsToUserLabels,
-} from "./outlook-mail.js";
+export { OutlookMailAdapter, graphLabelIdsToUserLabels } from "./outlook-mail.js";
 export { GoogleMailPushAdapter } from "./google-push.js";
 export { OutlookMailPushAdapter } from "./outlook-push.js";
 export { GoogleCalendarAdapter } from "./google-calendar.js";

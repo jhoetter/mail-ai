@@ -32,7 +32,10 @@ const lock = { generatedAt: new Date().toISOString(), packages: [] };
 for (const t of targets) {
   const pkgJson = JSON.parse(readFileSync(join(ROOT, t.dir, "package.json"), "utf8"));
   console.log(`\n== ${t.name}@${pkgJson.version} ==`);
-  execSync(`pnpm --filter ${t.name} pack --pack-destination ${OUT}`, { stdio: "inherit", cwd: ROOT });
+  execSync(`pnpm --filter ${t.name} pack --pack-destination ${OUT}`, {
+    stdio: "inherit",
+    cwd: ROOT,
+  });
 
   const tarball = readdirSync(OUT)
     .filter((f) => f.endsWith(".tgz") && f.includes(t.name.replace("@", "").replace("/", "-")))

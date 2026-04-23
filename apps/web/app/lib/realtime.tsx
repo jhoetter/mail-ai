@@ -97,11 +97,7 @@ export interface RealtimeProviderProps {
   readonly wsCtor?: typeof WebSocket;
 }
 
-export function RealtimeProvider({
-  children,
-  url,
-  wsCtor,
-}: RealtimeProviderProps) {
+export function RealtimeProvider({ children, url, wsCtor }: RealtimeProviderProps) {
   const resolvedUrl = url ?? defaultRealtimeUrl();
   const listeners = useRef(new Set<Listener>());
   // Keep the socket + retry state in refs so the React tree never
@@ -122,9 +118,7 @@ export function RealtimeProvider({
     const scheduleReconnect = () => {
       if (closedRef.current) return;
       if (retryRef.current.timer !== null) return;
-      const delay =
-        BACKOFF_MS[Math.min(retryRef.current.attempt, BACKOFF_MS.length - 1)] ??
-        30_000;
+      const delay = BACKOFF_MS[Math.min(retryRef.current.attempt, BACKOFF_MS.length - 1)] ?? 30_000;
       retryRef.current.attempt += 1;
       retryRef.current.timer = window.setTimeout(() => {
         retryRef.current.timer = null;
@@ -218,11 +212,7 @@ export function RealtimeProvider({
     [resolvedUrl],
   );
 
-  return (
-    <RealtimeContext.Provider value={value}>
-      {children}
-    </RealtimeContext.Provider>
-  );
+  return <RealtimeContext.Provider value={value}>{children}</RealtimeContext.Provider>;
 }
 
 export function useRealtime(): RealtimeContextValue | null {

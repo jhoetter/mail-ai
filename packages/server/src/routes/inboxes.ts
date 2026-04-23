@@ -26,7 +26,9 @@ const CreateBody = z.object({
   name: z.string().min(1).max(120),
   description: z.string().max(500).nullable().optional(),
   members: z
-    .array(z.object({ userId: z.string().min(1), role: z.enum(["inbox-admin", "agent", "viewer"]) }))
+    .array(
+      z.object({ userId: z.string().min(1), role: z.enum(["inbox-admin", "agent", "viewer"]) }),
+    )
     .optional(),
   mailboxes: z
     .array(z.object({ accountId: z.string().min(1), mailboxPath: z.string().min(1) }))
@@ -62,9 +64,7 @@ export function registerInboxRoutes(app: FastifyInstance, deps: InboxRoutesDeps)
   app.post("/api/inboxes", async (req, reply) => {
     const parsed = CreateBody.safeParse(req.body);
     if (!parsed.success) {
-      return reply
-        .code(400)
-        .send({ error: "validation_error", details: parsed.error.format() });
+      return reply.code(400).send({ error: "validation_error", details: parsed.error.format() });
     }
     const ident = await deps.identity({ headers: req.headers as Record<string, unknown> });
     const id = `inb_${crypto.randomUUID()}`;
@@ -79,10 +79,16 @@ export function registerInboxRoutes(app: FastifyInstance, deps: InboxRoutesDeps)
       });
       // Caller is implicit admin so they can manage what they just
       // created. Override via explicit members list if needed.
-      const members =
-        parsed.data.members ?? [{ userId: ident.userId, role: "inbox-admin" as const }];
+      const members = parsed.data.members ?? [
+        { userId: ident.userId, role: "inbox-admin" as const },
+      ];
       for (const m of members) {
-        await repo.addMember({ inboxId: id, userId: m.userId, role: m.role, tenantId: ident.tenantId });
+        await repo.addMember({
+          inboxId: id,
+          userId: m.userId,
+          role: m.role,
+          tenantId: ident.tenantId,
+        });
       }
       for (const mb of parsed.data.mailboxes ?? []) {
         await repo.addMailbox({
@@ -120,9 +126,7 @@ export function registerInboxRoutes(app: FastifyInstance, deps: InboxRoutesDeps)
     const { id } = req.params as { id: string };
     const parsed = PatchBody.safeParse(req.body);
     if (!parsed.success) {
-      return reply
-        .code(400)
-        .send({ error: "validation_error", details: parsed.error.format() });
+      return reply.code(400).send({ error: "validation_error", details: parsed.error.format() });
     }
     const updated = await withTenant(deps.pool, ident.tenantId, async (tx) => {
       const repo = new InboxesRepository(tx);
@@ -150,9 +154,7 @@ export function registerInboxRoutes(app: FastifyInstance, deps: InboxRoutesDeps)
     const { id } = req.params as { id: string };
     const parsed = AddMemberBody.safeParse(req.body);
     if (!parsed.success) {
-      return reply
-        .code(400)
-        .send({ error: "validation_error", details: parsed.error.format() });
+      return reply.code(400).send({ error: "validation_error", details: parsed.error.format() });
     }
     await withTenant(deps.pool, ident.tenantId, (tx) => {
       const repo = new InboxesRepository(tx);
@@ -181,9 +183,7 @@ export function registerInboxRoutes(app: FastifyInstance, deps: InboxRoutesDeps)
     const { id } = req.params as { id: string };
     const parsed = AddMailboxBody.safeParse(req.body);
     if (!parsed.success) {
-      return reply
-        .code(400)
-        .send({ error: "validation_error", details: parsed.error.format() });
+      return reply.code(400).send({ error: "validation_error", details: parsed.error.format() });
     }
     await withTenant(deps.pool, ident.tenantId, (tx) => {
       const repo = new InboxesRepository(tx);

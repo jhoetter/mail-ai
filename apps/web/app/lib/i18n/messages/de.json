@@ -251,13 +251,31 @@
     "go-calendar": { "label": "Zum Kalender", "description": "Öffne den Kalender." },
     "go-accounts": { "label": "Zu den Konten", "description": "Öffne die verbundenen Konten." },
     "go-audit": { "label": "Zum Audit-Log", "description": "Öffne das Audit-Log." },
-    "go-inboxes": { "label": "Zu den geteilten Postfächern", "description": "Öffne die Verwaltung geteilter Postfächer." },
-    "compose-new": { "label": "Neue Nachricht", "description": "Öffne den Editor für eine neue Nachricht." },
-    "thread-reply": { "label": "Antworten", "description": "Antworte auf die geöffnete Konversation." },
-    "thread-snooze": { "label": "Konversation zurückstellen", "description": "Stelle die geöffnete Konversation zurück." },
-    "thread-done": { "label": "Konversation als erledigt markieren", "description": "Markiere die geöffnete Konversation als erledigt." },
+    "go-inboxes": {
+      "label": "Zu den geteilten Postfächern",
+      "description": "Öffne die Verwaltung geteilter Postfächer."
+    },
+    "compose-new": {
+      "label": "Neue Nachricht",
+      "description": "Öffne den Editor für eine neue Nachricht."
+    },
+    "thread-reply": {
+      "label": "Antworten",
+      "description": "Antworte auf die geöffnete Konversation."
+    },
+    "thread-snooze": {
+      "label": "Konversation zurückstellen",
+      "description": "Stelle die geöffnete Konversation zurück."
+    },
+    "thread-done": {
+      "label": "Konversation als erledigt markieren",
+      "description": "Markiere die geöffnete Konversation als erledigt."
+    },
     "switch-language": { "label": "Sprache wechseln", "description": "Wechsle die UI-Sprache." },
-    "switch-theme": { "label": "Theme wechseln", "description": "Hell → Dunkel → System durchschalten." }
+    "switch-theme": {
+      "label": "Theme wechseln",
+      "description": "Hell → Dunkel → System durchschalten."
+    }
   },
   "theme": {
     "light": "Hell",

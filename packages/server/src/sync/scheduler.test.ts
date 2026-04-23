@@ -12,17 +12,11 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { WebSocketServer } from "ws";
 import { EventBroadcaster, type MailaiEvent } from "../events.js";
-import {
-  SyncScheduler,
-  type SyncDriver,
-  type SyncSchedulerDeps,
-} from "./scheduler.js";
+import { SyncScheduler, type SyncDriver, type SyncSchedulerDeps } from "./scheduler.js";
 import type { OauthAccountRow } from "@mailai/overlay-db";
 import type { SyncResult } from "../oauth/sync.js";
 
-function makeAccount(
-  partial: Partial<OauthAccountRow> & { id: string },
-): OauthAccountRow {
+function makeAccount(partial: Partial<OauthAccountRow> & { id: string }): OauthAccountRow {
   const now = new Date(0);
   return {
     id: partial.id,
@@ -72,15 +66,10 @@ interface FakeDriverState {
   readonly latencyMs: number;
 }
 
-function makeFakeDriver(
-  state: FakeDriverState,
-  clock: { now: () => number },
-): SyncDriver {
+function makeFakeDriver(state: FakeDriverState, clock: { now: () => number }): SyncDriver {
   return {
     async listAccounts(tenantId) {
-      return [...state.accounts.values()].filter(
-        (a) => a.tenantId === tenantId,
-      );
+      return [...state.accounts.values()].filter((a) => a.tenantId === tenantId);
     },
     async runSync(tenantId, accountId) {
       state.callLog.push({ tenantId, accountId, at: clock.now() });
@@ -142,9 +131,7 @@ function makeHarness(opts: {
     driver,
     baseIntervalMs: opts.baseIntervalMs ?? 60_000,
     tickIntervalMs: 5_000,
-    ...(opts.maxConcurrent !== undefined
-      ? { maxConcurrent: opts.maxConcurrent }
-      : {}),
+    ...(opts.maxConcurrent !== undefined ? { maxConcurrent: opts.maxConcurrent } : {}),
     logger: { info: () => undefined, warn: () => undefined, error: () => undefined },
   };
   const scheduler = new SyncScheduler(deps);
@@ -161,16 +148,10 @@ describe("SyncScheduler", () => {
 
   it("syncs every never-synced account on the first tick", async () => {
     const h = makeHarness({
-      accounts: [
-        makeAccount({ id: "oa_a" }),
-        makeAccount({ id: "oa_b" }),
-      ],
+      accounts: [makeAccount({ id: "oa_a" }), makeAccount({ id: "oa_b" })],
     });
     await h.scheduler.tick();
-    expect(h.state.callLog.map((c) => c.accountId).sort()).toEqual([
-      "oa_a",
-      "oa_b",
-    ]);
+    expect(h.state.callLog.map((c) => c.accountId).sort()).toEqual(["oa_a", "oa_b"]);
     expect(h.events).toHaveLength(2);
     expect(h.events.every((e) => e.kind === "sync")).toBe(true);
   });

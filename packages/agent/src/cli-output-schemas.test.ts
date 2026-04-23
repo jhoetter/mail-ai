@@ -32,8 +32,6 @@ describe("cli-output-schemas", () => {
     expect(ErrorOutputSchema.parse({ error: "auth_error", message: "no token" })).toBeTruthy();
   });
   it("rejects bogus status values", () => {
-    expect(() =>
-      MutationOutputSchema.parse({ ...sampleMutation, status: "bogus" }),
-    ).toThrow();
+    expect(() => MutationOutputSchema.parse({ ...sampleMutation, status: "bogus" })).toThrow();
   });
 });
