@@ -69,10 +69,7 @@ export function MailAiApp({ hooks, surface = "inbox", initialThreadId }: MailAiA
             <Route path="/inbox" element={<InboxPage />} />
             <Route path="/calendar" element={<CalendarPage />} />
             <Route path="/drafts" element={<DraftsPage />} />
-            <Route
-              path="*"
-              element={<Navigate to={SURFACE_ROUTES[surface]} replace />}
-            />
+            <Route path="*" element={<Navigate to={SURFACE_ROUTES[surface]} replace />} />
           </Routes>
         </AppShell>
       </MemoryRouter>

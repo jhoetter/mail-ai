@@ -24,7 +24,14 @@
  * wrapper sets/clears the singleton on mount/unmount and re-renders the
  * tree if the config identity changes.
  */
-import { createContext, createElement, useContext, useEffect, useMemo, type ReactNode } from "react";
+import {
+  createContext,
+  createElement,
+  useContext,
+  useEffect,
+  useMemo,
+  type ReactNode,
+} from "react";
 
 export interface RuntimeIdentity {
   readonly id: string;

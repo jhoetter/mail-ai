@@ -18,10 +18,7 @@ import { DialogsProvider } from "@mailai/ui";
 import { I18nProvider } from "@/lib/i18n";
 import { RealtimeProvider } from "@/lib/realtime";
 import { ThemeProvider } from "@/lib/theme-provider";
-import {
-  RuntimeConfigProvider,
-  type RuntimeConfig,
-} from "@/lib/runtime-config";
+import { RuntimeConfigProvider, type RuntimeConfig } from "@/lib/runtime-config";
 
 export interface AppProvidersProps {
   /**

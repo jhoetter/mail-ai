@@ -163,7 +163,9 @@ export function Composer({
         .slice(0, 6)}`;
       const attachmentRefs = uploads.refs;
       if (replyTo) {
-        await (await client()).applyCommand({
+        await (
+          await client()
+        ).applyCommand({
           type: "mail:reply",
           payload: {
             threadId: replyTo.threadId,
@@ -176,7 +178,9 @@ export function Composer({
       } else if (draftId) {
         await dispatchCommand({ type: "draft:send", payload: { id: draftId } });
       } else {
-        await (await client()).applyCommand({
+        await (
+          await client()
+        ).applyCommand({
           type: "mail:send",
           payload: {
             to,
