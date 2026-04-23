@@ -1,6 +1,6 @@
-import { Button, Card, Input, PageBody, PageHeader, Shell, useDialogs } from "@mailai/ui";
+import { Button, Card, Input, PageBody, PageHeader, useDialogs } from "@mailai/ui";
 import { useCallback, useEffect, useState } from "react";
-import { AppNav } from "../../components/AppNav";
+import { PageShell } from "../../components/PageShell";
 import { useTranslator } from "../../lib/i18n/useTranslator";
 import { createTag, deleteTag, listTags, type TagDefinition } from "../../lib/tags-client";
 
@@ -55,7 +55,7 @@ export default function TagsSettingsPage() {
   };
 
   return (
-    <Shell sidebar={<AppNav />}>
+    <PageShell>
       <PageHeader title={t("tags.title")} subtitle={t("tags.subtitle")} />
       <PageBody>
         <Card>
@@ -111,6 +111,6 @@ export default function TagsSettingsPage() {
           </div>
         </Card>
       </PageBody>
-    </Shell>
+    </PageShell>
   );
 }

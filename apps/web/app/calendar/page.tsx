@@ -1,6 +1,6 @@
 import { useCallback, useState } from "react";
-import { Card, PageBody, PageHeader, Shell, useDialogs } from "@mailai/ui";
-import { AppNav } from "../components/AppNav";
+import { Card, PageBody, PageHeader, useDialogs } from "@mailai/ui";
+import { PageShell } from "../components/PageShell";
 import { useTranslator } from "../lib/i18n/useTranslator";
 import {
   createEvent,
@@ -211,7 +211,7 @@ export default function CalendarPage() {
   );
 
   return (
-    <Shell sidebar={<AppNav />}>
+    <PageShell>
       <PageHeader title={t("calendar.title")} subtitle={t("calendar.subtitle")} actions={null} />
       <PageBody width="none">
         {state.error && <p className="px-4 text-sm text-error">{state.error}</p>}
@@ -352,6 +352,6 @@ export default function CalendarPage() {
           onSubmit={onSubmitEditor}
         />
       )}
-    </Shell>
+    </PageShell>
   );
 }

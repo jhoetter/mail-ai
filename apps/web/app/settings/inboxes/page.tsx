@@ -1,15 +1,6 @@
-import {
-  Button,
-  DataTable,
-  Dialog,
-  Input,
-  PageBody,
-  PageHeader,
-  Shell,
-  useDialogs,
-} from "@mailai/ui";
+import { Button, DataTable, Dialog, Input, PageBody, PageHeader, useDialogs } from "@mailai/ui";
 import { useCallback, useEffect, useState } from "react";
-import { AppNav } from "../../components/AppNav";
+import { PageShell } from "../../components/PageShell";
 import {
   addMailbox,
   addMember,
@@ -41,7 +32,7 @@ export default function InboxesSettingsPage() {
   }, [refresh]);
 
   return (
-    <Shell sidebar={<AppNav />}>
+    <PageShell>
       <PageHeader
         title="Inboxes"
         subtitle="Shared queues that route mail from one or more accounts to a team."
@@ -98,7 +89,7 @@ export default function InboxesSettingsPage() {
           }}
         />
       ) : null}
-    </Shell>
+    </PageShell>
   );
 }
 

@@ -1,6 +1,6 @@
-import { Button, Input, PageBody, PageHeader, Shell } from "@mailai/ui";
+import { Button, Input, PageBody, PageHeader } from "@mailai/ui";
 import { useCallback, useEffect, useState } from "react";
-import { AppNav } from "../../components/AppNav";
+import { PageShell } from "../../components/PageShell";
 import { listAudit, type AuditEntry } from "../../lib/audit-client";
 
 export default function AuditPage() {
@@ -40,7 +40,7 @@ export default function AuditPage() {
   }, [load]);
 
   return (
-    <Shell sidebar={<AppNav />}>
+    <PageShell>
       <PageHeader
         title="Audit log"
         subtitle="Every mutation that ever ran — append-only, durable copy of the command bus."
@@ -124,7 +124,7 @@ export default function AuditPage() {
           ) : null}
         </div>
       </PageBody>
-    </Shell>
+    </PageShell>
   );
 }
 

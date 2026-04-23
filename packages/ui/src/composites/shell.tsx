@@ -9,7 +9,12 @@ import {
 } from "react";
 
 interface Props {
-  sidebar: ReactNode;
+  /**
+   * Pass `null` or omit to render content-only (no left rail). Used when
+   * the host already supplies its own navigation (e.g. mail-ai embedded
+   * in hof-os, where the host's sidebar would otherwise overlap).
+   */
+  sidebar?: ReactNode;
   children: ReactNode;
 }
 
@@ -87,6 +92,19 @@ export function Shell({ sidebar, children }: Props) {
   }, [open]);
 
   const api = useMemo<SidebarApi>(() => ({ open, toggle, close }), [open, toggle, close]);
+
+  // Headless / embedded mode: no rail at all. We still mount the
+  // SidebarContext.Provider with the no-op shape so any descendant
+  // hamburger button is a no-op rather than crashing.
+  if (sidebar == null) {
+    return (
+      <SidebarContext.Provider value={api}>
+        <div className="flex h-full min-h-0 flex-col bg-background text-foreground">
+          <main className="flex min-w-0 min-h-0 flex-1 flex-col overflow-hidden">{children}</main>
+        </div>
+      </SidebarContext.Provider>
+    );
+  }
 
   return (
     <SidebarContext.Provider value={api}>

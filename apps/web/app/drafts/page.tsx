@@ -1,6 +1,6 @@
-import { Button, Card, PageBody, PageHeader, Shell, useDialogs } from "@mailai/ui";
+import { Button, Card, PageBody, PageHeader, useDialogs } from "@mailai/ui";
 import { useCallback, useEffect, useState } from "react";
-import { AppNav } from "../components/AppNav";
+import { PageShell } from "../components/PageShell";
 import { Composer } from "../components/Composer";
 import { useTranslator } from "../lib/i18n/useTranslator";
 import { deleteDraft, listDrafts, sendDraft, type DraftSummary } from "../lib/drafts-client";
@@ -60,7 +60,7 @@ export default function DraftsPage() {
   };
 
   return (
-    <Shell sidebar={<AppNav />}>
+    <PageShell>
       <PageHeader title={t("drafts.title")} subtitle={t("drafts.subtitle")} />
       <PageBody>
         <Card>
@@ -125,7 +125,7 @@ export default function DraftsPage() {
           }}
         />
       ) : null}
-    </Shell>
+    </PageShell>
   );
 }
 

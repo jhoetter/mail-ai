@@ -1,9 +1,9 @@
-import { PageHeader, Shell, Button } from "@mailai/ui";
+import { PageHeader, Button } from "@mailai/ui";
 import { Inbox as InboxIcon, Paperclip, Pencil, RefreshCw, Star } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { ThreadView } from "./ThreadView";
 import { Composer } from "./Composer";
-import { AppNav } from "./AppNav";
+import { PageShell } from "./PageShell";
 import { EmptyView } from "./EmptyView";
 import { listThreads, type ThreadSummary, type TagSummary } from "../lib/threads-client";
 import { useTranslator } from "../lib/i18n/useTranslator";
@@ -169,7 +169,7 @@ export function Inbox() {
   }, []);
 
   return (
-    <Shell sidebar={<AppNav />}>
+    <PageShell>
       <PageHeader
         title={t("inbox.title")}
         actions={
@@ -336,7 +336,7 @@ export function Inbox() {
         </section>
       </div>
       <Composer open={composing} onClose={() => setComposing(false)} />
-    </Shell>
+    </PageShell>
   );
 }
 

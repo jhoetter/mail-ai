@@ -14,6 +14,7 @@ import { PaletteRegistryProvider, usePaletteRegistry } from "./paletteRegistry";
 import type { PaletteCommand } from "./types";
 import { CommandErrorToast } from "../../components/CommandErrorToast";
 import { TopBar } from "../../components/TopBar";
+import { ChromeProvider } from "./ChromeContext";
 
 /**
  * Visual mode for the shell.
@@ -45,16 +46,18 @@ export function AppShell({
   // switched from h-screen to h-full so it fills *this* container
   // instead of overflowing past the search bar.
   return (
-    <ShellWithStaticCommands>
-      <div className="flex h-screen min-h-0 flex-col">
-        {chrome === "full" ? <TopBar /> : null}
-        <div className="flex min-h-0 flex-1 flex-col">
-          <KeybindLayer>{children}</KeybindLayer>
+    <ChromeProvider chrome={chrome}>
+      <ShellWithStaticCommands>
+        <div className="flex h-screen min-h-0 flex-col">
+          {chrome === "full" ? <TopBar /> : null}
+          <div className="flex min-h-0 flex-1 flex-col">
+            <KeybindLayer>{children}</KeybindLayer>
+          </div>
         </div>
-      </div>
-      <CommandPalette />
-      <CommandErrorToast />
-    </ShellWithStaticCommands>
+        <CommandPalette />
+        <CommandErrorToast />
+      </ShellWithStaticCommands>
+    </ChromeProvider>
   );
 }
 

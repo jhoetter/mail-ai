@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
-import { Button, Card, DataTable, PageBody, PageHeader, Shell, useDialogs } from "@mailai/ui";
+import { Button, Card, DataTable, PageBody, PageHeader, useDialogs } from "@mailai/ui";
 import { ConnectAccountDialog } from "../../components/connect-account-dialog";
-import { AppNav } from "../../components/AppNav";
+import { PageShell } from "../../components/PageShell";
 import { SignatureCard } from "../../components/SignatureCard";
 import {
   type AccountSummary,
@@ -155,7 +155,7 @@ export default function AccountSettingsPage() {
   const rows: AccountRow[] = accounts;
 
   return (
-    <Shell sidebar={<AppNav />}>
+    <PageShell>
       <PageHeader
         title={t("accounts.title")}
         subtitle={t("accounts.subtitle")}
@@ -266,7 +266,7 @@ export default function AccountSettingsPage() {
           void refresh();
         }}
       />
-    </Shell>
+    </PageShell>
   );
 }
 
