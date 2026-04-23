@@ -31,12 +31,7 @@ interface InternalProps extends EmbeddedPaneProps {
   readonly children: ReactNode;
 }
 
-export function EmbeddedPane({
-  initialPath,
-  onNavigate,
-  defaultPath,
-  children,
-}: InternalProps) {
+export function EmbeddedPane({ initialPath, onNavigate, defaultPath, children }: InternalProps) {
   const initialEntry = initialPath ?? defaultPath;
   return (
     <div className="relative h-full min-h-0 w-full">

@@ -67,7 +67,12 @@ const SEED: readonly SeedItem[] = [
     shortcut: "g c",
     path: "/calendar",
   },
-  { id: "mailai.go-accounts", group: "Settings", label: "Mail accounts", path: "/settings/account" },
+  {
+    id: "mailai.go-accounts",
+    group: "Settings",
+    label: "Mail accounts",
+    path: "/settings/account",
+  },
   { id: "mailai.go-tags", group: "Settings", label: "Tags", path: "/settings/tags" },
   { id: "mailai.go-inboxes", group: "Settings", label: "Inboxes", path: "/settings/inboxes" },
   { id: "mailai.go-audit", group: "Settings", label: "Audit log", path: "/settings/audit" },
