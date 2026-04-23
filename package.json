@@ -1,7 +1,7 @@
 {
   "name": "mail-ai",
   "private": true,
-  "version": "0.2.0",
+  "version": "0.1.1",
   "description": "AI-native email collaboration platform — IMAP overlay",
   "license": "MIT",
   "packageManager": "pnpm@9.15.4",
