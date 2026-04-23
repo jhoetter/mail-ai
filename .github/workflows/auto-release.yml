@@ -17,11 +17,23 @@ name: Auto Release
 #       (see infra/docker/Dockerfile.server + the lockfile `app_image`
 #       field below).
 #   4. Publish a GitHub Release vX.Y.Z with the tarballs attached.
-#   5. notify-hof-os: rewrite jhoetter/hof-os' infra/mailai.lock.json
-#      to point at the new release. Requires the MAILAI_SYNC_TOKEN
-#      secret (a fine-grained PAT with `contents: write` on hof-os).
-#      The job is `if`-guarded so it skips silently if the secret
-#      isn't configured (e.g. on forks).
+#   5. notify-hof-os: fire a `repository_dispatch` event of type
+#      `mailai-released` against `jhoetter/hof-os` with a small
+#      `client_payload` (version, tag, source SHA, image ref). The
+#      hof-os listener (`.github/workflows/sister-product-lock.yml`)
+#      then regenerates `infra/mailai.lock.json` deterministically from
+#      that payload, bumps the docker-compose image-tag default, and
+#      opens a PR — review-gated, no direct writes from this workflow
+#      to hof-os' `main` branch.
+#
+#      Requires the `HOFOS_DISPATCH_TOKEN` secret: a fine-grained PAT
+#      scoped to `repository_dispatch: write` on `jhoetter/hof-os`
+#      ONLY. No `contents: write` is needed because we no longer push
+#      to hof-os from here. The legacy `MAILAI_SYNC_TOKEN` (push-to-
+#      main on hof-os) is now revocable; see `docs/sister-products.md`
+#      in hof-os for the rotation checklist. The job is `if`-guarded
+#      so it skips silently if the secret isn't configured (e.g. on
+#      forks).
 #
 # To bypass a release for a doc-only commit, append `[skip ci]` or
 # `[skip release]` to the commit message.
@@ -233,56 +245,45 @@ jobs:
     needs: release
     runs-on: ubuntu-latest
     timeout-minutes: 5
-    # Mirrors office-ai's notify-hof-os gate: runs whenever a new
-    # version was cut. The token check happens implicitly when the
-    # checkout step runs against jhoetter/hof-os.
+    # Triggers on every successful release. The previous design pushed
+    # straight to ``jhoetter/hof-os@main`` using a long-lived
+    # ``MAILAI_SYNC_TOKEN`` PAT (``contents: write`` on the entire
+    # hof-os repo); the new design fires a single
+    # ``repository_dispatch`` event and lets hof-os' own
+    # ``sister-product-lock.yml`` workflow open a PR. The credential
+    # we ship here (``HOFOS_DISPATCH_TOKEN``) is a fine-grained PAT
+    # scoped to ``repository_dispatch: write`` on hof-os only, so a
+    # leak can't push code or read other repos.
     if: needs.release.outputs.new_version != ''
     steps:
-      - name: Checkout hof-os
-        uses: actions/checkout@v4
-        with:
-          repository: jhoetter/hof-os
-          token: ${{ secrets.MAILAI_SYNC_TOKEN }}
-          ref: main
-
-      - name: Update mailai lockfile
+      - name: Dispatch lockfile bump to hof-os
         env:
+          GH_TOKEN: ${{ secrets.HOFOS_DISPATCH_TOKEN }}
           NEW_VERSION: ${{ needs.release.outputs.new_version }}
+          NEW_TAG: ${{ needs.release.outputs.new_tag }}
           IMAGE_REF: ${{ needs.release.outputs.image_ref }}
           GIT_SHA: ${{ github.sha }}
         run: |
           set -euo pipefail
-          mkdir -p infra
-          PUBLISHED_AT="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
-          AGENT_TARBALL="https://github.com/jhoetter/mail-ai/releases/download/v${NEW_VERSION}/mailai-agent-${NEW_VERSION}.tgz"
-          REACT_TARBALL="https://github.com/jhoetter/mail-ai/releases/download/v${NEW_VERSION}/mailai-react-app-${NEW_VERSION}.tgz"
-          cat > infra/mailai.lock.json <<EOF
-          {
-            "version": "${NEW_VERSION}",
-            "app_image": "${IMAGE_REF}",
-            "agent_version": "${NEW_VERSION}",
-            "agent_tarball": "${AGENT_TARBALL}",
-            "react_app_version": "${NEW_VERSION}",
-            "react_app_tarball": "${REACT_TARBALL}",
-            "published_at": "${PUBLISHED_AT}",
-            "source_repo": "jhoetter/mail-ai",
-            "source_sha": "${GIT_SHA}"
-          }
-          EOF
-          cat infra/mailai.lock.json
-
-      - name: Commit and push
-        env:
-          NEW_VERSION: ${{ needs.release.outputs.new_version }}
-        run: |
-          set -euo pipefail
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add infra/mailai.lock.json
-          if git diff --cached --quiet; then
-            echo "mailai.lock.json already at ${NEW_VERSION}; nothing to commit"
-            exit 0
-          fi
-          git commit -m "chore(mailai): bump to ${NEW_VERSION}"
-          git pull --rebase origin main
-          git push origin main
+          payload="$(jq -nc \
+            --arg version "${NEW_VERSION}" \
+            --arg tag "${NEW_TAG}" \
+            --arg source_sha "${GIT_SHA}" \
+            --arg image_ref "${IMAGE_REF}" \
+            '{version: $version, tag: $tag, source_sha: $source_sha, image_ref: $image_ref}')"
+          # Three attempts with exponential backoff (3s, 9s, 27s).
+          # GitHub's dispatch API is normally instant but flaky bursts
+          # do happen during outages, and an unfired dispatch silently
+          # leaves hof-os pinned to the previous version.
+          for attempt in 1 2 3; do
+            if gh api repos/jhoetter/hof-os/dispatches \
+              -X POST \
+              -f event_type=mailai-released \
+              --raw-field client_payload="${payload}"; then
+              echo "Dispatched mailai-released v${NEW_VERSION} (attempt ${attempt})"
+              exit 0
+            fi
+            sleep $((3 ** attempt))
+          done
+          echo "Failed to dispatch after 3 attempts" >&2
+          exit 1
