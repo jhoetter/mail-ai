@@ -14,7 +14,8 @@ for (const t of targets) {
   }
   console.log(`\n== ${t} ==`);
   try {
-    execSync(`pnpm --filter ./${t} pack --pack-destination /tmp/mailai-pack`, {
+    execSync(`pnpm pack --pack-destination /tmp/mailai-pack`, {
+      cwd: t,
       stdio: "inherit",
     });
   } catch {

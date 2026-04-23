@@ -4,13 +4,34 @@
   "private": false,
   "type": "module",
   "exports": {
-    ".": "./src/index.ts",
-    "./contract": "./src/contract.ts",
-    "./components/inbox": "./src/components/inbox.ts",
-    "./components/thread": "./src/components/thread.ts",
-    "./components/compose": "./src/components/compose.ts",
-    "./components/attachment-viewer": "./src/components/AttachmentViewer.tsx",
-    "./blanks": "./src/blanks.ts",
+    ".": {
+      "types": "./src/index.ts",
+      "import": "./dist/index.js"
+    },
+    "./contract": {
+      "types": "./src/contract.ts",
+      "import": "./dist/contract.js"
+    },
+    "./components/inbox": {
+      "types": "./src/components/inbox.ts",
+      "import": "./dist/components/inbox.js"
+    },
+    "./components/thread": {
+      "types": "./src/components/thread.ts",
+      "import": "./dist/components/thread.js"
+    },
+    "./components/compose": {
+      "types": "./src/components/compose.ts",
+      "import": "./dist/components/compose.js"
+    },
+    "./components/attachment-viewer": {
+      "types": "./src/components/AttachmentViewer.tsx",
+      "import": "./dist/components/AttachmentViewer.js"
+    },
+    "./blanks": {
+      "types": "./src/blanks.ts",
+      "import": "./dist/blanks.js"
+    },
     "./styles.css": "./src/styles.css"
   },
   "files": [

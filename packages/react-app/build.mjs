@@ -18,6 +18,7 @@ const entries = [
   "src/components/inbox.ts",
   "src/components/thread.ts",
   "src/components/compose.ts",
+  "src/components/AttachmentViewer.tsx",
   "src/blanks.ts",
   "src/contract.ts",
   "src/MailAiApp.tsx",

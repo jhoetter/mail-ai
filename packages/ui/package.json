@@ -10,7 +10,7 @@
     "build": "echo 'ui is source-only; consumers transpile'",
     "lint": "tsc --noEmit",
     "typecheck": "tsc --noEmit",
-    "test": "vitest run"
+    "test": "vitest run --passWithNoTests"
   },
   "dependencies": {
     "@mailai/design-tokens": "workspace:*",

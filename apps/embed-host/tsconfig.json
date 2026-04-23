@@ -6,7 +6,14 @@
     "moduleResolution": "Bundler",
     "jsx": "react-jsx",
     "lib": ["ES2022", "DOM", "DOM.Iterable"],
-    "noEmit": true
+    "noEmit": true,
+    "paths": {
+      "@/*": ["../../apps/web/app/*"]
+    }
   },
-  "include": ["src"]
+  "include": [
+    "src",
+    "../../packages/react-app/src/officeai-react-editors.d.ts",
+    "../../packages/react-app/src/import-meta-env.d.ts"
+  ]
 }
