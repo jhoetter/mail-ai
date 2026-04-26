@@ -2,9 +2,11 @@
 /* eslint-disable */
 /**
  * Postinstall script: stage @officeai/react-editors into the workspace
- * root `node_modules/` so any package (the standalone @mailai/web app
- * AND the @mailai/react-app embed bundle consumed by hof-os) resolves
- * the same editor runtime.
+ * root `node_modules/` so the standalone @mailai/web app resolves the
+ * same editor runtime as hof-os' /edit-asset surface. (The previous
+ * @mailai/react-app embed bundle was retired alongside the hof-os
+ * Approach C cutover; the mail UI now ships natively from
+ * hof-components/modules/mailai.)
  *
  * Mirrors `ensure-officeai-react-editors.cjs` in hof-os almost
  * line-for-line. The version + tarball URL are pinned in

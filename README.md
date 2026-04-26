@@ -30,9 +30,8 @@ packages/
   collaboration/            Assignment, status, comments, tags, audit log, RBAC
   agent/                    Headless MailAgent SDK + mail-agent CLI + MCP server
   server/                   Fastify HTTP + ws (the only network surface)
-  ui/                       Shared React primitives
+  ui/                       Shared React primitives (used by apps/web only)
   design-tokens/            Tailwind preset + tokens
-  react-app/                Publishable embed package (esbuild bundle)
 spec/                       Living specification (per phase + shared)
 fixtures/                   MIME samples + mailbox dumps
 tests/                      Integration + agent + overlay test suites
@@ -49,4 +48,20 @@ scripts/                    check-architecture, bundle-dry-run, bump-version
 4. **No smuggling.** We never store overlay metadata in IMAP — no fake headers, no hidden folders.
 5. **IMAP coexistence integrity.** Every change we make must be visible to a parallel client (Outlook, Gmail web) within seconds.
 
-See [`docs/embedding.md`](docs/embedding.md) for how mail-ai will later embed into hof-os via the same release-tarball pattern as office-ai.
+## Hosting in hof-os
+
+The user-facing mail UI ships natively from
+[`hof-components/modules/mailai`](https://github.com/jhoetter/hof-os/tree/main/packages/hof-components/modules/mailai)
+inside `hof-os` (Approach C, April 2026). This repo is the
+**backend service** for that UI: the Fastify server in
+`packages/server/` exposes the REST + WS contract that the data-app's
+`/api/mail/*` proxy forwards to with a single `hof_token` Bearer.
+
+The standalone `apps/web` Vite app remains as a developer harness so
+you can iterate on backend behaviour against a real React surface in
+isolation. There is no longer a publishable `@mailai/react-app`
+embed bundle — the embed React surface lives in hof-os.
+
+To develop the UI against a local mail-ai backend, run `make dev` here
+and then in `hof-os` run `MAILAI_LOCAL_PATH=$(pwd) make dev` so the
+docker-compose overlay rebuilds the sidecar from this checkout.

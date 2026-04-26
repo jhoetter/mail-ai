@@ -12,8 +12,10 @@
 //  - Only `packages/server` may open HTTP/WebSocket sockets (`fastify`,
 //    `ws`).
 //  - Only `packages/smtp-send` may import `nodemailer`.
-//  - Browser packages (ui, design-tokens, react-app) and apps may
-//    import React/Next freely.
+//  - Browser packages (ui, design-tokens) and apps may
+//    import React/Next freely. Note: `packages/react-app/` was
+//    deleted after the hof-os Approach C cutover; the embed UI now
+//    ships natively from hof-components/modules/mailai.
 //
 // Failures exit with code 1 and print every offending file/import.
 

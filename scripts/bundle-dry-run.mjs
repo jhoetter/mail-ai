@@ -5,7 +5,7 @@
 import { execSync } from "node:child_process";
 import { existsSync } from "node:fs";
 
-const targets = ["packages/agent", "packages/react-app"];
+const targets = ["packages/agent"];
 
 for (const t of targets) {
   if (!existsSync(t + "/package.json")) {

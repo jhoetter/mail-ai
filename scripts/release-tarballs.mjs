@@ -1,16 +1,18 @@
 #!/usr/bin/env node
 // release-tarballs.mjs
 //
-// Produces the two artifacts the embedding workflow expects (per
-// docs/release-pipeline.md):
+// Produces the publishable artifact (per docs/release-pipeline.md):
 //
 //   - mail-ai-agent-<version>.tgz       (the @mailai/agent CLI)
-//   - mail-ai-react-app-<version>.tgz   (the embed package)
 //
 // Plus a `mailai.lock.json` snapshot that pins versions + shasums
-// so a host repo can vendor them deterministically. We do NOT
-// publish to npm here — release publishing is a manual step gated
-// on review.
+// so a host repo can vendor it deterministically. We do NOT publish
+// to npm here — release publishing is a manual step gated on review.
+//
+// The previous `mail-ai-react-app-<version>.tgz` artifact was
+// retired alongside `packages/react-app/` after the hof-os Approach
+// C cutover; the mail UI now ships natively from
+// hof-components/modules/mailai.
 
 import { execSync } from "node:child_process";
 import { createHash } from "node:crypto";
@@ -24,7 +26,6 @@ mkdirSync(OUT, { recursive: true });
 
 const targets = [
   { dir: "packages/agent", name: "@mailai/agent" },
-  { dir: "packages/react-app", name: "@mailai/react-app" },
 ];
 
 const lock = { generatedAt: new Date().toISOString(), packages: [] };

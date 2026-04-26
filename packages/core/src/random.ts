@@ -1,8 +1,8 @@
 // Cross-runtime UUID generator.
 //
 // `node:crypto` would force every consumer (including browser bundles
-// produced by @mailai/react-app via esbuild) to ship a Node polyfill or
-// be marked as a Node target. Instead we lean on the Web Crypto API,
+// in any future embedding host) to ship a Node polyfill or be marked
+// as a Node target. Instead we lean on the Web Crypto API,
 // which is available on `globalThis.crypto` in:
 //
 //   - All evergreen browsers since 2022
