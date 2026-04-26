@@ -1,6 +1,7 @@
 import { useCallback, useState } from "react";
 import { Card, PageBody, PageHeader, useDialogs } from "@mailai/ui";
 import { PageShell } from "../components/PageShell";
+import { EmptyView } from "../components/EmptyView";
 import { useTranslator } from "../lib/i18n/useTranslator";
 import {
   createEvent,
@@ -218,9 +219,9 @@ export default function CalendarPage() {
         {state.calendars === null ? (
           <p className="px-4 text-sm text-secondary">{t("common.loading")}</p>
         ) : state.calendars.length === 0 ? (
-          <Card>
-            <p className="text-sm text-secondary">{t("calendar.noCalendars")}</p>
-          </Card>
+          <div className="flex min-h-[28rem] items-center justify-center">
+            <EmptyView kind="default" hasAccounts={false} />
+          </div>
         ) : (
           <div className="flex h-[calc(100vh-12rem)] min-h-[40rem] gap-3">
             <Sidebar

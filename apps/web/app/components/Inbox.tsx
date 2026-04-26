@@ -208,6 +208,7 @@ export function Inbox() {
   const emptyKind = resolveEmptyKind(viewId, views);
   const syncError = accounts.status === "ok" ? firstSyncError(accounts.rows) : null;
   const hasAccounts = accounts.status === "ok" && accounts.rows.length > 0;
+  const hasLoadedEmptyRows = threads !== null && rows.length === 0;
 
   useEffect(() => {
     if (rows.length === 0) {
@@ -269,14 +270,25 @@ export function Inbox() {
         unmounting so the list scroll position is preserved when going
         back into a thread.
       */}
-      <div className="flex min-h-0 flex-1 md:grid md:grid-cols-[minmax(240px,320px)_minmax(0,1fr)]">
+      <div
+        className={
+          "flex min-h-0 flex-1 md:grid " +
+          (hasLoadedEmptyRows ? "md:grid-cols-1" : "md:grid-cols-[minmax(240px,320px)_minmax(0,1fr)]")
+        }
+      >
         <section
           className={
             "flex min-h-0 flex-1 flex-col overflow-hidden border-divider bg-background md:flex-initial md:border-r " +
-            (selected ? "hidden md:flex" : "flex")
+            (hasLoadedEmptyRows ? "md:border-r-0" : "") +
+            (selected ? " hidden md:flex" : " flex")
           }
         >
-          <div className="min-h-0 flex-1 overflow-y-auto">
+          <div
+            className={
+              "min-h-0 flex-1 overflow-y-auto " +
+              (hasLoadedEmptyRows ? "flex items-center justify-center" : "")
+            }
+          >
             {loadError ? (
               <p className="px-4 py-3 text-sm text-error">
                 {t("inbox.loadError", { error: loadError })}
@@ -395,7 +407,7 @@ export function Inbox() {
         <section
           className={
             "min-h-0 flex-1 flex-col overflow-hidden bg-background md:flex " +
-            (selected ? "flex" : "hidden md:flex")
+            (selected ? "flex" : rows.length > 0 ? "hidden md:flex" : "hidden")
           }
         >
           {selected ? (
@@ -407,20 +419,12 @@ export function Inbox() {
                 writeMailInboxPath();
               }}
             />
-          ) : (
+          ) : rows.length > 0 ? (
             <div className="flex h-full flex-col items-center justify-center gap-2 px-6 text-center">
-              {rows.length === 0 && accounts.status === "ok" ? (
-                <EmptyView kind={emptyKind} hasAccounts={hasAccounts} lastSyncError={syncError} />
-              ) : (
-                <>
-                  <InboxIcon size={28} aria-hidden className="text-tertiary" />
-                  <p className="text-sm text-tertiary">
-                    {rows.length > 0 ? t("inbox.selectThread") : t("inbox.nothingToShow")}
-                  </p>
-                </>
-              )}
+              <InboxIcon size={28} aria-hidden className="text-tertiary" />
+              <p className="text-sm text-tertiary">{t("inbox.selectThread")}</p>
             </div>
-          )}
+          ) : null}
         </section>
       </div>
       <Composer open={composing} onClose={() => setComposing(false)} />

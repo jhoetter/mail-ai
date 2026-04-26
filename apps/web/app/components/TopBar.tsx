@@ -6,14 +6,6 @@
 // product exposes — Nachrichten, Dateien, Personen, Postfächer,
 // Tags, Kalender.
 //
-// Triggering
-// ----------
-//   ⌘F / Ctrl-F          Focuses the bar from anywhere and opens
-//                        the result panel. Listened on the capture
-//                        phase so it beats the browser's native
-//                        "find on page" without needing a per-route
-//                        binding.
-//
 // Filter chips (parsed inline)
 // ----------------------------
 //   in:<account-email>   Restrict every domain to one Postfach.
@@ -232,23 +224,6 @@ export function TopBar() {
   const [error, setError] = useState<string | null>(null);
   const debounceRef = useRef<number | null>(null);
   const abortRef = useRef<AbortController | null>(null);
-
-  // ⌘F / Ctrl-F focuses the bar and opens the panel. We listen in
-  // the capture phase so we beat the browser's native "find on
-  // page" before it pops the system find bar.
-  useEffect(() => {
-    function onKey(e: KeyboardEvent) {
-      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "f") {
-        e.preventDefault();
-        e.stopPropagation();
-        inputRef.current?.focus();
-        inputRef.current?.select();
-        setOpen(true);
-      }
-    }
-    window.addEventListener("keydown", onKey, { capture: true });
-    return () => window.removeEventListener("keydown", onKey, { capture: true });
-  }, []);
 
   // Close the dropdown when the user clicks anywhere outside the
   // top-bar container.
