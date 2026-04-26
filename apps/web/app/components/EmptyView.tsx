@@ -39,10 +39,9 @@ interface Props {
   lastSyncError?: string | null;
 }
 
-const ACCOUNTS_HREF = "/settings/account";
-
 export function EmptyView({ kind, hasAccounts, lastSyncError }: Props) {
   const { t } = useTranslator();
+  const accountsHref = accountsHrefForHost();
 
   if (!hasAccounts) {
     return (
@@ -52,7 +51,7 @@ export function EmptyView({ kind, hasAccounts, lastSyncError }: Props) {
         hint={t("emptyView.noAccountsHint")}
         cta={
           <a
-            href={ACCOUNTS_HREF}
+            href={accountsHref}
             data-testid="empty-view-cta-accounts"
             className="inline-flex h-8 items-center rounded-md bg-accent px-3 text-sm text-background hover:opacity-90"
           >
@@ -72,7 +71,7 @@ export function EmptyView({ kind, hasAccounts, lastSyncError }: Props) {
         details={t("emptyView.syncErrorDetails", { error: lastSyncError })}
         cta={
           <a
-            href={ACCOUNTS_HREF}
+            href={accountsHref}
             data-testid="empty-view-cta-reconnect"
             className="inline-flex h-8 items-center rounded-md bg-accent px-3 text-sm text-background hover:opacity-90"
           >
@@ -93,6 +92,15 @@ export function EmptyView({ kind, hasAccounts, lastSyncError }: Props) {
       hint={t(hintKey)}
     />
   );
+}
+
+function accountsHrefForHost(): string {
+  if (typeof window === "undefined") return "/settings/account";
+  return window.location.pathname === "/mail" ||
+    window.location.pathname.startsWith("/mail/") ||
+    window.location.pathname === "/calendar"
+    ? "/mail/settings/account"
+    : "/settings/account";
 }
 
 interface LayoutProps {

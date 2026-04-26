@@ -24,9 +24,7 @@ const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const OUT = process.env["MAILAI_RELEASE_DIR"] ?? join(ROOT, "release-out");
 mkdirSync(OUT, { recursive: true });
 
-const targets = [
-  { dir: "packages/agent", name: "@mailai/agent" },
-];
+const targets = [{ dir: "packages/agent", name: "@mailai/agent" }];
 
 const lock = { generatedAt: new Date().toISOString(), packages: [] };
 

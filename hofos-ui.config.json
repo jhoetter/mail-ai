@@ -1,0 +1,21 @@
+{
+  "$schema": "../hof-os/infra/sister-ui-contract.json",
+  "product": "mailai",
+  "hofOsPath": "../hof-os",
+  "harness": {
+    "mode": "hofos",
+    "command": "HOFOS_MODE=1 pnpm --filter @mailai/web build",
+    "requiredRoutes": [
+      "/mail",
+      "/mail/inbox",
+      "/mail/inbox/thread/example-thread",
+      "/mail/settings/account",
+      "/calendar"
+    ],
+    "requiredProxyPrefix": "/api/mail",
+    "officeAiAttachmentContract": "Use the hofOS SisterAppAttachmentLightbox/EditAssetEditorMount path; do not bundle a separate Office-AI editor runtime."
+  },
+  "export": {
+    "outDir": "release-out/hofos-ui"
+  }
+}

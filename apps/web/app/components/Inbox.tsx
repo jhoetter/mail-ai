@@ -1,18 +1,21 @@
 import { PageHeader, Button } from "@mailai/ui";
 import { Inbox as InboxIcon, Paperclip, Pencil, RefreshCw, Star } from "lucide-react";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ThreadView } from "./ThreadView";
 import { Composer } from "./Composer";
 import { PageShell } from "./PageShell";
 import { EmptyView } from "./EmptyView";
 import { listThreads, type ThreadSummary, type TagSummary } from "../lib/threads-client";
 import { useTranslator } from "../lib/i18n/useTranslator";
-import { useRegisterPaletteCommands } from "../lib/shell";
+import { useChrome } from "../lib/shell/ChromeContext";
+import { useRegisterPaletteCommands } from "../lib/shell/paletteRegistry";
+import { useMailHostChrome } from "../lib/shell/hostChrome";
 import { dispatchCommand } from "../lib/commands-client";
 import { ReadOnlyChips } from "./TagChips";
 import { useActiveView } from "./ViewTabs";
 import { listViewThreads, listViews, type ViewSummary } from "../lib/views-client";
-import { listAccounts, type AccountSummary } from "../lib/oauth-client";
+import { syncAccount, type AccountSummary } from "../lib/oauth-client";
+import { getCachedAccounts, loadAccountsCached } from "../lib/accounts-cache";
 import { firstSyncError, resolveEmptyKind } from "../lib/empty-view";
 import { useSyncEvents } from "../lib/realtime";
 
@@ -31,9 +34,14 @@ interface ThreadRow {
   labels: string[];
 }
 
+type AccountsState =
+  | { status: "loading" }
+  | { status: "error"; error: string }
+  | { status: "ok"; rows: AccountSummary[] };
+
 // Inbox is the canonical entry surface. apps/web mounts it directly;
-// @mailai/react-app re-exports it so embedding hosts (hof-os) get the
-// exact same component, no copy/paste drift.
+// hofOS stages the same component into the native mailai module, so
+// there is no copy/paste drift.
 //
 // Reads from /api/threads (the OAuth REST sync drops messages there
 // during onboarding + on every "Sync now"). When that's empty we
@@ -42,6 +50,7 @@ interface ThreadRow {
 // a real Gmail was the dishonest thing the previous version did.
 export function Inbox() {
   const { t } = useTranslator();
+  const chrome = useChrome();
   const [threads, setThreads] = useState<ThreadSummary[] | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [selected, setSelected] = useState<ThreadRow | null>(null);
@@ -49,7 +58,12 @@ export function Inbox() {
   const [refreshTick, setRefreshTick] = useState(0);
   const { viewId } = useActiveView();
   const [views, setViews] = useState<ViewSummary[] | null>(null);
-  const [accounts, setAccounts] = useState<AccountSummary[] | null>(null);
+  const [accounts, setAccounts] = useState<AccountsState>(() => {
+    const cached = getCachedAccounts();
+    return cached ? { status: "ok", rows: cached } : { status: "loading" };
+  });
+  const hostThreadId = useMailHostThreadId();
+  const attemptedInitialSync = useRef<Set<string>>(new Set());
 
   useEffect(() => {
     let cancelled = false;
@@ -79,12 +93,18 @@ export function Inbox() {
   // change the call to action drastically.
   useEffect(() => {
     let cancelled = false;
-    listAccounts()
+    if (!getCachedAccounts()) setAccounts({ status: "loading" });
+    loadAccountsCached({ force: true })
       .then((rows) => {
-        if (!cancelled) setAccounts(rows);
+        if (!cancelled) setAccounts({ status: "ok", rows });
       })
-      .catch(() => {
-        if (!cancelled) setAccounts([]);
+      .catch((err) => {
+        if (!cancelled) {
+          setAccounts({
+            status: "error",
+            error: err instanceof Error ? err.message : String(err),
+          });
+        }
       });
     return () => {
       cancelled = true;
@@ -92,6 +112,20 @@ export function Inbox() {
   }, [refreshTick]);
 
   const refresh = useCallback(() => setRefreshTick((n) => n + 1), []);
+
+  useEffect(() => {
+    if (accounts.status !== "ok" || accounts.rows.length === 0) return;
+    const pending = accounts.rows.filter(
+      (account) => account.status === "ok" && !attemptedInitialSync.current.has(account.id),
+    );
+    if (pending.length === 0) return;
+    for (const account of pending) {
+      attemptedInitialSync.current.add(account.id);
+    }
+    void Promise.allSettled(
+      pending.map((account) => syncAccount(account.id, { folders: ["inbox"] })),
+    ).then(refresh);
+  }, [accounts, refresh]);
 
   // Background SyncScheduler publishes a `sync` event on the realtime
   // ws after each successful provider pull. We just bump the same
@@ -136,6 +170,26 @@ export function Inbox() {
   );
   useRegisterPaletteCommands(inboxCommands);
 
+  const headerActions = useMemo(
+    () => (
+      <div className="flex gap-2">
+        <Button onClick={refresh} variant="ghost" size="sm">
+          <span className="inline-flex items-center gap-1.5">
+            <RefreshCw size={14} aria-hidden />
+            {t("common.refresh")}
+          </span>
+        </Button>
+        <Button onClick={() => setComposing(true)} variant="primary" size="sm">
+          <span className="inline-flex items-center gap-1.5">
+            <Pencil size={14} aria-hidden />
+            {t("common.new")}
+          </span>
+        </Button>
+      </div>
+    ),
+    [refresh, t],
+  );
+
   const rows: ThreadRow[] =
     threads?.map((t) => ({
       id: t.id,
@@ -151,6 +205,41 @@ export function Inbox() {
       hasAttachments: !!t.hasAttachments,
       labels: t.labels ?? [],
     })) ?? [];
+  const emptyKind = resolveEmptyKind(viewId, views);
+  const syncError = accounts.status === "ok" ? firstSyncError(accounts.rows) : null;
+  const hasAccounts = accounts.status === "ok" && accounts.rows.length > 0;
+
+  useEffect(() => {
+    if (rows.length === 0) {
+      if (selected) setSelected(null);
+      return;
+    }
+
+    if (hostThreadId) {
+      const match = rows.find((row) => row.id === hostThreadId);
+      if (match && selected?.id !== match.id) setSelected(match);
+      return;
+    }
+
+    if (!selected || !rows.some((row) => row.id === selected.id)) {
+      const first = rows[0];
+      if (!first) return;
+      setSelected(first);
+      writeMailThreadPath(first.id, true);
+    }
+  }, [hostThreadId, rows, selected]);
+
+  useMailHostChrome({
+    title: selected?.subject || t("inbox.title"),
+    breadcrumbs: selected
+      ? [
+          { label: "Mail", href: "/mail/inbox" },
+          { label: t("inbox.title"), href: "/mail/inbox" },
+        ]
+      : [{ label: "Mail" }],
+    actions: headerActions,
+    actionsSyncKey: `inbox:${selected?.id ?? "list"}:${refreshTick}`,
+  });
 
   const onToggleStar = useCallback((row: ThreadRow) => {
     const next = !row.starred;
@@ -170,25 +259,7 @@ export function Inbox() {
 
   return (
     <PageShell>
-      <PageHeader
-        title={t("inbox.title")}
-        actions={
-          <div className="flex gap-2">
-            <Button onClick={refresh} variant="ghost" size="sm">
-              <span className="inline-flex items-center gap-1.5">
-                <RefreshCw size={14} aria-hidden />
-                {t("common.refresh")}
-              </span>
-            </Button>
-            <Button onClick={() => setComposing(true)} variant="primary" size="sm">
-              <span className="inline-flex items-center gap-1.5">
-                <Pencil size={14} aria-hidden />
-                {t("common.new")}
-              </span>
-            </Button>
-          </div>
-        }
-      />
+      {chrome === "full" ? <PageHeader title={t("inbox.title")} actions={headerActions} /> : null}
       {/*
         Two-pane layout on desktop (≥ md), single-pane on phones/tablets.
         On mobile the list and the thread are mutually exclusive: tapping
@@ -198,7 +269,7 @@ export function Inbox() {
         unmounting so the list scroll position is preserved when going
         back into a thread.
       */}
-      <div className="flex min-h-0 flex-1 md:grid md:grid-cols-[minmax(280px,360px)_1fr]">
+      <div className="flex min-h-0 flex-1 md:grid md:grid-cols-[minmax(240px,320px)_minmax(0,1fr)]">
         <section
           className={
             "flex min-h-0 flex-1 flex-col overflow-hidden border-divider bg-background md:flex-initial md:border-r " +
@@ -214,11 +285,15 @@ export function Inbox() {
               <p className="px-4 py-3 text-sm text-secondary">{t("inbox.loading")}</p>
             ) : rows.length === 0 ? (
               <div className="px-4 py-3">
-                <EmptyView
-                  kind={resolveEmptyKind(viewId, views)}
-                  hasAccounts={(accounts?.length ?? 0) > 0}
-                  lastSyncError={firstSyncError(accounts)}
-                />
+                {accounts.status === "loading" ? (
+                  <p className="text-sm text-secondary">{t("common.loading")}</p>
+                ) : accounts.status === "error" ? (
+                  <p className="text-sm text-error">
+                    {t("inbox.loadError", { error: accounts.error })}
+                  </p>
+                ) : (
+                  <EmptyView kind={emptyKind} hasAccounts={hasAccounts} lastSyncError={syncError} />
+                )}
               </div>
             ) : (
               <ul className="flex flex-col gap-px p-1">
@@ -230,11 +305,15 @@ export function Inbox() {
                       role="button"
                       tabIndex={0}
                       aria-pressed={isActive}
-                      onClick={() => setSelected(r)}
+                      onClick={() => {
+                        setSelected(r);
+                        writeMailThreadPath(r.id);
+                      }}
                       onKeyDown={(e) => {
                         if (e.key === "Enter" || e.key === " ") {
                           e.preventDefault();
                           setSelected(r);
+                          writeMailThreadPath(r.id);
                         }
                       }}
                       className={
@@ -323,14 +402,23 @@ export function Inbox() {
             <ThreadView
               threadId={selected.id}
               subject={selected.subject}
-              onBack={() => setSelected(null)}
+              onBack={() => {
+                setSelected(null);
+                writeMailInboxPath();
+              }}
             />
           ) : (
             <div className="flex h-full flex-col items-center justify-center gap-2 px-6 text-center">
-              <InboxIcon size={28} aria-hidden className="text-tertiary" />
-              <p className="text-sm text-tertiary">
-                {rows.length > 0 ? t("inbox.selectThread") : t("inbox.nothingToShow")}
-              </p>
+              {rows.length === 0 && accounts.status === "ok" ? (
+                <EmptyView kind={emptyKind} hasAccounts={hasAccounts} lastSyncError={syncError} />
+              ) : (
+                <>
+                  <InboxIcon size={28} aria-hidden className="text-tertiary" />
+                  <p className="text-sm text-tertiary">
+                    {rows.length > 0 ? t("inbox.selectThread") : t("inbox.nothingToShow")}
+                  </p>
+                </>
+              )}
             </div>
           )}
         </section>
@@ -338,6 +426,49 @@ export function Inbox() {
       <Composer open={composing} onClose={() => setComposing(false)} />
     </PageShell>
   );
+}
+
+function useMailHostThreadId(): string | null {
+  const [threadId, setThreadId] = useState(readMailHostThreadId);
+
+  useEffect(() => {
+    const sync = () => setThreadId(readMailHostThreadId());
+    window.addEventListener("popstate", sync);
+    return () => window.removeEventListener("popstate", sync);
+  }, []);
+
+  return threadId;
+}
+
+function readMailHostThreadId(): string | null {
+  if (typeof window === "undefined") return null;
+  const match = /^\/mail\/inbox\/thread\/([^/?#]+)/.exec(window.location.pathname);
+  return match?.[1] ? decodeURIComponent(match[1]) : null;
+}
+
+function writeMailThreadPath(threadId: string, replace = false) {
+  if (typeof window === "undefined") return;
+  const params = new URLSearchParams(window.location.search);
+  params.delete("thread");
+  const q = params.toString();
+  const next = `/mail/inbox/thread/${encodeURIComponent(threadId)}${q ? `?${q}` : ""}`;
+  writeHostPath(next, replace);
+}
+
+function writeMailInboxPath() {
+  if (typeof window === "undefined") return;
+  const params = new URLSearchParams(window.location.search);
+  params.delete("thread");
+  const q = params.toString();
+  writeHostPath(q ? `/mail/inbox?${q}` : "/mail/inbox");
+}
+
+function writeHostPath(path: string, replace = false) {
+  const current = `${window.location.pathname}${window.location.search}`;
+  if (current === path) return;
+  if (replace) window.history.replaceState({}, "", path);
+  else window.history.pushState({}, "", path);
+  window.dispatchEvent(new PopStateEvent("popstate"));
 }
 
 function isSystemLabel(label: string): boolean {

@@ -23,18 +23,16 @@ import {
   CheckCircle2,
   FileText,
   Inbox as InboxIcon,
-  Mailbox,
   Moon,
-  ScrollText,
   Send,
-  Tag,
   Trash2,
   User,
   type LucideIcon,
 } from "lucide-react";
 import { LocaleToggle } from "../lib/i18n/LocaleToggle";
 import { useTranslator } from "../lib/i18n/useTranslator";
-import { usePaletteRegistry } from "../lib/shell";
+import { useChrome } from "../lib/shell/ChromeContext";
+import { usePaletteRegistry } from "../lib/shell/paletteRegistry";
 import { listViews, type ViewSummary } from "../lib/views-client";
 
 interface NavItem {
@@ -62,12 +60,7 @@ const SECTIONS: NavSection[] = [
   },
   {
     labelKey: "nav.settings",
-    items: [
-      { href: "/settings/account", labelKey: "nav.accounts", icon: User },
-      { href: "/settings/tags", labelKey: "nav.tags", icon: Tag },
-      { href: "/settings/inboxes", labelKey: "nav.inboxes", icon: Mailbox },
-      { href: "/settings/audit", labelKey: "nav.auditLog", icon: ScrollText },
-    ],
+    items: [{ href: "/settings/account", labelKey: "nav.accounts", icon: User }],
   },
 ];
 
@@ -99,26 +92,35 @@ export function AppNav({ onNavigate }: { onNavigate?: () => void } = {}) {
   };
   const { t } = useTranslator();
   const palette = usePaletteRegistry();
+  const chrome = useChrome();
+  // The "mail-ai · ⌘K" header opens our local palette. In embedded
+  // mode (`chrome="content"`) the host already shows its own ⌘K hint
+  // *and* owns the palette, so the second one was visual noise (and
+  // pressing it popped a separate overlay). Hide both the brand label
+  // and the button so the rail starts at the section list directly.
+  const showBrandHeader = chrome === "full";
   return (
     <nav className="flex h-full flex-col text-sm">
-      <div className="flex shrink-0 items-center gap-2 border-b border-divider px-3 py-2.5">
-        <Link
-          to="/inbox"
-          onClick={handleNavigate}
-          className="truncate text-sm font-semibold tracking-tight text-foreground"
-        >
-          {t("common.appName")}
-        </Link>
-        <button
-          type="button"
-          onClick={() => palette.open()}
-          className="ml-auto inline-flex items-center gap-1 rounded border border-divider bg-background px-1.5 py-0.5 text-[10px] font-medium text-secondary transition-colors hover:border-foreground/30 hover:text-foreground"
-          aria-label={t("palette.title")}
-          title={t("palette.title")}
-        >
-          <span>⌘K</span>
-        </button>
-      </div>
+      {showBrandHeader && (
+        <div className="flex shrink-0 items-center gap-2 border-b border-divider px-3 py-2.5">
+          <Link
+            to="/inbox"
+            onClick={handleNavigate}
+            className="truncate text-sm font-semibold tracking-tight text-foreground"
+          >
+            {t("common.appName")}
+          </Link>
+          <button
+            type="button"
+            onClick={() => palette.open()}
+            className="ml-auto inline-flex items-center gap-1 rounded border border-divider bg-background px-1.5 py-0.5 text-[10px] font-medium text-secondary transition-colors hover:border-foreground/30 hover:text-foreground"
+            aria-label={t("palette.title")}
+            title={t("palette.title")}
+          >
+            <span>⌘K</span>
+          </button>
+        </div>
+      )}
       <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto px-2 py-2">
         <MailViewsNav onNavigate={handleNavigate} />
         {SECTIONS.map((section) => (

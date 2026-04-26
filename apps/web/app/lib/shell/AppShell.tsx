@@ -14,7 +14,7 @@ import { PaletteRegistryProvider, usePaletteRegistry } from "./paletteRegistry";
 import type { PaletteCommand } from "./types";
 import { CommandErrorToast } from "../../components/CommandErrorToast";
 import { TopBar } from "../../components/TopBar";
-import { ChromeProvider } from "./ChromeContext";
+import { ChromeProvider, useChrome } from "./ChromeContext";
 
 /**
  * Visual mode for the shell.
@@ -48,7 +48,7 @@ export function AppShell({
   return (
     <ChromeProvider chrome={chrome}>
       <ShellWithStaticCommands>
-        <div className="flex h-screen min-h-0 flex-col">
+        <div className="flex h-full min-h-0 flex-col">
           {chrome === "full" ? <TopBar /> : null}
           <div className="flex min-h-0 flex-1 flex-col">
             <KeybindLayer>{children}</KeybindLayer>
@@ -96,20 +96,6 @@ function ShellWithStaticCommands({ children }: { children: ReactNode }) {
         run: () => navigate("/settings/account"),
       },
       {
-        id: "go-inboxes",
-        label: t("commands.go-inboxes.label"),
-        hint: t("commands.go-inboxes.description"),
-        section: t("palette.groupNavigation"),
-        run: () => navigate("/settings/inboxes"),
-      },
-      {
-        id: "go-audit",
-        label: t("commands.go-audit.label"),
-        hint: t("commands.go-audit.description"),
-        section: t("palette.groupNavigation"),
-        run: () => navigate("/settings/audit"),
-      },
-      {
         id: "switch-language",
         label: t("commands.switch-language.label"),
         hint: t("commands.switch-language.description"),
@@ -139,20 +125,22 @@ function ShellWithStaticCommands({ children }: { children: ReactNode }) {
 
 function KeybindLayer({ children }: { children: ReactNode }) {
   const reg = usePaletteRegistry();
+  const chrome = useChrome();
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      // Mod+K (Cmd on macOS, Ctrl elsewhere). We deliberately also
-      // accept Ctrl+K everywhere so users on Linux/Windows hitting
-      // Ctrl don't have to relearn anything.
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
         e.preventDefault();
+        if (chrome === "content") {
+          e.stopPropagation();
+          e.stopImmediatePropagation();
+        }
         reg.toggle();
       }
     };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [reg]);
+    window.addEventListener("keydown", onKey, { capture: chrome === "content" });
+    return () => window.removeEventListener("keydown", onKey, { capture: chrome === "content" });
+  }, [reg, chrome]);
 
   return <>{children}</>;
 }

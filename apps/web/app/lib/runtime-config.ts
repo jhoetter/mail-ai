@@ -1,19 +1,17 @@
 /**
  * Runtime configuration seam for the mail-ai web client.
  *
- * The same React tree under `apps/web/app/*` runs in two contexts:
+ * The same React tree under `apps/web/app/*` can run in two contexts:
  *
  * 1. **Standalone** — `apps/web/src/main.tsx` mounts the routes directly
  *    against the mail-ai server (origin-relative `/api/*`, ws on
  *    `:1235`, no auth headers — the server trusts the local browser).
- * 2. **Embedded** — `packages/react-app/src/MailAiApp.tsx` mounts the
- *    same routes inside hof-os, which proxies `/api/mail/*` to a
- *    sidecar and mints short-lived JWTs the embed must attach to every
- *    request. The hooks contract (`MailaiHostHooks`) provides the
- *    `apiUrl`, `wsUrl`, identity, and `onAuth` callback.
+ * 2. **hofOS native module** — the data-app mounts the same routes,
+ *    proxies `/api/mail/*` to the sidecar, and attaches the current
+ *    `hof_token` to proxied requests.
  *
  * Both modes converge on this module: a module-level singleton holds
- * the current config, and the standalone or embed root sets it once on
+ * the current config, and the standalone or hofOS root sets it once on
  * mount via `setRuntimeConfig`. Lib modules (`api.ts`, `realtime.tsx`,
  * every `*-client.ts`) read from here when building URLs / fetch
  * options.
@@ -40,8 +38,8 @@ export interface RuntimeIdentity {
 }
 
 /**
- * The single seam between the standalone web app and the embedded
- * shell. All values are optional so the standalone defaults still work
+ * The single seam between the standalone web app and the hofOS shell.
+ * All values are optional so the standalone defaults still work
  * when `setRuntimeConfig` was never called.
  */
 export interface RuntimeConfig {
@@ -56,8 +54,8 @@ export interface RuntimeConfig {
   /**
    * Returns a bearer token to attach as `Authorization: Bearer ...`.
    * Standalone: returns `""` (no auth header attached).
-   * Embed: calls `hooks.onAuth()` and caches; the helper deals with
-   * refresh on its own — this function only returns the current token.
+   * hofOS: returns the current `hof_token`; the data-app proxy mints
+   * the upstream sidecar JWT.
    */
   getAuthToken(): Promise<string>;
 }
@@ -78,6 +76,7 @@ export function getRuntimeConfig(): RuntimeConfig | null {
  */
 export function runtimeApiBase(): string {
   if (_config && typeof _config.apiBase === "string") return _config.apiBase;
+  if (isHofMailRoute()) return "/api/mail";
   return (import.meta.env?.VITE_MAILAI_API_URL as string | undefined) ?? "";
 }
 
@@ -86,6 +85,7 @@ export function runtimeApiBase(): string {
  */
 export function runtimeWsBase(): string | null {
   if (_config && typeof _config.wsBase === "string") return _config.wsBase;
+  if (isHofMailRoute()) return wsBase("/api/mail");
   return null;
 }
 
@@ -95,7 +95,10 @@ export function runtimeWsBase(): string | null {
  * send `Authorization: Bearer ` (empty) headers.
  */
 export async function runtimeAuthHeaders(): Promise<Record<string, string>> {
-  if (!_config) return {};
+  if (!_config) {
+    const token = readHofToken();
+    return token ? { authorization: `Bearer ${token}` } : {};
+  }
   try {
     const token = await _config.getAuthToken();
     if (!token) return {};
@@ -115,7 +118,7 @@ export interface RuntimeConfigProviderProps {
 /**
  * React-side mirror of the singleton. Mounting this provider sets the
  * module-level `_config` so plain-function clients see it; unmounting
- * clears it so a tab can host both standalone + embed trees without
+ * clears it so a tab can host both standalone + hofOS trees without
  * leaking state.
  *
  * IMPORTANT: the assignment runs *during render*, not in a `useEffect`.
@@ -148,4 +151,32 @@ export function RuntimeConfigProvider({ runtime, children }: RuntimeConfigProvid
 
 export function useRuntimeConfig(): RuntimeConfig | null {
   return useContext(RuntimeConfigContext);
+}
+
+function isHofMailRoute(): boolean {
+  // Fallback only: the native route should provide RuntimeConfig.
+  // This keeps direct page refreshes from leaking standalone URLs if
+  // the provider is not mounted yet.
+  if (typeof window === "undefined") return false;
+  return (
+    window.location.pathname === "/mail" ||
+    window.location.pathname.startsWith("/mail/") ||
+    window.location.pathname === "/calendar" ||
+    window.location.pathname.startsWith("/calendar/")
+  );
+}
+
+function readHofToken(): string | null {
+  if (typeof window === "undefined") return null;
+  try {
+    return window.localStorage.getItem("hof_token");
+  } catch {
+    return null;
+  }
+}
+
+function wsBase(path: string): string {
+  if (typeof window === "undefined") return path;
+  const proto = window.location.protocol === "https:" ? "wss" : "ws";
+  return `${proto}://${window.location.host}${path}`;
 }

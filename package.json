@@ -21,7 +21,10 @@
     "format:check": "prettier --check .",
     "architecture": "node scripts/check-architecture.mjs",
     "bundle:dry-run": "node scripts/bundle-dry-run.mjs",
-    "verify": "pnpm format:check && pnpm lint && pnpm architecture && pnpm typecheck && pnpm test && pnpm build && pnpm bundle:dry-run",
+    "hofos:check": "node scripts/check-hofos-ui-contract.mjs",
+    "hofos:harness": "HOFOS_MODE=1 pnpm --filter @mailai/web build && node scripts/check-hofos-harness-smoke.mjs",
+    "export:hofos-ui": "node scripts/export-hofos-ui.mjs",
+    "verify": "pnpm format:check && pnpm lint && pnpm architecture && pnpm run hofos:check && pnpm typecheck && pnpm test && pnpm build && pnpm bundle:dry-run",
     "fixtures:generate": "node scripts/generate-fixtures.mjs",
     "bump-version": "node scripts/bump-version.mjs"
   },

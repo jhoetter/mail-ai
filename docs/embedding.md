@@ -1,5 +1,10 @@
 # Embedding mail-ai
 
+> Deprecated for hofOS browser UI: hofOS now consumes MailAI as native
+> runtime source under `packages/hof-components/modules/mailai`, not as a
+> standalone embedded React app. Use
+> [`hofos-native-ui.md`](./hofos-native-ui.md) for the current workflow.
+
 mail-ai is built and shipped as a **standalone product** (Next.js shell + Node backend + Postgres + Redis + IMAP/SMTP). The same source tree also produces a **publishable React embed package** (`@mailai/react-app`) and a **headless agent CLI** (`mail-agent`) so that downstream products — most importantly **hof-os** — can wrap mail-ai without forking it.
 
 This document describes the embedding contract. It is the analogue of [office-ai/docs/embedding.md](https://github.com/jhoetter/office-ai) and is designed so the future hof-os integration is a configuration change, not a refactor.
