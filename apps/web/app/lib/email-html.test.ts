@@ -29,6 +29,46 @@ describe("rewriteEmailHtml", () => {
     expect(result.blockedRemote).toBe(false);
   });
 
+  it("resolves cid: case-insensitively against the map", () => {
+    const html = `<img src="cid:Image001@Example" alt="x">`;
+    const cidMap = new Map([["image001@example", "att_7"]]);
+    const result = rewriteEmailHtml({
+      html,
+      cidToAttachmentId: cidMap,
+      allowRemoteImages: false,
+      attachmentInlineUrl: inlineUrl,
+    });
+    expect(result.html).toContain(`src="https://test.local/api/attachments/att_7/inline"`);
+  });
+
+  it("rewrites bare filename srcs when they match a message attachment basename", () => {
+    const html = `<img src="image.png" alt="image.png">`;
+    const fnMap = new Map([["image.png", "att_inline"]]);
+    const result = rewriteEmailHtml({
+      html,
+      cidToAttachmentId: new Map(),
+      filenameToAttachmentId: fnMap,
+      allowRemoteImages: false,
+      attachmentInlineUrl: inlineUrl,
+    });
+    expect(result.html).toContain(`src="https://test.local/api/attachments/att_inline/inline"`);
+    expect(result.blockedRemote).toBe(false);
+  });
+
+  it("rewrites path-like relative srcs using basename only", () => {
+    const html = `<img src="cid:missing"><img src="assets/logo.PNG">`;
+    const fnMap = new Map([["logo.png", "att_logo"]]);
+    const result = rewriteEmailHtml({
+      html,
+      cidToAttachmentId: new Map(),
+      filenameToAttachmentId: fnMap,
+      allowRemoteImages: false,
+      attachmentInlineUrl: inlineUrl,
+    });
+    expect(result.html).toContain(`src="https://test.local/api/attachments/att_logo/inline"`);
+    expect(result.html).toContain("(missing inline image)");
+  });
+
   it("strips cid: references that don't resolve and leaves an alt placeholder", () => {
     const html = `<img src="cid:missing@example">`;
     const result = rewriteEmailHtml({

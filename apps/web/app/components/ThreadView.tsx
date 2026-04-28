@@ -431,7 +431,7 @@ function AttachmentsList({ attachments }: { attachments: readonly ThreadAttachme
       {visible.map((a) => (
         <a
           key={a.id}
-          href={`${baseUrl()}/api/attachments/${encodeURIComponent(a.id)}`}
+          href={`${baseUrl()}/api/attachments/${encodeURIComponent(a.id)}/bytes`}
           target="_blank"
           rel="noreferrer noopener"
           className="inline-flex max-w-[18rem] items-center gap-2 rounded border border-divider bg-foreground/5 px-2 py-1 text-xs text-foreground hover:bg-foreground/10"
@@ -587,7 +587,30 @@ function HtmlBody({ html, attachments, allowRemoteImages, onAllowImages }: HtmlB
   const cidMap = useMemo(() => {
     const m = new Map<string, string>();
     for (const a of attachments) {
-      if (a.contentId) m.set(stripAngles(a.contentId), a.id);
+      if (a.contentId) {
+        const stripped = stripAngles(a.contentId);
+        m.set(stripped, a.id);
+        const lower = stripped.toLowerCase();
+        if (lower !== stripped) m.set(lower, a.id);
+      }
+    }
+    return m;
+  }, [attachments]);
+
+  const filenameMap = useMemo(() => {
+    const m = new Map<string, string>();
+    for (const a of attachments) {
+      const raw = a.filename?.trim();
+      if (!raw) continue;
+      const base = raw.split(/[/\\]/).pop() ?? raw;
+      let key: string;
+      try {
+        key = decodeURIComponent(base).trim().toLowerCase();
+      } catch {
+        key = base.trim().toLowerCase();
+      }
+      if (!key) continue;
+      if (!m.has(key)) m.set(key, a.id);
     }
     return m;
   }, [attachments]);
@@ -603,11 +626,12 @@ function HtmlBody({ html, attachments, allowRemoteImages, onAllowImages }: HtmlB
         ? rewriteEmailHtml({
             html,
             cidToAttachmentId: cidMap,
+            filenameToAttachmentId: filenameMap,
             allowRemoteImages,
             attachmentInlineUrl: inlineUrl,
           })
         : { html: "", blockedRemote: false },
-    [html, mounted, cidMap, allowRemoteImages, inlineUrl],
+    [html, mounted, cidMap, filenameMap, allowRemoteImages, inlineUrl],
   );
 
   const safe = useMemo(() => (mounted ? sanitizeEmailHtml(rewritten) : ""), [rewritten, mounted]);

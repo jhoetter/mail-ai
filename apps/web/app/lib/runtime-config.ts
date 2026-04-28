@@ -4,8 +4,8 @@
  * The same React tree under `apps/web/app/*` can run in two contexts:
  *
  * 1. **Standalone** — `apps/web/src/main.tsx` mounts the routes directly
- *    against the mail-ai server (origin-relative `/api/*`, ws on
- *    `:1235`, no auth headers — the server trusts the local browser).
+ *    against the mail-ai server (origin-relative `/api/*`, no auth
+ *    headers — the server trusts the local browser).
  * 2. **hofOS native module** — the data-app mounts the same routes,
  *    proxies `/api/mail/*` to the sidecar, and attaches the current
  *    `hof_token` to proxied requests.
@@ -76,7 +76,6 @@ export function getRuntimeConfig(): RuntimeConfig | null {
  */
 export function runtimeApiBase(): string {
   if (_config && typeof _config.apiBase === "string") return _config.apiBase;
-  if (isHofMailRoute()) return "/api/mail";
   return (import.meta.env?.VITE_MAILAI_API_URL as string | undefined) ?? "";
 }
 
@@ -85,7 +84,6 @@ export function runtimeApiBase(): string {
  */
 export function runtimeWsBase(): string | null {
   if (_config && typeof _config.wsBase === "string") return _config.wsBase;
-  if (isHofMailRoute()) return wsBase("/api/mail");
   return null;
 }
 
@@ -96,8 +94,7 @@ export function runtimeWsBase(): string | null {
  */
 export async function runtimeAuthHeaders(): Promise<Record<string, string>> {
   if (!_config) {
-    const token = readHofToken();
-    return token ? { authorization: `Bearer ${token}` } : {};
+    return {};
   }
   try {
     const token = await _config.getAuthToken();
@@ -151,32 +148,4 @@ export function RuntimeConfigProvider({ runtime, children }: RuntimeConfigProvid
 
 export function useRuntimeConfig(): RuntimeConfig | null {
   return useContext(RuntimeConfigContext);
-}
-
-function isHofMailRoute(): boolean {
-  // Fallback only: the native route should provide RuntimeConfig.
-  // This keeps direct page refreshes from leaking standalone URLs if
-  // the provider is not mounted yet.
-  if (typeof window === "undefined") return false;
-  return (
-    window.location.pathname === "/mail" ||
-    window.location.pathname.startsWith("/mail/") ||
-    window.location.pathname === "/calendar" ||
-    window.location.pathname.startsWith("/calendar/")
-  );
-}
-
-function readHofToken(): string | null {
-  if (typeof window === "undefined") return null;
-  try {
-    return window.localStorage.getItem("hof_token");
-  } catch {
-    return null;
-  }
-}
-
-function wsBase(path: string): string {
-  if (typeof window === "undefined") return path;
-  const proto = window.location.protocol === "https:" ? "wss" : "ws";
-  return `${proto}://${window.location.host}${path}`;
 }

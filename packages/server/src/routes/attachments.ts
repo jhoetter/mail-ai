@@ -1,6 +1,11 @@
 // Attachment download endpoints.
 //
 //   GET /api/attachments/:id           → JSON { url, expiresAt } presigned GET
+//   GET /api/attachments/:id/bytes      → raw object bytes (same auth). Used by
+//                                        hof-os `SisterAppAttachmentLightbox`,
+//                                        which must `fetch().arrayBuffer()` on a
+//                                        same-origin URL — the JSON presign
+//                                        envelope is not a spreadsheet/PDF.
 //   GET /api/attachments/:id/inline    → 302 to presigned GET; used as a
 //                                        stable URL we can rewrite cid:
 //                                        links to without re-presigning
@@ -35,6 +40,26 @@ export interface AttachmentRoutesDeps {
 }
 
 export function registerAttachmentRoutes(app: FastifyInstance, deps: AttachmentRoutesDeps): void {
+  app.get("/api/attachments/:id/bytes", async (req, reply) => {
+    const ident = await deps.identity({ headers: req.headers as Record<string, unknown> });
+    const { id } = req.params as { id: string };
+    const row = await loadAttachment(deps, ident.tenantId, id);
+    if (!row) {
+      return reply.code(404).send({ error: "not_found", message: `attachment ${id} not found` });
+    }
+    await ensureCached(deps, ident.tenantId, row);
+    const filename = row.filename ?? "attachment.bin";
+    const buf = await deps.objectStore.getBytes(row.objectKey);
+    return reply
+      .header("cache-control", "private, max-age=300")
+      .header("content-type", row.mime || "application/octet-stream")
+      .header(
+        "content-disposition",
+        `attachment; filename="${escapeFilename(filename)}"`,
+      )
+      .send(buf);
+  });
+
   app.get("/api/attachments/:id", async (req, reply) => {
     const ident = await deps.identity({ headers: req.headers as Record<string, unknown> });
     const { id } = req.params as { id: string };

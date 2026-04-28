@@ -4,6 +4,20 @@ import tsconfigPaths from "vite-tsconfig-paths";
 import tailwindcss from "@tailwindcss/vite";
 
 const API_ORIGIN = process.env["MAILAI_API_ORIGIN"] ?? "http://127.0.0.1:8200";
+const WS_ORIGIN = resolveWsOrigin();
+
+function resolveWsOrigin(): string {
+  const explicitWsPort = process.env["MAILAI_RT_PORT"]?.trim();
+  if (!explicitWsPort) return API_ORIGIN;
+
+  try {
+    const apiUrl = new URL(API_ORIGIN);
+    apiUrl.port = explicitWsPort;
+    return apiUrl.toString().replace(/\/$/, "");
+  } catch {
+    return `http://127.0.0.1:${explicitWsPort}`;
+  }
+}
 
 // Vite config for the mail-ai web SPA.
 //
@@ -31,11 +45,11 @@ export default defineConfig({
         target: API_ORIGIN,
         changeOrigin: true,
       },
-      // Realtime WebSocket lives on the same Fastify HTTP port as
-      // /api (since the merge in v0.1.4); ws: true is required for
-      // Vite to upgrade the connection rather than 502 the request.
+      // Realtime usually lives on the same Fastify HTTP port as /api.
+      // If MAILAI_RT_PORT is set, dev is in legacy split mode and /ws
+      // must proxy to that explicit WebSocket port instead.
       "/ws": {
-        target: API_ORIGIN,
+        target: WS_ORIGIN,
         changeOrigin: true,
         ws: true,
       },

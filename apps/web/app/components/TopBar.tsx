@@ -320,7 +320,10 @@ export function TopBar() {
       // Attachments live behind a presigned redirect; opening in a
       // new tab matches Gmail/Outlook behaviour and avoids
       // navigating away from the inbox.
-      window.open(`${baseUrl()}/api/attachments/${hit.attachmentId}`, "_blank");
+      window.open(
+        `${baseUrl()}/api/attachments/${encodeURIComponent(hit.attachmentId)}/bytes`,
+        "_blank",
+      );
       setOpen(false);
       setRecents(rememberRecent(query));
     },

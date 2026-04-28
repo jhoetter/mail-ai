@@ -3,9 +3,12 @@
 // Three small functions, in this order:
 //
 //   1. rewriteEmailHtml — rewrites `cid:` image references to our
-//      attachment proxy and (optionally) blocks remote images for
-//      privacy. Runs against the original HTML so the cid->attachment
-//      lookup still has access to whatever attributes the sender used.
+//      attachment proxy, resolves bare filenames (`src="logo.png"`)
+//      when they match a message attachment's filename (many MIME
+//      clients reference related parts this way), and (optionally)
+//      blocks remote images for privacy. Runs against the original HTML
+//      so the cid->attachment lookup still has access to whatever
+//      attributes the sender used.
 //
 //   2. sanitizeEmailHtml — runs the rewritten HTML through DOMPurify
 //      with an email-friendly allow-list. Critically we KEEP `<style>`
@@ -52,6 +55,13 @@ export interface RewriteResult {
 export function rewriteEmailHtml(args: {
   html: string;
   cidToAttachmentId: ReadonlyMap<string, string>;
+  /**
+   * Lowercased attachment basenames (e.g. `image.png`) → oauth attachment
+   * id. Only used for same-message parts; arbitrary relative URLs are
+   * still not fetched — we only substitute when the basename matches a
+   * known attachment row.
+   */
+  filenameToAttachmentId?: ReadonlyMap<string, string>;
   allowRemoteImages: boolean;
   attachmentInlineUrl: (attachmentId: string) => string;
 }): RewriteResult {
@@ -66,7 +76,8 @@ export function rewriteEmailHtml(args: {
     const src = img.getAttribute("src") ?? "";
     if (src.startsWith("cid:")) {
       const cid = stripAngles(src.slice(4));
-      const attId = args.cidToAttachmentId.get(cid);
+      const attId =
+        args.cidToAttachmentId.get(cid) ?? args.cidToAttachmentId.get(cid.toLowerCase());
       if (attId) {
         img.setAttribute("src", args.attachmentInlineUrl(attId));
       } else {
@@ -86,6 +97,25 @@ export function rewriteEmailHtml(args: {
     if (src.startsWith("data:")) return;
     if (src.startsWith("/")) return;
     if (src.length > 0) {
+      const fnMap = args.filenameToAttachmentId;
+      if (fnMap && fnMap.size > 0) {
+        const isBarePartRef = !src.includes("://");
+        if (isBarePartRef) {
+          const segment = src.split(/[/\\]/).pop() ?? src;
+          let key = segment.trim();
+          try {
+            key = decodeURIComponent(key);
+          } catch {
+            // keep trimmed segment
+          }
+          key = key.toLowerCase();
+          const byName = key ? fnMap.get(key) : undefined;
+          if (byName) {
+            img.setAttribute("src", args.attachmentInlineUrl(byName));
+            return;
+          }
+        }
+      }
       // Anything else (file://, ftp://, weird relative paths) — drop
       // the src so we don't end up firing arbitrary network requests
       // from a sandboxed iframe.
