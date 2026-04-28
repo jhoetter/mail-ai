@@ -2,7 +2,7 @@
   "name": "mail-ai",
   "private": true,
   "version": "0.1.6",
-  "description": "AI-native email collaboration platform — IMAP overlay",
+  "description": "AI-native email collaboration platform \u2014 IMAP overlay",
   "license": "MIT",
   "packageManager": "pnpm@9.15.4",
   "engines": {
@@ -26,7 +26,8 @@
     "export:hofos-ui": "node scripts/export-hofos-ui.mjs",
     "verify": "pnpm format:check && pnpm lint && pnpm architecture && pnpm run hofos:check && pnpm typecheck && pnpm test && pnpm build && pnpm bundle:dry-run",
     "fixtures:generate": "node scripts/generate-fixtures.mjs",
-    "bump-version": "node scripts/bump-version.mjs"
+    "bump-version": "node scripts/bump-version.mjs",
+    "build:dist": "pnpm --filter @mailai/hofos-ui build:dist"
   },
   "devDependencies": {
     "@types/node": "^22.7.0",

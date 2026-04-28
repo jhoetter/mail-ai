@@ -65,3 +65,14 @@ embed bundle — the embed React surface lives in hof-os.
 To develop the UI against a local mail-ai backend, run `make dev` here
 and then in `hof-os` run `MAILAI_LOCAL_PATH=$(pwd) make dev` so the
 docker-compose overlay rebuilds the sidecar from this checkout.
+
+## Consumed Via Tarball URL
+
+The hofOS host consumes the built UI package from GitHub Releases rather than copying source trampolines into customer cells. Each release attaches `mailai-ui-<version>.tgz`, installable with:
+
+```json
+"@mailai/hofos-ui": "https://github.com/jhoetter/mail-ai/releases/download/v0.1.0/mailai-ui-0.1.0.tgz"
+```
+
+For local iteration, run `pnpm run build:dist` or point hofOS' local-dev override at `packages/hofos-ui`.
+

@@ -11,7 +11,7 @@ if (!target || !/^\d+\.\d+\.\d+(-[\w.]+)?$/.test(target)) {
   process.exit(1);
 }
 
-const PUBLISHABLE = ["packages/agent"];
+const PUBLISHABLE = ["packages/agent", "packages/hofos-ui"];
 
 for (const dir of PUBLISHABLE) {
   const pj = join(dir, "package.json");

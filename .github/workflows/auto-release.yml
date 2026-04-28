@@ -6,11 +6,11 @@ name: Auto Release
 #   2. If green and the commit isn't already tagged, compute the next
 #      patch version, bump every publishable package via
 #      scripts/bump-version.mjs, commit, tag, push.
-#   3. Build two self-contained tarballs via `pnpm deploy`:
-#        - mailai-agent-X.Y.Z.tgz   — the @mailai/agent CLI consumed
-#                                     by hof-os' subapps sandbox image.
-#        - mailai-react-app-X.Y.Z.tgz — the @mailai/react-app embed
-#                                       consumed by hof-os' data-app UI.
+#   3. Build two release tarballs:
+#        - mailai-agent-X.Y.Z.tgz — the @mailai/agent CLI consumed
+#                                  by hof-os' subapps sandbox image.
+#        - mailai-ui-X.Y.Z.tgz    — the @mailai/hofos-ui dist consumed
+#                                  by hof-os' data-app UI.
 #   3b. Build + push the server image to GHCR
 #       (`ghcr.io/<owner>/mail-ai-server:<version>`). hof-os' Compose
 #       generator references this image to spin up the mailai sidecar
@@ -182,18 +182,16 @@ jobs:
           tar czf "mailai-agent-${VERSION}.tgz" -C "${RUNNER_TEMP}" mailai-agent
           ls -lh "mailai-agent-${VERSION}.tgz"
 
-      - name: Build release bundle (mailai-react-app)
+      - name: Build release bundle (mailai-ui)
         if: steps.check_tag.outputs.already_tagged == 'false'
         run: |
           set -euo pipefail
           VERSION="${{ steps.bump.outputs.new_version }}"
-          DEPLOY_DIR="${RUNNER_TEMP}/mailai-react-app"
-          rm -rf "${DEPLOY_DIR}"
-          pnpm --filter @mailai/react-app --prod deploy "${DEPLOY_DIR}"
-          # Sanity check that subpath entry points consumers will import exist
-          test -f "${DEPLOY_DIR}/dist/index.js" || (echo "missing dist/index.js" && exit 1)
-          tar czf "mailai-react-app-${VERSION}.tgz" -C "${RUNNER_TEMP}" mailai-react-app
-          ls -lh "mailai-react-app-${VERSION}.tgz"
+          pnpm --filter @mailai/hofos-ui build:dist
+          test -f "packages/hofos-ui/dist/index.js" || (echo "missing packages/hofos-ui/dist/index.js" && exit 1)
+          pnpm --dir packages/hofos-ui pack --pack-destination .
+          mv mailai-hofos-ui-*.tgz "mailai-ui-${VERSION}.tgz"
+          ls -lh "mailai-ui-${VERSION}.tgz"
 
       - name: Compute server image ref
         if: steps.check_tag.outputs.already_tagged == 'false'
@@ -236,7 +234,7 @@ jobs:
           VERSION="${{ steps.bump.outputs.new_version }}"
           gh release create "v${VERSION}" \
             "mailai-agent-${VERSION}.tgz" \
-            "mailai-react-app-${VERSION}.tgz" \
+            "mailai-ui-${VERSION}.tgz" \
             --title "v${VERSION}" \
             --generate-notes
 
