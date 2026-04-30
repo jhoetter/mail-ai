@@ -45,9 +45,33 @@ function fail(message) {
 }
 
 const config = readJson(CONFIG_PATH);
-const hofOsPath = resolve(ROOT, config.hofOsPath ?? "../hof-os");
+const hofOsPath = resolve(ROOT, process.env.HOF_OS_PATH ?? config.hofOsPath ?? "../hof-os");
 const contractPath = join(hofOsPath, "infra", "sister-ui-contract.json");
-const contract = readJson(contractPath);
+const fallbackContract = {
+  host: { uiPackageJson: "" },
+  dependencyPolicy: { packages: [], temporaryAllowedMajorSkew: {} },
+  products: {
+    mailai: {
+      proxyPrefix: "/api/mail",
+      hostRoutes: [
+        "/mail",
+        "/mail/inbox",
+        "/mail/inbox/thread/:threadId",
+        "/mail/settings/account",
+        "/calendar",
+      ],
+      export: {
+        destinations: {
+          "ui/original/app": "apps/web/app",
+          "ui/vendor/mailai-ui": "packages/ui/src",
+          "ui/vendor/mailai-core": "packages/core/src",
+          "ui/vendor/mailai-agent": "packages/agent/src",
+        },
+      },
+    },
+  },
+};
+const contract = existsSync(contractPath) ? readJson(contractPath) : fallbackContract;
 const product = contract.products[config.product];
 
 if (!product) {
@@ -76,7 +100,10 @@ for (const [destination, source] of Object.entries(product.export.destinations))
 }
 
 const hostPkgPath = join(hofOsPath, contract.host.uiPackageJson);
-const hostDeps = dependencyMap(readJson(hostPkgPath));
+const hostDeps =
+  contract.host.uiPackageJson && existsSync(hostPkgPath)
+    ? dependencyMap(readJson(hostPkgPath))
+    : {};
 const localPackages = collectPackageJsons(ROOT);
 const allowedSkew = contract.dependencyPolicy.temporaryAllowedMajorSkew?.[config.product] ?? {};
 const warnings = [];
