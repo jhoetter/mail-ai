@@ -8,6 +8,7 @@ COPY apps ./apps
 COPY hof-module.json tools.json ./
 RUN pnpm install --frozen-lockfile --prefer-offline
 RUN pnpm --filter '@mailai/server...' --filter '@mailai/agent...' build
+RUN pnpm --filter @mailai/web build
 RUN pnpm --filter @mailai/server --prod deploy /out/server \
     && pnpm --filter @mailai/agent --prod deploy /out/agent \
     && test -f /out/server/dist/server.js
@@ -19,6 +20,7 @@ RUN apt-get update \
 WORKDIR /app
 COPY --from=builder /out/server /app
 COPY --from=builder /out/agent /opt/mailai-agent
+COPY --from=builder /workspace/apps/web/dist /app/web
 COPY hof-module.json tools.json ./
 RUN printf '#!/bin/sh\nexec node /opt/mailai-agent/bin/mail-agent.mjs "$@"\n' > /usr/local/bin/mail-agent \
     && chmod +x /usr/local/bin/mail-agent

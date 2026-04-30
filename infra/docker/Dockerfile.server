@@ -36,6 +36,7 @@ RUN pnpm install --frozen-lockfile --prefer-offline
 # that lives outside the Docker build context (it's hydrated by
 # `scripts/ensure-officeai-react-editors.cjs` only on dev installs).
 RUN pnpm --filter '@mailai/server...' build
+RUN pnpm --filter @mailai/web build
 
 # Bundle the server (and only the server) into a self-contained dir
 # under /out/server. This resolves all workspace:* deps to real files,
@@ -57,6 +58,7 @@ RUN apt-get update \
 
 WORKDIR /app
 COPY --from=builder /out/server /app
+COPY --from=builder /workspace/apps/web/dist /app/web
 
 ENV NODE_ENV=production \
     API_PORT=8200

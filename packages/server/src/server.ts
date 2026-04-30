@@ -249,7 +249,7 @@ async function main() {
         ...(pushConfig ? { push: pushConfig } : {}),
       });
 
-  const app = buildApp({
+  const app = await buildApp({
     bus,
     broadcaster,
     // Identity resolver. When `HOF_SUBAPP_JWT_SECRET` is set (the

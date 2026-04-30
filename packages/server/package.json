@@ -19,6 +19,7 @@
     "test": "vitest run"
   },
   "dependencies": {
+    "@fastify/static": "^9.1.3",
     "@mailai/agent": "workspace:*",
     "@mailai/collaboration": "workspace:*",
     "@mailai/core": "workspace:*",

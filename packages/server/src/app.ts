@@ -34,6 +34,7 @@ import { registerContactsRoutes } from "./routes/contacts.js";
 import { registerWebhookRoutes } from "./routes/webhooks.js";
 import type { SyncScheduler } from "./sync/scheduler.js";
 import { registerSsoMiddleware } from "./middleware/sso.js";
+import { registerStaticWeb } from "./static-web.js";
 
 export interface AppDeps {
   readonly bus: CommandBus;
@@ -70,7 +71,7 @@ export interface AppDeps {
   readonly webhookTenants?: () => Promise<ReadonlyArray<string>>;
 }
 
-export function buildApp(deps: AppDeps): FastifyInstance {
+export async function buildApp(deps: AppDeps): Promise<FastifyInstance> {
   const app = Fastify({ logger: true });
   registerSsoMiddleware(app);
   const providers = deps.providers ?? buildMailProviderRegistry();
@@ -192,6 +193,8 @@ export function buildApp(deps: AppDeps): FastifyInstance {
   });
 
   app.get("/api/health", async () => ({ ok: true }));
+
+  await registerStaticWeb(app);
 
   return app;
 }
