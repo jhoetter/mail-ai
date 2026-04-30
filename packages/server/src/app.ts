@@ -33,6 +33,7 @@ import { registerSignatureRoutes } from "./routes/signatures.js";
 import { registerContactsRoutes } from "./routes/contacts.js";
 import { registerWebhookRoutes } from "./routes/webhooks.js";
 import type { SyncScheduler } from "./sync/scheduler.js";
+import { registerSsoMiddleware } from "./middleware/sso.js";
 
 export interface AppDeps {
   readonly bus: CommandBus;
@@ -71,6 +72,7 @@ export interface AppDeps {
 
 export function buildApp(deps: AppDeps): FastifyInstance {
   const app = Fastify({ logger: true });
+  registerSsoMiddleware(app);
   const providers = deps.providers ?? buildMailProviderRegistry();
   const calendarProviders = deps.calendarProviders ?? buildCalendarProviderRegistry();
   const contactsProviders = deps.contactsProviders ?? buildContactsProviderRegistry();

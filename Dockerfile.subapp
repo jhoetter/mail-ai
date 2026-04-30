@@ -1,0 +1,29 @@
+FROM node:20-bookworm-slim AS builder
+WORKDIR /workspace
+RUN corepack enable && corepack prepare pnpm@9.15.4 --activate
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml turbo.json tsconfig.base.json tsconfig.json ./
+COPY scripts ./scripts
+COPY packages ./packages
+COPY apps ./apps
+COPY hof-module.json tools.json ./
+RUN pnpm install --frozen-lockfile --prefer-offline
+RUN pnpm --filter '@mailai/server...' --filter '@mailai/agent...' build
+RUN pnpm --filter @mailai/server --prod deploy /out/server \
+    && pnpm --filter @mailai/agent --prod deploy /out/agent \
+    && test -f /out/server/dist/server.js
+
+FROM node:20-bookworm-slim AS runtime
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends tini ca-certificates curl \
+    && rm -rf /var/lib/apt/lists/*
+WORKDIR /app
+COPY --from=builder /out/server /app
+COPY --from=builder /out/agent /opt/mailai-agent
+COPY hof-module.json tools.json ./
+RUN printf '#!/bin/sh\nexec node /opt/mailai-agent/bin/mail-agent.mjs "$@"\n' > /usr/local/bin/mail-agent \
+    && chmod +x /usr/local/bin/mail-agent
+ENV NODE_ENV=production API_PORT=8200 HOF_SUBAPP_NAME=mailai HOF_SUBAPP_AUTH_MODE=inherit
+EXPOSE 8200
+HEALTHCHECK --interval=15s --timeout=5s --retries=4 --start-period=20s CMD curl -fsS http://localhost:${API_PORT}/api/health || exit 1
+ENTRYPOINT ["/usr/bin/tini", "--"]
+CMD ["node", "dist/server.js"]

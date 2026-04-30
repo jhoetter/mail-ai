@@ -67,6 +67,18 @@ function extractToken(headers: Record<string, unknown>): string | null {
   return m && m[1] ? m[1].trim() : null;
 }
 
+function extractSessionCookie(headers: Record<string, unknown>): string | null {
+  const raw = headers["cookie"] ?? headers["Cookie"];
+  if (typeof raw !== "string") return null;
+  for (const part of raw.split(";")) {
+    const [key, ...value] = part.trim().split("=");
+    if (key === "hof_subapp_session") {
+      return decodeURIComponent(value.join("="));
+    }
+  }
+  return null;
+}
+
 export interface HofJwtIdentityOptions {
   readonly fallback: ResolvedIdentity;
   readonly expectedAudience?: string;
@@ -92,7 +104,7 @@ export function buildHofJwtIdentity(opts: HofJwtIdentityOptions) {
       // fallback secret) so integration tests can exercise the JWT
       // path without env wiring. If verification fails we fall back
       // silently to the dev identity rather than erroring.
-      const token = extractToken(req.headers);
+      const token = extractToken(req.headers) ?? extractSessionCookie(req.headers);
       if (token) {
         try {
           const claims = verify(token, Buffer.from(DEV_FALLBACK_SECRET, "utf-8"));
@@ -106,7 +118,7 @@ export function buildHofJwtIdentity(opts: HofJwtIdentityOptions) {
       return opts.fallback;
     }
 
-    const token = extractToken(req.headers);
+    const token = extractToken(req.headers) ?? extractSessionCookie(req.headers);
     if (!token) {
       const err = new Error("missing bearer token");
       (err as Error & { statusCode?: number }).statusCode = 401;

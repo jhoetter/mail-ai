@@ -1,0 +1,44 @@
+{
+  "$schema": "https://hofos.dev/schemas/hof-module-v1.json",
+  "name": "mailai",
+  "displayName": "MailAI",
+  "version": "0.1.7",
+  "contract_version": "1.0.0",
+  "description": "Standalone MailAI subapp for IMAP/SMTP overlay, OAuth onboarding, threading, search, drafts, and agent-readable mail operations.",
+  "sidecars": [
+    {
+      "name": "mailai",
+      "image": "ghcr.io/jhoetter/mail-ai:0.1.7",
+      "ports": [{ "container": 8200, "public": 4002 }],
+      "auth": { "mode": "inherit" },
+      "healthcheck": { "path": "/api/health" }
+    }
+  ],
+  "data": {
+    "schema_name": "mailai",
+    "s3_prefix": "tenants/${tenant}/mail/",
+    "redis_prefix": "mailai:"
+  },
+  "navigation": {
+    "groups": [
+      {
+        "label": "Mail",
+        "icon": "mail",
+        "entries": [
+          { "label": "Inbox", "href": "/inbox" },
+          { "label": "Calendar", "href": "/calendar" },
+          { "label": "Settings", "href": "/settings/inboxes" }
+        ]
+      }
+    ]
+  },
+  "design": { "consume": true },
+  "agent": {
+    "subagent": {
+      "enabled": false,
+      "system_prompt_path": "agent/system-prompt.md",
+      "tool_allowlist": ["mail-agent inbox list", "mail-agent thread read", "mail-agent send"],
+      "canvas_route": "/agent-sessions/mail/<session_id>"
+    }
+  }
+}
