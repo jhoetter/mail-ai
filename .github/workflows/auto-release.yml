@@ -190,7 +190,7 @@ jobs:
           pnpm --filter @mailai/hofos-ui build:dist
           test -f "packages/hofos-ui/dist/index.js" || (echo "missing packages/hofos-ui/dist/index.js" && exit 1)
           pnpm --dir packages/hofos-ui pack --pack-destination .
-          mv mailai-hofos-ui-*.tgz "mailai-ui-${VERSION}.tgz"
+          mv packages/hofos-ui/mailai-hofos-ui-*.tgz "mailai-ui-${VERSION}.tgz"
           ls -lh "mailai-ui-${VERSION}.tgz"
 
       - name: Compute server image ref
