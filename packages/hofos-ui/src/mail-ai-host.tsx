@@ -4,7 +4,10 @@ import "../../../apps/web/app/globals.css";
 import { DialogsProvider } from "@mailai/ui";
 import { I18nProvider } from "../../../apps/web/app/lib/i18n";
 import { RealtimeProvider } from "../../../apps/web/app/lib/realtime";
-import { RuntimeConfigProvider, type RuntimeConfig } from "../../../apps/web/app/lib/runtime-config";
+import {
+  RuntimeConfigProvider,
+  type RuntimeConfig,
+} from "../../../apps/web/app/lib/runtime-config";
 import { AppShell } from "../../../apps/web/app/lib/shell";
 import { HostChromeProvider } from "../../../apps/web/app/lib/shell/hostChrome";
 import { ThemeProvider } from "../../../apps/web/app/lib/theme-provider";
@@ -66,5 +69,9 @@ export function MailAiHost({ runtime, initialRoute = "/inbox" }: MailAiHostProps
 }
 
 function MailAiLoader() {
-  return <div className="flex h-full min-h-0 w-full items-center justify-center text-sm text-secondary">Loading mail...</div>;
+  return (
+    <div className="flex h-full min-h-0 w-full items-center justify-center text-sm text-secondary">
+      Loading mail...
+    </div>
+  );
 }

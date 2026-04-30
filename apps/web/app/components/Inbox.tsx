@@ -273,7 +273,9 @@ export function Inbox() {
       <div
         className={
           "flex min-h-0 flex-1 md:grid " +
-          (hasLoadedEmptyRows ? "md:grid-cols-1" : "md:grid-cols-[minmax(240px,320px)_minmax(0,1fr)]")
+          (hasLoadedEmptyRows
+            ? "md:grid-cols-1"
+            : "md:grid-cols-[minmax(240px,320px)_minmax(0,1fr)]")
         }
       >
         <section

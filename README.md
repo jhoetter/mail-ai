@@ -75,4 +75,3 @@ The hofOS host consumes the built UI package from GitHub Releases rather than co
 ```
 
 For local iteration, run `pnpm run build:dist` or point hofOS' local-dev override at `packages/hofos-ui`.
-

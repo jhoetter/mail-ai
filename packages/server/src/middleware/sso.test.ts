@@ -23,7 +23,9 @@ function b64url(input: string | Buffer): string {
 function makeToken(secret: string, claims: Record<string, unknown>): string {
   const header = b64url(JSON.stringify({ alg: "HS256", typ: "JWT" }));
   const payload = b64url(JSON.stringify(claims));
-  const sig = b64url(createHmac("sha256", Buffer.from(secret, "utf-8")).update(`${header}.${payload}`).digest());
+  const sig = b64url(
+    createHmac("sha256", Buffer.from(secret, "utf-8")).update(`${header}.${payload}`).digest(),
+  );
   return `${header}.${payload}.${sig}`;
 }
 

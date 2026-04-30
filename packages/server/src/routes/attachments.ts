@@ -53,10 +53,7 @@ export function registerAttachmentRoutes(app: FastifyInstance, deps: AttachmentR
     return reply
       .header("cache-control", "private, max-age=300")
       .header("content-type", row.mime || "application/octet-stream")
-      .header(
-        "content-disposition",
-        `attachment; filename="${escapeFilename(filename)}"`,
-      )
+      .header("content-disposition", `attachment; filename="${escapeFilename(filename)}"`)
       .send(buf);
   });
 

@@ -3,12 +3,35 @@
   "subapp": "mailai",
   "contract_version": "1.0.0",
   "cli_verbs": [
-    { "name": "inbox list", "command": "mail-agent inbox list", "summary": "List recent inbox messages.", "args": [] },
-    { "name": "thread read", "command": "mail-agent thread read", "summary": "Read a mail thread by id.", "args": [{ "name": "thread-id", "type": "string", "required": true }] },
-    { "name": "send", "command": "mail-agent send", "summary": "Send an email.", "args": [{ "name": "to", "type": "string", "required": true }, { "name": "subject", "type": "string", "required": true }, { "name": "body", "type": "string", "required": true }] }
+    {
+      "name": "inbox list",
+      "command": "mail-agent inbox list",
+      "summary": "List recent inbox messages.",
+      "args": []
+    },
+    {
+      "name": "thread read",
+      "command": "mail-agent thread read",
+      "summary": "Read a mail thread by id.",
+      "args": [{ "name": "thread-id", "type": "string", "required": true }]
+    },
+    {
+      "name": "send",
+      "command": "mail-agent send",
+      "summary": "Send an email.",
+      "args": [
+        { "name": "to", "type": "string", "required": true },
+        { "name": "subject", "type": "string", "required": true },
+        { "name": "body", "type": "string", "required": true }
+      ]
+    }
   ],
   "function_wrappers": [
-    { "name": "mailai_list_inbox", "kind": "read", "summary": "List recent inbox messages for the current user." },
+    {
+      "name": "mailai_list_inbox",
+      "kind": "read",
+      "summary": "List recent inbox messages for the current user."
+    },
     { "name": "mailai_read_thread", "kind": "read", "summary": "Read a single thread by id." }
   ],
   "subagent": null
