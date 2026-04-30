@@ -1,4 +1,7 @@
 FROM node:20-bookworm-slim AS builder
+
+ARG DESIGN_SYSTEM=conservative
+ENV VITE_DESIGN_SYSTEM=${DESIGN_SYSTEM}
 WORKDIR /workspace
 RUN corepack enable && corepack prepare pnpm@9.15.4 --activate
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml turbo.json tsconfig.base.json tsconfig.json ./

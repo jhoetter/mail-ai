@@ -1,0 +1,34 @@
+/* hofOS default preset overriding MailAI's semantic token contract. */
+:root {
+  --background: #ffffff;
+  --foreground: #37352f;
+  --surface: #fbfbfa;
+  --hover: #f7f7f5;
+  --divider: #e9e9e7;
+  --secondary: #787774;
+  --tertiary: #c3c2c1;
+  --accent: #2383e2;
+  --accent-light: rgba(35, 131, 226, 0.12);
+  --on-accent: #ffffff;
+  --warning: #f4a51c;
+  --error: #dc2626;
+  --success: #2f7d59;
+  --font-sans: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not(.light):not(.dark) {
+    --background: #191919;
+    --foreground: #e3e2e0;
+    --surface: #202020;
+    --hover: #252525;
+    --divider: #2f2f2f;
+    --secondary: #9b9a97;
+    --tertiary: #5a5a58;
+    --accent: #529cca;
+    --accent-light: rgba(82, 156, 202, 0.16);
+    --error: #ef4444;
+    --success: #2f7d59;
+  }
+}

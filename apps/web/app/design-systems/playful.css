@@ -1,0 +1,35 @@
+/* hofOS playful preset overriding MailAI's semantic token contract. */
+:root {
+  --background: #faf8ff;
+  --foreground: #1e1b4b;
+  --surface: #f5f3ff;
+  --hover: #ede9fe;
+  --divider: #e9e5f5;
+  --secondary: #6b7280;
+  --tertiary: #a1a1aa;
+  --accent: #7c3aed;
+  --accent-light: rgba(124, 58, 237, 0.12);
+  --on-accent: #ffffff;
+  --warning: #f97316;
+  --error: #e11d48;
+  --success: #10b981;
+  --font-sans: "Nunito", system-ui, -apple-system, sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not(.light):not(.dark) {
+    --background: #0f0a1a;
+    --foreground: #ede9fe;
+    --surface: #1a1425;
+    --hover: #2a1f3d;
+    --divider: #2e2640;
+    --secondary: #a5b4fc;
+    --tertiary: #6b7280;
+    --accent: #a78bfa;
+    --accent-light: rgba(167, 139, 250, 0.14);
+    --warning: #fb923c;
+    --error: #fb7185;
+    --success: #34d399;
+  }
+}

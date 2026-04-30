@@ -21,8 +21,13 @@ import {
   Ban,
   Calendar,
   CheckCircle2,
+  BriefcaseBusiness,
   FileText,
+  Folder,
+  Home,
   Inbox as InboxIcon,
+  Mail,
+  MessageCircle,
   Moon,
   Send,
   Trash2,
@@ -64,6 +69,15 @@ const SECTIONS: NavSection[] = [
   },
 ];
 
+const GLOBAL_APP_LINKS = [
+  { id: "os", label: "App", href: "http://localhost:3000/", icon: Home },
+  { id: "hofos", label: "hofOS", href: "http://localhost:3600/customers", icon: BriefcaseBusiness },
+  { id: "mailai", label: "Mail", href: "http://localhost:3010/inbox", icon: Mail },
+  { id: "collabai", label: "Chat", href: "http://localhost:8010/", icon: MessageCircle },
+  { id: "driveai", label: "Drive", href: "http://localhost:3520/drive/home", icon: Folder },
+  { id: "pagesai", label: "Pages", href: "http://localhost:3399/pages", icon: FileText },
+] as const;
+
 // View name → lucide icon. The server stores an emoji per view but
 // the rest of the sidebar uses lucide outline icons; mapping by name
 // keeps the look consistent. Custom views (any name not in this
@@ -102,21 +116,23 @@ export function AppNav({ onNavigate }: { onNavigate?: () => void } = {}) {
   return (
     <nav className="flex h-full flex-col text-sm">
       {showBrandHeader && (
-        <div className="flex shrink-0 items-center gap-2 border-b border-divider px-3 py-2.5">
+        <div className="flex shrink-0 flex-col gap-2 border-b border-divider px-3 py-3">
           <Link
             to="/inbox"
             onClick={handleNavigate}
-            className="truncate text-sm font-semibold tracking-tight text-foreground"
+            className="flex items-center gap-2 truncate text-[15px] font-semibold tracking-tight text-foreground"
           >
-            {t("common.appName")}
+            <Mail size={16} aria-hidden className="shrink-0" />
+            <span>Mail</span>
           </Link>
           <button
             type="button"
             onClick={() => palette.open()}
-            className="ml-auto inline-flex items-center gap-1 rounded border border-divider bg-background px-1.5 py-0.5 text-[10px] font-medium text-secondary transition-colors hover:border-foreground/30 hover:text-foreground"
+            className="flex items-center justify-between rounded-md border border-divider bg-background px-3 py-2 text-left text-sm font-medium text-secondary transition-colors hover:border-foreground/30 hover:text-foreground"
             aria-label={t("palette.title")}
             title={t("palette.title")}
           >
+            <span>Actions</span>
             <span>⌘K</span>
           </button>
         </div>
@@ -141,8 +157,6 @@ export function AppNav({ onNavigate }: { onNavigate?: () => void } = {}) {
             ))}
           </div>
         ))}
-      </div>
-      <div className="flex shrink-0 flex-col gap-1.5 border-t border-divider px-2 py-2 text-[11px] text-tertiary">
         <ThemeToggle
           labels={{
             light: t("theme.light"),
@@ -153,6 +167,41 @@ export function AppNav({ onNavigate }: { onNavigate?: () => void } = {}) {
         <div className="flex items-center justify-between px-1">
           <span>{t("common.version")}</span>
           <LocaleToggle compact />
+        </div>
+      </div>
+      <div className="shrink-0 border-t border-divider px-2 py-2">
+        <div className="px-2 pb-0.5 pt-1 text-[11px] font-semibold uppercase tracking-wider text-tertiary">
+          Apps
+        </div>
+        {GLOBAL_APP_LINKS.map((app) => {
+          const Icon = app.icon;
+          return (
+            <a
+              key={app.id}
+              href={app.href}
+              className={
+                "flex items-center gap-2 rounded-md px-2 py-1 transition-colors " +
+                (app.id === "mailai"
+                  ? "bg-hover font-medium text-foreground"
+                  : "text-secondary hover:bg-hover hover:text-foreground")
+              }
+            >
+              <Icon
+                size={14}
+                aria-hidden
+                className={"shrink-0 " + (app.id === "mailai" ? "text-foreground" : "text-tertiary")}
+              />
+              <span className="truncate">{app.label}</span>
+            </a>
+          );
+        })}
+      </div>
+      <div className="flex shrink-0 flex-col gap-1.5 border-t border-divider px-2 py-2 text-[11px] text-tertiary">
+        <div className="flex items-center gap-2 rounded-md px-1.5 py-1.5 text-secondary hover:bg-hover hover:text-foreground">
+          <span className="flex h-7 w-7 items-center justify-center rounded-full bg-foreground text-[11px] font-semibold text-background">
+            MA
+          </span>
+          <span className="min-w-0 flex-1 truncate text-xs">Mail user</span>
         </div>
       </div>
     </nav>

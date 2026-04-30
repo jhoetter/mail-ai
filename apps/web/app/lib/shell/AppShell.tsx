@@ -16,6 +16,15 @@ import { CommandErrorToast } from "../../components/CommandErrorToast";
 import { TopBar } from "../../components/TopBar";
 import { ChromeProvider, useChrome } from "./ChromeContext";
 
+const GLOBAL_APP_LINKS = [
+  { id: "os", label: "App", href: "http://localhost:3000/" },
+  { id: "hofos", label: "hofOS", href: "http://localhost:3600/customers" },
+  { id: "mailai", label: "Mail", href: "http://localhost:3010/inbox" },
+  { id: "collabai", label: "Chat", href: "http://localhost:8010/" },
+  { id: "driveai", label: "Drive", href: "http://localhost:3520/drive/home" },
+  { id: "pagesai", label: "Pages", href: "http://localhost:3399/pages" },
+] as const;
+
 /**
  * Visual mode for the shell.
  *
@@ -114,6 +123,15 @@ function ShellWithStaticCommands({ children }: { children: ReactNode }) {
           setTheme(next);
         },
       },
+      ...GLOBAL_APP_LINKS.map((app) => ({
+        id: `open-app-${app.id}`,
+        label: `Open ${app.label}`,
+        hint: "Switch app",
+        section: "Apps",
+        run: () => {
+          window.location.href = app.href;
+        },
+      })),
     ],
     [t, navigate, setLocale, locale, theme, setTheme],
   );

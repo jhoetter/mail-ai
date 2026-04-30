@@ -25,6 +25,7 @@
  * the full contract.
  */
 @import "@mailai/design-tokens/styles.css";
+@import "@mailai-hof-design-system.css";
 
 /* Tailwind v4 only auto-scans the current package's source by default.
    Our UI primitives live in a sibling workspace, so we explicitly add

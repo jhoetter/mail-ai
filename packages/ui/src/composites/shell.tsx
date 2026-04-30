@@ -18,6 +18,26 @@ interface Props {
   children: ReactNode;
 }
 
+const HOF_SHELL_SIDEBAR_DEFAULT_WIDTH = 240;
+const HOF_SHELL_STORAGE_KEYS = {
+  sidebarWidth: "hof-shell-sidebar-width",
+  legacySidebarWidth: "hof-sidebar-width",
+} as const;
+
+function readSidebarWidth(): number {
+  try {
+    const raw =
+      localStorage.getItem(HOF_SHELL_STORAGE_KEYS.sidebarWidth) ??
+      localStorage.getItem(HOF_SHELL_STORAGE_KEYS.legacySidebarWidth);
+    const value = raw ? Number(raw) : NaN;
+    return Number.isFinite(value) && value >= 140 && value <= 480
+      ? value
+      : HOF_SHELL_SIDEBAR_DEFAULT_WIDTH;
+  } catch {
+    return HOF_SHELL_SIDEBAR_DEFAULT_WIDTH;
+  }
+}
+
 // ──────────────────────────────────────────────────────────────────────
 // Sidebar visibility context
 //
@@ -65,6 +85,7 @@ export function useSidebar(): SidebarApi {
 // ──────────────────────────────────────────────────────────────────────
 export function Shell({ sidebar, children }: Props) {
   const [open, setOpen] = useState(false);
+  const [desktopSidebarWidth] = useState(readSidebarWidth);
 
   const close = useCallback(() => setOpen(false), []);
   const toggle = useCallback(() => setOpen((prev) => !prev), []);
@@ -120,7 +141,10 @@ export function Shell({ sidebar, children }: Props) {
         container-relative positioning the drawer animates from the
         embed's own bounds and never escapes the host layout.
       */}
-      <div className="relative flex h-full min-h-0 w-full bg-background text-foreground md:grid md:grid-cols-[240px_1fr]">
+      <div
+        className="relative flex h-full min-h-0 w-full bg-background text-foreground md:grid"
+        style={{ gridTemplateColumns: `${desktopSidebarWidth}px minmax(0, 1fr)` }}
+      >
         {/*
           Sidebar
           ───────
