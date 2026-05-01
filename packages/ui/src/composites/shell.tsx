@@ -19,18 +19,40 @@ interface Props {
 }
 
 const HOF_SHELL_SIDEBAR_DEFAULT_WIDTH = 240;
+const HOF_SHELL_SIDEBAR_MIN_WIDTH = 140;
+const HOF_SHELL_SIDEBAR_MAX_WIDTH = 480;
 const HOF_SHELL_STORAGE_KEYS = {
   sidebarWidth: "hof-shell-sidebar-width",
   legacySidebarWidth: "hof-sidebar-width",
+  sidebarCollapsed: "hof-shell-sidebar-collapsed",
+  legacySidebarCollapsed: "hof-sidebar-collapsed",
 } as const;
+const HOF_SHELL_SIDEBAR_CHANGED_EVENT = "hof:shell-sidebar-changed";
+
+function readShellCookie(key: string): string | null {
+  const prefix = `${encodeURIComponent(key)}=`;
+  const entry = document.cookie
+    .split(";")
+    .map((part) => part.trim())
+    .find((part) => part.startsWith(prefix));
+  return entry ? decodeURIComponent(entry.slice(prefix.length)) : null;
+}
 
 function readSidebarWidth(): number {
   try {
+    const collapsed =
+      readShellCookie(HOF_SHELL_STORAGE_KEYS.sidebarCollapsed) ??
+      readShellCookie(HOF_SHELL_STORAGE_KEYS.legacySidebarCollapsed) ??
+      localStorage.getItem(HOF_SHELL_STORAGE_KEYS.sidebarCollapsed) ??
+      localStorage.getItem(HOF_SHELL_STORAGE_KEYS.legacySidebarCollapsed);
+    if (collapsed === "true") return 0;
     const raw =
+      readShellCookie(HOF_SHELL_STORAGE_KEYS.sidebarWidth) ??
+      readShellCookie(HOF_SHELL_STORAGE_KEYS.legacySidebarWidth) ??
       localStorage.getItem(HOF_SHELL_STORAGE_KEYS.sidebarWidth) ??
       localStorage.getItem(HOF_SHELL_STORAGE_KEYS.legacySidebarWidth);
     const value = raw ? Number(raw) : NaN;
-    return Number.isFinite(value) && value >= 140 && value <= 480
+    return Number.isFinite(value) && value >= HOF_SHELL_SIDEBAR_MIN_WIDTH && value <= HOF_SHELL_SIDEBAR_MAX_WIDTH
       ? value
       : HOF_SHELL_SIDEBAR_DEFAULT_WIDTH;
   } catch {
@@ -85,7 +107,7 @@ export function useSidebar(): SidebarApi {
 // ──────────────────────────────────────────────────────────────────────
 export function Shell({ sidebar, children }: Props) {
   const [open, setOpen] = useState(false);
-  const [desktopSidebarWidth] = useState(readSidebarWidth);
+  const [desktopSidebarWidth, setDesktopSidebarWidth] = useState(readSidebarWidth);
 
   const close = useCallback(() => setOpen(false), []);
   const toggle = useCallback(() => setOpen((prev) => !prev), []);
@@ -100,6 +122,26 @@ export function Shell({ sidebar, children }: Props) {
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [open]);
+
+  useEffect(() => {
+    const syncSidebarWidth = () => setDesktopSidebarWidth(readSidebarWidth());
+    const onStorage = (event: StorageEvent) => {
+      if (
+        event.key === HOF_SHELL_STORAGE_KEYS.sidebarWidth ||
+        event.key === HOF_SHELL_STORAGE_KEYS.legacySidebarWidth ||
+        event.key === HOF_SHELL_STORAGE_KEYS.sidebarCollapsed ||
+        event.key === HOF_SHELL_STORAGE_KEYS.legacySidebarCollapsed
+      ) {
+        syncSidebarWidth();
+      }
+    };
+    window.addEventListener("storage", onStorage);
+    window.addEventListener(HOF_SHELL_SIDEBAR_CHANGED_EVENT, syncSidebarWidth);
+    return () => {
+      window.removeEventListener("storage", onStorage);
+      window.removeEventListener(HOF_SHELL_SIDEBAR_CHANGED_EVENT, syncSidebarWidth);
+    };
+  }, []);
 
   // Lock body scroll while the drawer is open on mobile so the page
   // beneath doesn't jiggle when the user scrolls the drawer itself.
@@ -143,7 +185,10 @@ export function Shell({ sidebar, children }: Props) {
       */}
       <div
         className="relative flex h-full min-h-0 w-full bg-background text-foreground md:grid"
-        style={{ gridTemplateColumns: `${desktopSidebarWidth}px minmax(0, 1fr)` }}
+        style={{
+          gridTemplateColumns: `${desktopSidebarWidth}px minmax(0, 1fr)`,
+          ["--hof-sidebar-width" as string]: `${desktopSidebarWidth}px`,
+        }}
       >
         {/*
           Sidebar

@@ -19,6 +19,7 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
   return (
     <NextThemesProvider
       attribute="class"
+      storageKey="hof-color-scheme"
       defaultTheme="system"
       enableSystem
       disableTransitionOnChange

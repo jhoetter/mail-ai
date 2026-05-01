@@ -52,7 +52,9 @@
   }
 
   .dark,
-  html.dark {
+  html.dark,
+  .hof-theme-dark,
+  html.hof-theme-dark {
     --background: #191919;
     --foreground: #e3e2e0;
     --secondary: #9b9a97;
@@ -76,7 +78,7 @@
   }
 
   @media (prefers-color-scheme: dark) {
-    :root:not(.light) {
+    :root:not(.light):not(.hof-theme-light) {
       --background: #191919;
       --foreground: #e3e2e0;
       --secondary: #9b9a97;

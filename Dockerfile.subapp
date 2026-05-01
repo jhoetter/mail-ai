@@ -8,6 +8,7 @@ COPY package.json pnpm-lock.yaml pnpm-workspace.yaml turbo.json tsconfig.base.js
 COPY scripts ./scripts
 COPY packages ./packages
 COPY apps ./apps
+COPY vendor ./vendor
 COPY hof-module.json tools.json ./
 RUN pnpm install --frozen-lockfile --prefer-offline
 RUN pnpm --filter '@mailai/server...' --filter '@mailai/agent...' build

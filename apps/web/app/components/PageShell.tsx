@@ -12,12 +12,11 @@
 
 import type { ReactNode } from "react";
 
-import { Shell } from "@mailai/ui";
-
 import { useChrome } from "../lib/shell";
-import { AppNav } from "./AppNav";
+import { MailShell } from "./AppNav";
 
 export function PageShell({ children }: { children: ReactNode }) {
   const chrome = useChrome();
-  return <Shell sidebar={chrome === "content" ? null : <AppNav />}>{children}</Shell>;
+  if (chrome === "content") return <>{children}</>;
+  return <MailShell>{children}</MailShell>;
 }

@@ -6,6 +6,7 @@
    declared on --font-sans / --font-mono below cover the moment before
    the network sheet lands. */
 @import "tailwindcss";
+@import "@hofos/shell-ui/theme.css";
 
 /*
  * Default brand tokens. Swap by appending a brand pack stylesheet

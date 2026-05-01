@@ -27,6 +27,7 @@ RUN corepack enable && corepack prepare pnpm@9.15.4 --activate
 
 # Copy the workspace manifest first so pnpm install caches well.
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml turbo.json tsconfig.base.json tsconfig.json ./
+COPY vendor ./vendor
 COPY scripts ./scripts
 COPY packages ./packages
 COPY apps ./apps

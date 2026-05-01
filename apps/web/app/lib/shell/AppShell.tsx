@@ -13,24 +13,22 @@ import { CommandPalette } from "./CommandPalette";
 import { PaletteRegistryProvider, usePaletteRegistry } from "./paletteRegistry";
 import type { PaletteCommand } from "./types";
 import { CommandErrorToast } from "../../components/CommandErrorToast";
-import { TopBar } from "../../components/TopBar";
 import { ChromeProvider, useChrome } from "./ChromeContext";
 
 const GLOBAL_APP_LINKS = [
   { id: "os", label: "App", href: "http://localhost:3000/" },
-  { id: "hofos", label: "hofOS", href: "http://localhost:3600/customers" },
-  { id: "mailai", label: "Mail", href: "http://localhost:3010/inbox" },
-  { id: "collabai", label: "Chat", href: "http://localhost:8010/" },
-  { id: "driveai", label: "Drive", href: "http://localhost:3520/drive/home" },
-  { id: "pagesai", label: "Pages", href: "http://localhost:3399/pages" },
+  { id: "hofos", label: "hofOS", href: "http://localhost:3000/__subapps/hofos/customers" },
+  { id: "mailai", label: "Mail", href: "/inbox" },
+  { id: "collabai", label: "Chat", href: "http://localhost:3000/__subapps/collabai/" },
+  { id: "driveai", label: "Drive", href: "http://localhost:3000/__subapps/driveai/drive/home" },
+  { id: "pagesai", label: "Pages", href: "http://localhost:3000/__subapps/pagesai/pages" },
 ] as const;
 
 /**
  * Visual mode for the shell.
  *
- * - `"full"` (default) — renders the standalone chrome (TopBar with
- *   global search). Used by the standalone `apps/web` and any host
- *   that wants the full mail-ai UI.
+ * - `"full"` (default) — renders the standalone sidebar identity and
+ *   local app commands.
  * - `"content"` — drops the TopBar so a host can supply its own
  *   sidebar/header. Palette registry, ⌘K keybind, CommandPalette
  *   overlay and error-toast are preserved (they're functional
@@ -49,16 +47,12 @@ export function AppShell({
   // Static commands are computed inside an inner component so the
   // memo identity is stable across renders of the page tree.
   //
-  // Layout: the TopBar (global search) is the first row in "full"
-  // mode; in "content" mode it's omitted and the page tree fills
-  // the host's container directly. Shell (used by each page) was
-  // switched from h-screen to h-full so it fills *this* container
-  // instead of overflowing past the search bar.
+  // Layout: keep the standalone app in the same full-height shell shape
+  // as the hofOS host. Shell (used by each page) fills this container.
   return (
     <ChromeProvider chrome={chrome}>
       <ShellWithStaticCommands>
         <div className="flex h-full min-h-0 flex-col">
-          {chrome === "full" ? <TopBar /> : null}
           <div className="flex min-h-0 flex-1 flex-col">
             <KeybindLayer>{children}</KeybindLayer>
           </div>

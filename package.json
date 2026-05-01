@@ -30,11 +30,11 @@
     "build:dist": "pnpm --filter @mailai/hofos-ui build:dist"
   },
   "devDependencies": {
-    "@types/node": "^22.7.0",
-    "eslint": "^9.13.0",
-    "prettier": "^3.3.3",
-    "turbo": "^2.2.3",
-    "typescript": "^5.6.3",
-    "vitest": "^2.1.3"
+    "@types/node": "^22.19.17",
+    "eslint": "^9.39.4",
+    "prettier": "^3.8.3",
+    "turbo": "^2.9.7",
+    "typescript": "^5.9.3",
+    "vitest": "^2.1.9"
   }
 }
