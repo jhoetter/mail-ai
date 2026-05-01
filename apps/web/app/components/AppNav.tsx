@@ -3,6 +3,8 @@ import { useLocation, useNavigate, useSearchParams } from "react-router";
 import {
   HofShellLayout,
   HOF_SHELL_APP_LINKS,
+  fetchHofShellUser,
+  type HofShellUser,
   type HofShellNavGroup,
 } from "@hofos/shell-ui";
 import { useTranslator } from "../lib/i18n/useTranslator";
@@ -27,6 +29,7 @@ export function MailShell({ children }: { children: ReactNode }) {
   const { t } = useTranslator();
   const palette = usePaletteRegistry();
   const [views, setViews] = useState<ViewSummary[]>([]);
+  const [shellUser, setShellUser] = useState<HofShellUser | null>(null);
 
   useEffect(() => {
     let alive = true;
@@ -37,6 +40,16 @@ export function MailShell({ children }: { children: ReactNode }) {
       .catch(() => {
         if (alive) setViews([]);
       });
+    return () => {
+      alive = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    let alive = true;
+    void fetchHofShellUser({ endpoint: "/api/whoami", fallbackName: "Mail" }).then((user) => {
+      if (alive) setShellUser(user);
+    });
     return () => {
       alive = false;
     };
@@ -85,7 +98,7 @@ export function MailShell({ children }: { children: ReactNode }) {
       appLinks={HOF_SHELL_APP_LINKS.map((link) =>
         link.id === "mailai" ? { ...link, href: "/inbox" } : link,
       )}
-      user={{ name: "Mail user", initials: "MA" }}
+      user={shellUser}
       onCommand={() => palette.open()}
       onNavigate={(path) => {
         if (path.startsWith("/")) navigate(path);

@@ -28,6 +28,21 @@
 @import "@mailai/design-tokens/styles.css";
 @import "@mailai-hof-design-system.css";
 
+:root {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--surface);
+  --color-sidebar-background: var(--surface);
+  --color-border: var(--divider);
+  --color-accent: var(--accent);
+  --color-muted-foreground: var(--secondary);
+  --color-hover: var(--hover);
+  --color-surface: var(--surface);
+  --color-secondary: var(--secondary);
+  --color-tertiary: var(--tertiary);
+  --color-divider: var(--divider);
+}
+
 /* Tailwind v4 only auto-scans the current package's source by default.
    Our UI primitives live in a sibling workspace, so we explicitly add
    them as a content source here — otherwise classes coming from

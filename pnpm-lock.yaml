@@ -1344,7 +1344,7 @@ packages:
     resolution: {integrity: sha512-aXrYtsiryLhRxRNaxNqsn7FUISeb7rB9q4eHUPIot5aeQBLNahnz1m6thzm7JWC1poSGXS9XrX8DvuMivp2hkQ==}
 
   '@hofos/shell-ui@file:vendor/hofos-shell-ui-0.1.0.tgz':
-    resolution: {integrity: sha512-Pu293QYC5wSV8bHyT8ROwUnXdN+63hHY39WwXbWBwENt6eh9PRhXBpmk4WvrKA2/l+fWpGN4IJszUT/YxQ0ATw==, tarball: file:vendor/hofos-shell-ui-0.1.0.tgz}
+    resolution: {integrity: sha512-pYUOPhhG0jbevNK74Nzc0Ugw4KlBIsl59Ot+C8lttmBo6X4ESJ92V4e5ColEDMi1NvPmxVeAhwqf9x4JiQMJVQ==, tarball: file:vendor/hofos-shell-ui-0.1.0.tgz}
     version: 0.1.0
     peerDependencies:
       lucide-react: '>=0.460.0'

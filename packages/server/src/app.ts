@@ -189,7 +189,12 @@ export async function buildApp(deps: AppDeps): Promise<FastifyInstance> {
 
   app.get("/api/whoami", async (req) => {
     const ident = await deps.identity({ headers: req.headers as Record<string, unknown> });
-    return { userId: ident.userId, tenantId: ident.tenantId, displayName: "" };
+    return {
+      userId: ident.userId,
+      tenantId: ident.tenantId,
+      email: ident.email ?? null,
+      displayName: ident.displayName ?? ident.email ?? ident.userId,
+    };
   });
 
   app.get("/api/health", async () => ({ ok: true }));
