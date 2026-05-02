@@ -30,7 +30,7 @@ import {
 } from "lucide-react";
 import { useTheme } from "next-themes";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { baseUrl } from "../lib/api";
+import { apiFetch, baseUrl } from "../lib/api";
 import {
   getThread,
   type ThreadAttachment,
@@ -424,27 +424,93 @@ function MessageCard({
 }
 
 function AttachmentsList({ attachments }: { attachments: readonly ThreadAttachment[] }) {
+  const [openingId, setOpeningId] = useState<string | null>(null);
   const visible = attachments.filter((a) => !a.isInline);
   if (visible.length === 0) return null;
+  const openInOffice = async (attachment: ThreadAttachment) => {
+    setOpeningId(attachment.id);
+    try {
+      const from = mailaiShellReturnPath();
+      const res = await apiFetch(
+        `/api/attachments/${encodeURIComponent(attachment.id)}/office-url?from=${encodeURIComponent(from)}`,
+      );
+      if (!res.ok) {
+        throw new Error(await responseErrorMessage(res));
+      }
+      const data = (await res.json()) as { url?: unknown };
+      if (typeof data.url !== "string" || !data.url) throw new Error("Missing editor URL");
+      window.location.href = data.url;
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      window.alert(`Could not open attachment in OfficeAI: ${message}`);
+    } finally {
+      setOpeningId(null);
+    }
+  };
   return (
     <div className="mt-4 flex flex-wrap gap-2 border-t border-divider pt-3">
-      {visible.map((a) => (
-        <a
-          key={a.id}
-          href={`${baseUrl()}/api/attachments/${encodeURIComponent(a.id)}/bytes`}
-          target="_blank"
-          rel="noreferrer noopener"
-          className="inline-flex max-w-[18rem] items-center gap-2 rounded border border-divider bg-foreground/5 px-2 py-1 text-xs text-foreground hover:bg-foreground/10"
-          title={a.filename}
-        >
-          <AttachmentIcon mime={a.mime} />
-          <span className="truncate">{a.filename}</span>
-          <span className="shrink-0 text-[10px] text-tertiary">{formatSize(a.sizeBytes)}</span>
-          <Download size={12} aria-hidden className="shrink-0 text-tertiary" />
-        </a>
-      ))}
+      {visible.map((a) => {
+        const officeEditable = isOfficeEditableAttachment(a);
+        return (
+          <span
+            key={a.id}
+            className="inline-flex max-w-[22rem] items-center gap-2 rounded border border-divider bg-foreground/5 px-2 py-1 text-xs text-foreground hover:bg-foreground/10"
+            title={a.filename}
+          >
+            <AttachmentIcon mime={a.mime} />
+            <span className="truncate">{a.filename}</span>
+            <span className="shrink-0 text-[10px] text-tertiary">{formatSize(a.sizeBytes)}</span>
+            {officeEditable ? (
+              <button
+                type="button"
+                onClick={() => void openInOffice(a)}
+                disabled={openingId === a.id}
+                className="shrink-0 rounded px-1 text-[10px] text-tertiary hover:bg-foreground/10 hover:text-foreground disabled:opacity-50"
+              >
+                {openingId === a.id ? "Opening..." : "Open"}
+              </button>
+            ) : null}
+            <a
+              href={`${baseUrl()}/api/attachments/${encodeURIComponent(a.id)}/bytes`}
+              target="_blank"
+              rel="noreferrer noopener"
+              className="shrink-0 rounded p-0.5 text-tertiary hover:bg-foreground/10 hover:text-foreground"
+              title="Download"
+            >
+              <Download size={12} aria-hidden />
+            </a>
+          </span>
+        );
+      })}
     </div>
   );
+}
+
+const OFFICE_ATTACHMENT_EXTENSIONS = new Set(["docx", "xlsx", "pptx", "pdf"]);
+
+function isOfficeEditableAttachment(attachment: ThreadAttachment): boolean {
+  const ext = attachment.filename.split(".").pop()?.toLowerCase();
+  return Boolean(ext && OFFICE_ATTACHMENT_EXTENSIONS.has(ext));
+}
+
+function mailaiShellReturnPath(): string {
+  const current = `${window.location.pathname}${window.location.search}${window.location.hash}`;
+  return current.startsWith("/__subapps/mailai/")
+    ? current
+    : `/__subapps/mailai${current.startsWith("/") ? current : `/${current}`}`;
+}
+
+async function responseErrorMessage(res: Response): Promise<string> {
+  const body = await res.text().catch(() => "");
+  if (!body) return `HTTP ${res.status}`;
+  try {
+    const parsed = JSON.parse(body) as { message?: unknown; error?: unknown };
+    if (typeof parsed.message === "string") return parsed.message;
+    if (typeof parsed.error === "string") return parsed.error;
+  } catch {
+    // Keep the plain response body below.
+  }
+  return body;
 }
 
 function AttachmentIcon({ mime }: { mime: string }) {

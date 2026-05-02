@@ -6,6 +6,9 @@
 //                                        which must `fetch().arrayBuffer()` on a
 //                                        same-origin URL — the JSON presign
 //                                        envelope is not a spreadsheet/PDF.
+//   GET /api/attachments/:id/office-url → JSON { url } after ensuring the
+//                                        object is cached; the browser then
+//                                        navigates to hofOS `/edit-asset`.
 //   GET /api/attachments/:id/inline    → 302 to presigned GET; used as a
 //                                        stable URL we can rewrite cid:
 //                                        links to without re-presigning
@@ -72,6 +75,22 @@ export function registerAttachmentRoutes(app: FastifyInstance, deps: AttachmentR
       responseContentType: row.mime,
     });
     return { url: presigned.url, expiresAt: presigned.expiresAt };
+  });
+
+  app.get("/api/attachments/:id/office-url", async (req, reply) => {
+    const ident = await deps.identity({ headers: req.headers as Record<string, unknown> });
+    const { id } = req.params as { id: string };
+    const row = await loadAttachment(deps, ident.tenantId, id);
+    if (!row) {
+      return reply.code(404).send({ error: "not_found", message: `attachment ${id} not found` });
+    }
+    await ensureCached(deps, ident.tenantId, row);
+    return {
+      url: buildOfficeEditorUrl(
+        prefixedObjectKey(row.objectKey),
+        readSingleQueryValue((req.query as { from?: unknown }).from),
+      ),
+    };
   });
 
   app.get("/api/attachments/:id/inline", async (req, reply) => {
@@ -143,4 +162,31 @@ async function ensureCached(
 
 function escapeFilename(name: string): string {
   return name.replace(/"/g, "'");
+}
+
+function prefixedObjectKey(objectKey: string): string {
+  const prefix = (process.env["S3_KEY_PREFIX"] ?? "").replace(/^\/+|\/+$/g, "");
+  if (!prefix) return objectKey;
+  return `${prefix}/${objectKey.replace(/^\/+/, "")}`;
+}
+
+function buildOfficeEditorUrl(objectKey: string, from: string | null): string {
+  const base = (
+    process.env["HOF_OS_PUBLIC_URL"] ??
+    process.env["HOF_DATA_APP_PUBLIC_URL"] ??
+    "http://localhost:3000"
+  ).replace(/\/+$/, "");
+  const url = new URL("/edit-asset", base);
+  url.searchParams.set("key", objectKey);
+  if (from) url.searchParams.set("from", from);
+  return url.toString();
+}
+
+function readSingleQueryValue(value: unknown): string | null {
+  if (typeof value === "string" && value.trim()) return value;
+  if (Array.isArray(value)) {
+    const first = value.find((it): it is string => typeof it === "string" && it.trim().length > 0);
+    return first ?? null;
+  }
+  return null;
 }
