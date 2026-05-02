@@ -1,11 +1,12 @@
 import { PageHeader, Button } from "@mailai/ui";
 import { Inbox as InboxIcon, Paperclip, Pencil, RefreshCw, Star } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useNavigate } from "react-router";
 import { ThreadView } from "./ThreadView";
 import { Composer } from "./Composer";
 import { PageShell } from "./PageShell";
 import { EmptyView } from "./EmptyView";
-import { listThreads, type ThreadSummary, type TagSummary } from "../lib/threads-client";
+import { type ThreadSummary, type TagSummary } from "../lib/threads-client";
 import { useTranslator } from "../lib/i18n/useTranslator";
 import { useChrome } from "../lib/shell/ChromeContext";
 import { useRegisterPaletteCommands } from "../lib/shell/paletteRegistry";
@@ -43,14 +44,13 @@ type AccountsState =
 // hofOS stages the same component into the native mailai module, so
 // there is no copy/paste drift.
 //
-// Reads from /api/threads (the OAuth REST sync drops messages there
-// during onboarding + on every "Sync now"). When that's empty we
-// surface a real onboarding state instead of demo data — getting an
-// inbox of "Welcome to mail-ai" / "Q3 numbers" right after connecting
-// a real Gmail was the dishonest thing the previous version did.
+// Reads through the saved view endpoint so every entry path uses the
+// same per-thread roll-up as the sidebar view links. When that's empty
+// we surface a real onboarding state instead of demo data.
 export function Inbox() {
   const { t } = useTranslator();
   const chrome = useChrome();
+  const navigate = useNavigate();
   const [threads, setThreads] = useState<ThreadSummary[] | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [selected, setSelected] = useState<ThreadRow | null>(null);
@@ -65,17 +65,39 @@ export function Inbox() {
   const hostThreadId = useMailHostThreadId();
   const previousViewId = useRef<string | null>(null);
   const syncRefreshTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const sortedViews = useMemo(
+    () =>
+      views
+        ? [...views].sort((a, b) => a.position - b.position || a.name.localeCompare(b.name))
+        : null,
+    [views],
+  );
+  const defaultViewId = sortedViews?.[0]?.id ?? null;
+  const effectiveViewId = viewId ?? defaultViewId;
+
+  useEffect(() => {
+    if (viewId || !defaultViewId || typeof window === "undefined") return;
+    const params = new URLSearchParams(window.location.search);
+    params.set("view", defaultViewId);
+    navigate(`/inbox?${params.toString()}`, { replace: true });
+  }, [defaultViewId, navigate, viewId]);
 
   useEffect(() => {
     let cancelled = false;
-    const viewChanged = previousViewId.current !== viewId;
-    previousViewId.current = viewId;
     setLoadError(null);
+
+    if (!effectiveViewId) {
+      setThreads(views === null ? null : []);
+      return () => {
+        cancelled = true;
+      };
+    }
+
+    const viewChanged = previousViewId.current !== effectiveViewId;
+    previousViewId.current = effectiveViewId;
     setThreads((prev) => (viewChanged || prev === null ? null : prev));
-    const loader = viewId
-      ? listViewThreads(viewId, { limit: 100 }).then((res) => res.threads)
-      : listThreads({ limit: 100 });
-    loader
+    listViewThreads(effectiveViewId, { limit: 100 })
+      .then((res) => res.threads)
       .then((rows) => {
         if (!cancelled) {
           setThreads(rows);
@@ -90,7 +112,7 @@ export function Inbox() {
     return () => {
       cancelled = true;
     };
-  }, [refreshTick, viewId]);
+  }, [effectiveViewId, refreshTick, views]);
 
   // Load accounts state once per refresh tick. The empty-state branch
   // needs to know (a) whether the user has any connected accounts at
@@ -214,7 +236,7 @@ export function Inbox() {
       })) ?? [],
     [threads],
   );
-  const emptyKind = resolveEmptyKind(viewId, views);
+  const emptyKind = resolveEmptyKind(effectiveViewId, views);
   const syncError = accounts.status === "ok" ? firstSyncError(accounts.rows) : null;
   const hasAccounts = accounts.status === "ok" && accounts.rows.length > 0;
   const hasLoadedEmptyRows = threads !== null && rows.length === 0;
