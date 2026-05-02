@@ -2,12 +2,12 @@ import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { useLocation, useNavigate, useSearchParams } from "react-router";
 import {
   HofShellLayout,
-  HOF_SHELL_APP_LINKS,
   fetchHofShellUser,
   type HofShellUser,
   type HofShellNavGroup,
 } from "@hofos/shell-ui";
 import { useTranslator } from "../lib/i18n/useTranslator";
+import { createHandoffAppLinks, navigateHandoffHref } from "../lib/shell/hofShellNavigation";
 import { usePaletteRegistry } from "../lib/shell/paletteRegistry";
 import { listViews, type ViewSummary } from "../lib/views-client";
 
@@ -95,14 +95,12 @@ export function MailShell({ children }: { children: ReactNode }) {
       appIcon="mail"
       currentPath={`${pathname}${window.location.search}`}
       primaryNavGroups={primaryNavGroups}
-      appLinks={HOF_SHELL_APP_LINKS.map((link) =>
-        link.id === "mailai" ? { ...link, href: "/inbox" } : link,
-      )}
+      appLinks={createHandoffAppLinks({ selfAppId: "mailai", selfHref: "/inbox" })}
       user={shellUser}
       onCommand={() => palette.open()}
       onNavigate={(path) => {
-        if (path.startsWith("/")) navigate(path);
-        else window.location.href = path;
+        if (path.startsWith("/") && !path.startsWith("/__subapps/")) navigate(path);
+        else navigateHandoffHref(path);
       }}
     >
       {children}

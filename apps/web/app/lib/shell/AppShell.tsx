@@ -7,12 +7,12 @@
 import { useNavigate } from "react-router";
 import { useMemo, type ReactNode } from "react";
 import { useTheme } from "next-themes";
-import { HOF_SHELL_APP_LINKS } from "@hofos/shell-ui";
 import { createAppLinkCommands, useRegisteredSearchShortcut, useShortcut } from "@hofos/ux";
 import { useTranslator } from "../i18n/useTranslator";
 import { useI18n } from "../i18n/I18nProvider";
 import { CommandPalette } from "./CommandPalette";
 import { PaletteRegistryProvider, usePaletteRegistry } from "./paletteRegistry";
+import { createHandoffAppLinks, navigateHandoffHref } from "./hofShellNavigation";
 import type { PaletteCommand } from "./types";
 import { CommandErrorToast } from "../../components/CommandErrorToast";
 import { ChromeProvider, useChrome } from "./ChromeContext";
@@ -111,9 +111,8 @@ function ShellWithStaticCommands({ children }: { children: ReactNode }) {
         },
       },
       ...createAppLinkCommands(
-        HOF_SHELL_APP_LINKS.map((link) =>
-          link.id === "mailai" ? { ...link, href: "/inbox" } : link,
-        ),
+        createHandoffAppLinks({ selfAppId: "mailai", selfHref: "/inbox" }),
+        { navigate: (href) => navigateHandoffHref(href) },
       ).map((cmd) => ({
         id: cmd.id,
         label: String(cmd.label),
