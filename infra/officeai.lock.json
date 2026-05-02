@@ -1,10 +1,10 @@
 {
-  "version": "0.1.7",
-  "agent_version": "0.1.7",
-  "agent_tarball": "https://github.com/jhoetter/office-ai/releases/download/v0.1.7/officeai-agent-0.1.7.tgz",
-  "react_editors_version": "0.1.7",
-  "react_editors_tarball": "https://github.com/jhoetter/office-ai/releases/download/v0.1.7/officeai-react-editors-0.1.7.tgz",
-  "published_at": "2026-04-22T11:52:13Z",
+  "version": "0.1.10",
+  "agent_version": "0.1.10",
+  "agent_tarball": "https://github.com/jhoetter/office-ai/releases/download/v0.1.10/officeai-agent-0.1.10.tgz",
+  "react_editors_version": "0.1.10",
+  "react_editors_tarball": "https://github.com/jhoetter/office-ai/releases/download/v0.1.10/officeai-react-editors-0.1.10.tgz",
+  "published_at": "2026-04-30T06:52:19Z",
   "source_repo": "jhoetter/office-ai",
-  "source_sha": "9f839eda0c0e3538b9907ea278a3774ae27d7134"
+  "source_sha": "b7431d06ece073cb0a814afe749566217a40f533"
 }
