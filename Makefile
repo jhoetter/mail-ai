@@ -18,8 +18,17 @@
 # file is missing" (CI, fresh clones). `export` then re-exports every
 # variable defined above this line to all child processes (pnpm, turbo,
 # tsx, vite), which is what the API server and Vite runtime read from.
+# `hof-os` → `make dev-native SUBAPP=mailai` exports DATABASE_URL (shared Postgres)
+# before running make. `-include .env` must not overwrite it (or clear JWT).
+_HOF_OS_IMPORT_DB := $(DATABASE_URL)
+_HOF_OS_IMPORT_JWT := $(HOF_SUBAPP_JWT_SECRET)
 -include .env
 export
+ifneq ($(and $(strip $(_HOF_OS_IMPORT_JWT)),$(strip $(_HOF_OS_IMPORT_DB))),)
+DATABASE_URL := $(_HOF_OS_IMPORT_DB)
+HOF_SUBAPP_JWT_SECRET := $(_HOF_OS_IMPORT_JWT)
+HOFOS_SUBAPP_NATIVE := 1
+endif
 
 WEB_PORT ?= 3200
 API_PORT ?= 8200
@@ -149,7 +158,11 @@ build-libs:
 # kill-ports must be the LAST prereq before the launch so the ~few-second
 # window between freeing ports and binding them isn't long enough for a
 # stale watcher to sneak back in.
+ifeq ($(HOFOS_SUBAPP_NATIVE),1)
+dev: build-libs kill-ports
+else
 dev: stack-up build-libs kill-ports
+endif
 	@rm -f $(DEV_LOG) $(DEV_PID)
 	@echo "→ Booting dev stack (detached; logs → $(DEV_LOG))..."
 	@( WEB_PORT=$(WEB_PORT) API_PORT=$(API_PORT) \

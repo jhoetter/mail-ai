@@ -38,6 +38,10 @@
   --color-secondary: var(--secondary);
   --color-tertiary: var(--tertiary);
   --color-divider: var(--divider);
+  --color-warning: var(--warning);
+  --color-success: var(--success);
+  --color-error: var(--error);
+  --color-on-accent: var(--on-accent);
 }
 
 /* Tailwind v4 only auto-scans the current package's source by default.
@@ -92,12 +96,12 @@
 }
 
 @theme {
-  --radius: 0.375rem;
-  --radius-sm: 0.25rem;
-  --radius-md: 0.375rem;
-  --radius-lg: 0.5rem;
-  --radius-xl: 0.75rem;
-  --radius-2xl: 1rem;
+  --radius: var(--hof-radius-md);
+  --radius-sm: var(--hof-radius-sm);
+  --radius-md: var(--hof-radius-md);
+  --radius-lg: var(--hof-radius-lg);
+  --radius-xl: var(--hof-radius-xl);
+  --radius-2xl: var(--hof-radius-xl);
 }
 
 /* ── Base styles ── */

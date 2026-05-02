@@ -15,6 +15,11 @@
   --success: #047857;
   --font-sans: "Source Serif 4", Georgia, "Times New Roman", serif;
   --font-mono: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+  --hof-body-font-features: normal;
+  --hof-radius-sm: 0px;
+  --hof-radius-md: 0.125rem;
+  --hof-radius-lg: 0.25rem;
+  --hof-radius-xl: 0.25rem;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -31,5 +36,6 @@
     --warning: #d97706;
     --error: #fca5a5;
     --success: #34d399;
+    --on-accent: #0c0a09;
   }
 }
