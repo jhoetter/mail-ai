@@ -219,9 +219,19 @@ export default function CalendarPage() {
         {state.calendars === null ? (
           <p className="px-4 text-sm text-secondary">{t("common.loading")}</p>
         ) : state.calendars.length === 0 ? (
-          <div className="flex min-h-[28rem] items-center justify-center">
-            <EmptyView kind="default" hasAccounts={false} />
-          </div>
+          state.accounts === null ? (
+            <p className="px-4 text-sm text-secondary">{t("common.loading")}</p>
+          ) : state.accounts.length === 0 ? (
+            <div className="flex min-h-[28rem] items-center justify-center">
+              <EmptyView kind="default" hasAccounts={false} />
+            </div>
+          ) : (
+            <CalendarEmptyState
+              busy={state.busy}
+              syncResult={state.syncResult}
+              onSync={() => void state.onSync()}
+            />
+          )
         ) : (
           <div className="flex h-[calc(100vh-12rem)] min-h-[40rem] gap-3">
             <Sidebar
@@ -355,4 +365,74 @@ export default function CalendarPage() {
       )}
     </PageShell>
   );
+}
+
+function CalendarEmptyState({
+  busy,
+  syncResult,
+  onSync,
+}: {
+  readonly busy: boolean;
+  readonly syncResult: ReturnType<typeof useCalendarState>["syncResult"];
+  readonly onSync: () => void;
+}) {
+  const { t } = useTranslator();
+  const issue = syncResult?.accounts.find((account) => account.status !== "synced") ?? null;
+  return (
+    <div className="flex min-h-[28rem] items-center justify-center px-4">
+      <Card>
+        <div className="flex max-w-lg flex-col items-center gap-3 text-center">
+          <p className="text-sm font-medium text-foreground">{t("calendar.noCalendarsTitle")}</p>
+          <p className="text-sm text-secondary">{t("calendar.noCalendarsHint")}</p>
+          {issue ? (
+            <p className="max-w-md break-words text-xs text-tertiary">
+              {syncIssueMessage(issue.code, issue.message, t)}
+            </p>
+          ) : null}
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              disabled={busy}
+              onClick={onSync}
+              className="inline-flex h-8 items-center rounded-md bg-accent px-3 text-sm text-background hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {busy ? t("calendar.syncingCalendars") : t("calendar.syncCalendars")}
+            </button>
+            {issue?.code === "missing_credentials" || issue?.code === "auth_error" ? (
+              <a
+                href={calendarAccountsHref()}
+                className="inline-flex h-8 items-center rounded-md px-3 text-sm text-secondary hover:bg-hover hover:text-foreground"
+              >
+                {t("emptyView.openAccounts")}
+              </a>
+            ) : null}
+          </div>
+        </div>
+      </Card>
+    </div>
+  );
+}
+
+function syncIssueMessage(
+  code: string | undefined,
+  message: string | undefined,
+  t: ReturnType<typeof useTranslator>["t"],
+): string {
+  if (code === "missing_credentials") {
+    return t("calendar.syncIssues.missingCredentials");
+  }
+  if (code === "auth_error") {
+    return t("calendar.syncIssues.authError");
+  }
+  if (code === "missing_adapter") {
+    return t("calendar.syncIssues.missingAdapter");
+  }
+  return message
+    ? t("calendar.syncIssues.genericWithMessage", { message })
+    : t("calendar.syncIssues.generic");
+}
+
+function calendarAccountsHref(): string {
+  if (typeof window === "undefined") return "/settings/account";
+  return window.location.pathname === "/calendar" ? "/mail/settings/account" : "/settings/account";
 }

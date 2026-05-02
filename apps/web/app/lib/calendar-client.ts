@@ -95,8 +95,31 @@ export async function listCalendars(): Promise<CalendarSummary[]> {
   }));
 }
 
-export async function syncCalendars(): Promise<void> {
-  await apiFetch(`/api/calendars/sync`, { method: "POST" });
+export type CalendarSyncIssueCode =
+  | "missing_credentials"
+  | "missing_adapter"
+  | "auth_error"
+  | "provider_error";
+
+export interface CalendarSyncAccountResult {
+  accountId: string;
+  provider: string;
+  email: string;
+  status: "synced" | "skipped" | "error";
+  calendarsSynced: number;
+  code?: CalendarSyncIssueCode;
+  message?: string;
+}
+
+export interface CalendarSyncResult {
+  synced: number;
+  accounts: CalendarSyncAccountResult[];
+}
+
+export async function syncCalendars(): Promise<CalendarSyncResult> {
+  const res = await apiFetch(`/api/calendars/sync`, { method: "POST" });
+  if (!res.ok) throw new Error(`/api/calendars/sync ${res.status}`);
+  return (await res.json()) as CalendarSyncResult;
 }
 
 export async function setCalendarVisibility(id: string, isVisible: boolean): Promise<void> {

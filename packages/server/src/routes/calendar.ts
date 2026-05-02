@@ -10,6 +10,7 @@ import {
   withTenant,
   type Pool,
 } from "@mailai/overlay-db";
+import { isMailaiError } from "@mailai/core";
 import { getValidAccessToken, type ProviderCredentials } from "@mailai/oauth-tokens";
 import type { CalendarProviderRegistry } from "@mailai/providers";
 
@@ -23,6 +24,18 @@ export interface CalendarRoutesDeps {
   // Optional so smoke tests / integration tests can boot the routes
   // without provider wiring; routes that need it return a clear error.
   readonly calendarProviders?: CalendarProviderRegistry;
+}
+
+type CalendarSyncStatus = "synced" | "skipped" | "error";
+
+interface CalendarSyncAccountResult {
+  readonly accountId: string;
+  readonly provider: string;
+  readonly email: string;
+  readonly status: CalendarSyncStatus;
+  readonly calendarsSynced: number;
+  readonly code?: "missing_credentials" | "missing_adapter" | "auth_error" | "provider_error";
+  readonly message?: string;
 }
 
 export function registerCalendarRoutes(app: FastifyInstance, deps: CalendarRoutesDeps): void {
@@ -59,25 +72,46 @@ export function registerCalendarRoutes(app: FastifyInstance, deps: CalendarRoute
   // first OAuth connect and on a "Refresh" click.
   app.post("/api/calendars/sync", async (req) => {
     const ident = await deps.identity({ headers: req.headers as Record<string, unknown> });
-    if (!deps.credentials) {
-      return { synced: 0, skipped: "no provider credentials configured" };
-    }
-    const credentials = deps.credentials;
     return withTenant(deps.pool, ident.tenantId, async (tx) => {
       const repo = new CalendarRepository(tx);
       const accountsRepo = new OauthAccountsRepository(tx);
       const accounts = await accountsRepo.listByTenant(ident.tenantId);
       let synced = 0;
+      const results: CalendarSyncAccountResult[] = [];
       for (const account of accounts) {
         try {
+          const adapter = deps.calendarProviders?.for(account.provider) ?? null;
+          if (!adapter) {
+            results.push({
+              accountId: account.id,
+              provider: account.provider,
+              email: account.email,
+              status: "skipped",
+              calendarsSynced: 0,
+              code: "missing_adapter",
+              message: `no calendar adapter registered for provider ${account.provider}`,
+            });
+            continue;
+          }
+          if (!deps.credentials) {
+            results.push({
+              accountId: account.id,
+              provider: account.provider,
+              email: account.email,
+              status: "skipped",
+              calendarsSynced: 0,
+              code: "missing_credentials",
+              message: "no provider credentials configured",
+            });
+            continue;
+          }
           const accessToken = await getValidAccessToken(account, {
             tenantId: ident.tenantId,
             accounts: accountsRepo,
-            credentials,
+            credentials: deps.credentials,
           });
-          const adapter = deps.calendarProviders?.for(account.provider) ?? null;
-          if (!adapter) continue;
           const cals = await adapter.listCalendars({ accessToken });
+          let calendarsSynced = 0;
           for (const c of cals) {
             await repo.upsertCalendar({
               id: `cal_${account.id}_${stableHash(c.providerCalendarId)}`,
@@ -89,16 +123,35 @@ export function registerCalendarRoutes(app: FastifyInstance, deps: CalendarRoute
               color: c.color ?? null,
               isPrimary: c.isPrimary,
             });
-            synced += 1;
+            calendarsSynced += 1;
           }
+          synced += calendarsSynced;
+          results.push({
+            accountId: account.id,
+            provider: account.provider,
+            email: account.email,
+            status: "synced",
+            calendarsSynced,
+          });
         } catch (err) {
           // Skip the account on failure; one bad account shouldn't
-          // sink the whole sync. Surfaced via the audit log later when
-          // we wire calendar sync errors into oauth_accounts.last_sync_error.
-          console.warn("[calendar] sync failed for account", { id: account.id, err: String(err) });
+          // sink the whole sync. The response carries actionable
+          // details so the UI does not render a false "no account"
+          // empty state.
+          const classified = classifyCalendarSyncError(err);
+          app.log.warn({ err, accountId: account.id }, "calendar sync failed for account");
+          results.push({
+            accountId: account.id,
+            provider: account.provider,
+            email: account.email,
+            status: "error",
+            calendarsSynced: 0,
+            code: classified.code,
+            message: classified.message,
+          });
         }
       }
-      return { synced };
+      return { synced, accounts: results };
     });
   });
 
@@ -302,6 +355,23 @@ export function registerCalendarRoutes(app: FastifyInstance, deps: CalendarRoute
       };
     });
   });
+}
+
+function classifyCalendarSyncError(err: unknown): {
+  code: "missing_credentials" | "auth_error" | "provider_error";
+  message: string;
+} {
+  const message = err instanceof Error ? err.message : String(err);
+  if (message.includes("OAuth client credentials configured")) {
+    return { code: "missing_credentials", message };
+  }
+  if (isMailaiError(err) && err.code === "auth_error") {
+    return { code: "auth_error", message };
+  }
+  if (message.includes("401") || message.includes("403")) {
+    return { code: "auth_error", message };
+  }
+  return { code: "provider_error", message };
 }
 
 // Stable, short, URL-safe hash of a provider id. Used as a suffix on

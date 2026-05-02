@@ -63,6 +63,16 @@ This split lets you:
 The frontend resolves the API origin from `NEXT_PUBLIC_MAILAI_API_URL`
 (default `http://127.0.0.1:8200`).
 
+`NANGO_SECRET_KEY` is enough to open the first consent popup, but it is
+not enough for reliable local development after the initial access token
+expires. Calendar sync, attachment fetches, and any provider read that
+needs a refreshed token require the matching provider client id/secret
+in the MailAI server environment. If those variables are missing, cached
+mail can still render from Postgres while calendar sync returns no rows
+and reports a missing credentials error. Add the credentials, restart the
+server, then reconnect the account once so the stored refresh token was
+issued by the same OAuth app.
+
 ---
 
 ## Production setup

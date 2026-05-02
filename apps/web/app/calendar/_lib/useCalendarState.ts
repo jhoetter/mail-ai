@@ -5,8 +5,13 @@ import {
   setCalendarVisibility,
   syncCalendars,
   type CalendarSummary,
+  type CalendarSyncResult,
   type EventSummary,
 } from "../../lib/calendar-client";
+import { loadAccountsCached } from "../../lib/accounts-cache";
+import type { AccountSummary } from "../../lib/oauth-client";
+import { useMutationEvents } from "../../lib/realtime";
+import { addDays, addMonths, viewWindow, type CalendarView } from "./calendar-time";
 
 // Flat representation used by the grids — every event carries the
 // id of the calendar it lives on so the grid can paint it with that
@@ -14,8 +19,6 @@ import {
 export interface CalendarEvent extends EventSummary {
   readonly calendarId: string;
 }
-import { useMutationEvents } from "../../lib/realtime";
-import { addDays, addMonths, viewWindow, type CalendarView } from "./calendar-time";
 
 export interface CalendarPopoverState {
   readonly kind: "quick-create" | "details";
@@ -41,12 +44,15 @@ export function useCalendarState() {
   const [view, setView] = useState<CalendarView>("week");
   const [cursor, setCursor] = useState<Date>(() => new Date());
   const [calendars, setCalendars] = useState<CalendarSummary[] | null>(null);
+  const [accounts, setAccounts] = useState<AccountSummary[] | null>(null);
   const [eventsByCalendar, setEventsByCalendar] = useState<
     ReadonlyArray<{ calendarId: string; events: EventSummary[] }>
   >([]);
   const [error, setError] = useState<string | null>(null);
+  const [syncResult, setSyncResult] = useState<CalendarSyncResult | null>(null);
   const [busy, setBusy] = useState(false);
   const [revision, setRevision] = useState(0);
+  const [autoSyncAttempted, setAutoSyncAttempted] = useState(false);
   const [popover, setPopover] = useState<CalendarPopoverState | null>(null);
   const [dialog, setDialog] = useState<DialogState | null>(null);
 
@@ -56,9 +62,16 @@ export function useCalendarState() {
       .catch((err) => setError(err instanceof Error ? err.message : String(err)));
   }, []);
 
+  const refreshAccounts = useCallback(() => {
+    loadAccountsCached({ force: true })
+      .then(setAccounts)
+      .catch((err) => setError(err instanceof Error ? err.message : String(err)));
+  }, []);
+
   useEffect(() => {
     refreshCalendars();
-  }, [refreshCalendars]);
+    refreshAccounts();
+  }, [refreshAccounts, refreshCalendars]);
 
   // Fetch events for the current view window. The fan-out endpoint
   // returns one group per visible calendar; we keep the shape so the
@@ -112,7 +125,9 @@ export function useCalendarState() {
   const onSync = useCallback(async () => {
     setBusy(true);
     try {
-      await syncCalendars();
+      setError(null);
+      const result = await syncCalendars();
+      setSyncResult(result);
       refreshCalendars();
       setRevision((r) => r + 1);
     } catch (err) {
@@ -121,6 +136,14 @@ export function useCalendarState() {
       setBusy(false);
     }
   }, [refreshCalendars]);
+
+  useEffect(() => {
+    if (autoSyncAttempted || busy) return;
+    if (accounts === null || calendars === null) return;
+    if (accounts.length === 0 || calendars.length > 0) return;
+    setAutoSyncAttempted(true);
+    void onSync();
+  }, [accounts, autoSyncAttempted, busy, calendars, onSync]);
 
   const onToggleCalendar = useCallback(async (id: string, next: boolean) => {
     // Optimistic flip — undo on failure.
@@ -172,12 +195,14 @@ export function useCalendarState() {
     cursor,
     setCursor,
     calendars,
+    accounts,
     visibleCalendars,
     eventsByCalendar,
     events,
     colorForCalendar,
     error,
     setError,
+    syncResult,
     busy,
     onSync,
     onToggleCalendar,

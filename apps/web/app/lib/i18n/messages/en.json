@@ -312,8 +312,11 @@
     "eventEnd": "End",
     "eventAttendees": "Add guests",
     "noCalendars": "No calendars connected. Sync to import them.",
+    "noCalendarsTitle": "No calendars synced yet.",
+    "noCalendarsHint": "Your mail account is connected. Refresh now to import calendars and upcoming events from Google or Outlook.",
     "noVisibleCalendars": "No calendars selected. Pick one from the sidebar.",
     "syncCalendars": "Refresh",
+    "syncingCalendars": "Refreshing…",
     "respond": "Respond",
     "accept": "Yes",
     "decline": "No",
@@ -366,7 +369,14 @@
       "create": "Save",
       "moreOptions": "More options"
     },
-    "moreEvents": "+{count} more"
+    "moreEvents": "+{count} more",
+    "syncIssues": {
+      "missingCredentials": "Calendar sync needs the matching provider OAuth client id and secret in the MailAI server env before it can refresh this account's token.",
+      "authError": "Calendar sync could not use the current authorization. Reconnect the account after the calendar scopes are enabled.",
+      "missingAdapter": "This account provider has no calendar adapter configured.",
+      "generic": "Calendar sync failed. Try again after checking the MailAI server logs.",
+      "genericWithMessage": "Calendar sync failed: {message}"
+    }
   },
   "draftsClient": {
     "saving": "Saving…",

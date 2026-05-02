@@ -324,8 +324,11 @@
     "eventEnd": "Ende",
     "eventAttendees": "Gäste hinzufügen",
     "noCalendars": "Keine Kalender verbunden. Synchronisiere, um sie zu importieren.",
+    "noCalendarsTitle": "Noch keine Kalender synchronisiert.",
+    "noCalendarsHint": "Dein Mail-Konto ist verbunden. Aktualisiere jetzt, um Kalender und anstehende Termine aus Google oder Outlook zu importieren.",
     "noVisibleCalendars": "Keine Kalender ausgewählt. Wähle einen in der Seitenleiste aus.",
     "syncCalendars": "Aktualisieren",
+    "syncingCalendars": "Wird aktualisiert…",
     "respond": "Antworten",
     "accept": "Ja",
     "decline": "Nein",
@@ -378,7 +381,14 @@
       "create": "Speichern",
       "moreOptions": "Weitere Optionen"
     },
-    "moreEvents": "+{count} weitere"
+    "moreEvents": "+{count} weitere",
+    "syncIssues": {
+      "missingCredentials": "Kalender-Sync braucht die passenden OAuth-Client-Daten des Providers in der MailAI-Server-Umgebung, bevor das Konto aktualisiert werden kann.",
+      "authError": "Kalender-Sync konnte die aktuelle Autorisierung nicht nutzen. Verbinde das Konto neu, nachdem die Kalender-Scopes aktiviert wurden.",
+      "missingAdapter": "Für diesen Konto-Provider ist kein Kalender-Adapter konfiguriert.",
+      "generic": "Kalender-Sync ist fehlgeschlagen. Prüfe die MailAI-Server-Logs und versuche es erneut.",
+      "genericWithMessage": "Kalender-Sync ist fehlgeschlagen: {message}"
+    }
   },
   "draftsClient": {
     "saving": "Wird gespeichert…",
