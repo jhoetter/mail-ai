@@ -120,6 +120,8 @@
     "showOriginal": "Show original",
     "displayImages": "Display images",
     "imagesBlocked": "Images in this email have been blocked.",
+    "imagePreview": "Image preview",
+    "closeImagePreview": "Close preview",
     "msgUnsupported": ".msg files cannot be previewed inline; download to open.",
     "tags": {
       "addPlaceholder": "Add tag…",

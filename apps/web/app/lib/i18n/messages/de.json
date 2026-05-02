@@ -120,6 +120,8 @@
     "showOriginal": "Original anzeigen",
     "displayImages": "Bilder anzeigen",
     "imagesBlocked": "Bilder in dieser E-Mail wurden blockiert.",
+    "imagePreview": "Bildvorschau",
+    "closeImagePreview": "Vorschau schließen",
     "msgUnsupported": ".msg-Dateien können nicht in der Vorschau geöffnet werden; bitte herunterladen.",
     "tags": {
       "addPlaceholder": "Tag hinzufügen…",

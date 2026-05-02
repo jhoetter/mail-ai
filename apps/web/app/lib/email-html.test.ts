@@ -234,7 +234,7 @@ describe("buildIframeDoc", () => {
   it("darkMode uses invert reader without an opaque iframe shell around the subtree", () => {
     const doc = buildIframeDoc(`<p>hi</p>`, { darkMode: true });
     expect(doc).toContain("background: transparent");
-    expect(doc).not.toContain("background: #191919");
+    expect(doc).toContain(colors.backgroundDark);
     expect(doc).toContain("color-scheme: normal");
     expect(doc).toContain('class="mailai-dark-reader"');
     expect(doc).toMatch(/\.mailai-dark-reader\s*\{[\s\S]*color-scheme:\s*only\s*light/);

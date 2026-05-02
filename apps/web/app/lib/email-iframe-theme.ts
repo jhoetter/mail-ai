@@ -27,5 +27,6 @@ export function readEmailIframeThemeSnapshot(root: HTMLElement | null): EmailIfr
     divider: pick("divider", "--divider"),
     readerPaper: pick("readerPaper", "--mailai-reader-paper"),
     readerInk: pick("readerInk", "--mailai-reader-ink"),
+    chromeBackground: pick("chromeBackground", "--background"),
   };
 }

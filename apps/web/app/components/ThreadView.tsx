@@ -27,9 +27,19 @@ import {
   ImageOff,
   Paperclip,
   Star,
+  X,
 } from "lucide-react";
 import { useTheme } from "next-themes";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  type Dispatch,
+  type SetStateAction,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
+import { createPortal } from "react-dom";
 import { apiFetch, baseUrl } from "../lib/api";
 import {
   getThread,
@@ -639,6 +649,54 @@ function splitQuoted(text: string): { head: string; quoted: string | null } {
   return { head: text, quoted: null };
 }
 
+function attachIframeInlineImageActivation(
+  iframe: HTMLIFrameElement,
+  opts: {
+    shouldOfferInlineImagePreview: (img: HTMLImageElement) => boolean;
+    setInlineImagePreview: Dispatch<SetStateAction<{ src: string; alt: string } | null>>;
+  },
+): (() => void) | undefined {
+  try {
+    const innerDoc = iframe.contentDocument;
+    if (!innerDoc) return undefined;
+
+    const onActivateCapture = (event: MouseEvent) => {
+      if (event.button !== 0) return;
+      const img = findImageFromIframeEventTarget(event.target);
+      if (!img || !opts.shouldOfferInlineImagePreview(img)) return;
+      const src = (img.currentSrc || img.src || "").trim();
+      if (!src || src.startsWith("javascript:")) return;
+      event.preventDefault();
+      event.stopPropagation();
+      opts.setInlineImagePreview({ src, alt: img.alt ?? "" });
+    };
+
+    innerDoc.addEventListener("click", onActivateCapture, true);
+    return () => innerDoc.removeEventListener("click", onActivateCapture, true);
+  } catch {
+    return undefined;
+  }
+}
+
+function findImageFromIframeEventTarget(target: EventTarget | null): HTMLImageElement | null {
+  if (!target || typeof target !== "object") return null;
+
+  // Iframe nodes live in a different JS realm, so parent-window
+  // `instanceof HTMLImageElement/Element` checks are unreliable.
+  const candidate = target as {
+    tagName?: unknown;
+    closest?: unknown;
+  };
+  if (typeof candidate.tagName === "string" && candidate.tagName.toLowerCase() === "img") {
+    return candidate as HTMLImageElement;
+  }
+  if (typeof candidate.closest === "function") {
+    const closest = candidate.closest.call(candidate, "img");
+    return closest && typeof closest === "object" ? (closest as HTMLImageElement) : null;
+  }
+  return null;
+}
+
 // Render sanitized HTML in an isolated, sandboxed iframe with an
 // auto-grown height. Doing it through srcdoc means the iframe gets a
 // blank origin, so even if our DOMPurify sweep misses something, the
@@ -659,8 +717,32 @@ function HtmlBody({ html, attachments, allowRemoteImages, onAllowImages }: HtmlB
   // height as soon as the iframe DOM is reachable.
   const [height, setHeight] = useState<number>(0);
   const [mounted, setMounted] = useState(false);
+  const [inlineImagePreview, setInlineImagePreview] = useState<{
+    src: string;
+    alt: string;
+  } | null>(null);
+
   useEffect(() => {
     setMounted(true);
+  }, []);
+
+  useEffect(() => {
+    if (!inlineImagePreview) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setInlineImagePreview(null);
+    };
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [inlineImagePreview]);
+
+  /** Skip obvious tracking pixels — parent registers clicks on iframe DOM (no iframe scripts). */
+  const shouldOfferInlineImagePreview = useCallback((img: HTMLImageElement) => {
+    const src = (img.currentSrc || img.getAttribute("src") || "").trim();
+    if (!src || src.startsWith("javascript:")) return false;
+    if (img.complete && img.naturalWidth > 0 && img.naturalHeight > 0) {
+      if (img.naturalWidth <= 32 && img.naturalHeight <= 32) return false;
+    }
+    return true;
   }, []);
 
   const cidMap = useMemo(() => {
@@ -730,8 +812,21 @@ function HtmlBody({ html, attachments, allowRemoteImages, onAllowImages }: HtmlB
 
   useEffect(() => {
     const el = iframeRef.current;
-    if (!el) return;
+    if (!el || !mounted) return;
+
     let cancelled = false;
+
+    /** Parent-side listener on iframe document (no iframe allow-scripts). */
+    let detachInlineImageActivation: (() => void) | undefined;
+
+    const tryAttachInlineImageActivation = () => {
+      detachInlineImageActivation?.();
+      detachInlineImageActivation = attachIframeInlineImageActivation(el, {
+        shouldOfferInlineImagePreview,
+        setInlineImagePreview,
+      });
+    };
+
     const measure = () => {
       if (cancelled) return;
       try {
@@ -739,12 +834,15 @@ function HtmlBody({ html, attachments, allowRemoteImages, onAllowImages }: HtmlB
         const root = inner?.documentElement;
         const body = inner?.body;
         if (!inner || !root || !body) return;
-        // documentElement.scrollHeight is what the rendered viewport
-        // would need to fit the content with no scrollbars. body
-        // fallback covers documents that set `html { height: 100% }`
-        // which can pin scrollHeight to the iframe's current height.
-        const h = Math.max(root.scrollHeight, body.scrollHeight);
-        if (h > 0) setHeight(Math.min(h + 4, 8000));
+        // scrollHeight often overshoots in filtered/sandbox docs, leaving a
+        // tall iframe with empty UA buffer rows (reads as bright bands
+        // above siblings). Prefer the inverted reader subtree when present.
+        const reader = body.querySelector(".mailai-dark-reader");
+        const h =
+          reader instanceof HTMLElement
+            ? Math.ceil(reader.offsetTop + reader.offsetHeight)
+            : Math.max(root.scrollHeight, body.scrollHeight);
+        if (h > 0) setHeight(Math.min(h + 1, 8000));
       } catch {
         // Without `allow-same-origin` we'd land here. With it the
         // catch is dead code; keep it so a future tightening of the
@@ -753,12 +851,9 @@ function HtmlBody({ html, attachments, allowRemoteImages, onAllowImages }: HtmlB
     };
 
     const onLoad = () => {
+      if (cancelled) return;
       measure();
-      // Wire image load + ResizeObserver from the parent side. The
-      // iframe runs without `allow-scripts` so we can't inject a
-      // listener inside the doc — but `allow-same-origin` lets us
-      // observe its DOM from out here, which is enough to catch
-      // late-arriving images, web fonts, and CSS-driven reflow.
+      tryAttachInlineImageActivation();
       try {
         const inner = el.contentDocument;
         if (!inner) return;
@@ -770,7 +865,6 @@ function HtmlBody({ html, attachments, allowRemoteImages, onAllowImages }: HtmlB
         if (typeof ResizeObserver !== "undefined" && inner.body) {
           const ro = new ResizeObserver(() => measure());
           ro.observe(inner.body);
-          // Disconnect when the iframe unloads/replaces.
           el.addEventListener("unload", () => ro.disconnect(), { once: true });
         }
       } catch {
@@ -779,60 +873,105 @@ function HtmlBody({ html, attachments, allowRemoteImages, onAllowImages }: HtmlB
     };
 
     el.addEventListener("load", onLoad);
-    // Belt-and-braces: srcDoc updates that don't fire `load` (rare
-    // but we've seen it on Safari for tiny docs) still get a measure.
+
+    // Do NOT tie attachment to iframe.contentDocument.readyState here: when
+    // srcDoc swaps, React's commit can still briefly expose the previous
+    // complete document — listeners end up on a detached Document.
+    const tAttach0 = setTimeout(() => {
+      if (!cancelled) tryAttachInlineImageActivation();
+    }, 0);
+    const tAttach120 = setTimeout(() => {
+      if (!cancelled) tryAttachInlineImageActivation();
+    }, 120);
+
     const t1 = setTimeout(measure, 250);
     const t2 = setTimeout(measure, 1500);
     return () => {
       cancelled = true;
+      detachInlineImageActivation?.();
       el.removeEventListener("load", onLoad);
+      clearTimeout(tAttach0);
+      clearTimeout(tAttach120);
       clearTimeout(t1);
       clearTimeout(t2);
     };
-  }, [doc]);
+  }, [doc, mounted, shouldOfferInlineImagePreview]);
 
   return (
-    <div className="space-y-2">
-      {blockedRemote && !allowRemoteImages ? (
-        <div className="flex items-center gap-2 rounded border border-divider bg-foreground/5 px-2 py-1 text-xs text-secondary">
-          <ImageOff size={14} aria-hidden />
-          <span className="flex-1">{t("thread.imagesBlocked")}</span>
-          <button
-            type="button"
-            onClick={onAllowImages}
-            className="rounded border border-divider px-2 py-0.5 text-xs font-medium text-foreground hover:bg-foreground/10"
-          >
-            {t("thread.displayImages")}
-          </button>
-        </div>
-      ) : null}
-      <iframe
-        ref={iframeRef}
-        title="message body"
-        className="block w-full rounded-none border-0 bg-transparent shadow-none outline-none ring-0 focus:outline-none"
-        // `allow-same-origin` is required so we can read scrollHeight
-        // and observe image load events from the parent. We DO NOT
-        // grant `allow-scripts`, which is what keeps inline <style>
-        // and `style` attributes safe even though the iframe shares
-        // an origin with us.
-        sandbox="allow-popups allow-popups-to-escape-sandbox allow-same-origin"
-        srcDoc={doc}
-        // min-height keeps single-line "(empty)" messages from
-        // collapsing to nothing while the first measurement lands.
-        // Transparent iframe + embedded doc uses transparent chrome so
-        // the thread pane shows through — avoids browser color-scheme
-        // rims and mismatched solids around inverted HTML bodies.
-        style={{
-          width: "100%",
-          height: height || undefined,
-          minHeight: height ? undefined : 32,
-          borderWidth: 0,
-          outline: "none",
-          display: "block",
-          background: "transparent",
-        }}
-      />
-    </div>
+    <>
+      <div className="space-y-2">
+        {blockedRemote && !allowRemoteImages ? (
+          <div className="flex items-center gap-2 rounded border border-divider bg-foreground/5 px-2 py-1 text-xs text-secondary">
+            <ImageOff size={14} aria-hidden />
+            <span className="flex-1">{t("thread.imagesBlocked")}</span>
+            <button
+              type="button"
+              onClick={onAllowImages}
+              className="rounded border border-divider px-2 py-0.5 text-xs font-medium text-foreground hover:bg-foreground/10"
+            >
+              {t("thread.displayImages")}
+            </button>
+          </div>
+        ) : null}
+        <iframe
+          ref={iframeRef}
+          title="message body"
+          className="block w-full rounded-none border-0 bg-transparent shadow-none outline-none ring-0 focus:outline-none"
+          // `allow-same-origin` is required so we can read scrollHeight
+          // and observe image load events from the parent. We DO NOT
+          // grant `allow-scripts`, which is what keeps inline <style>
+          // and `style` attributes safe even though the iframe shares
+          // an origin with us.
+          sandbox="allow-popups allow-popups-to-escape-sandbox allow-same-origin"
+          srcDoc={doc}
+          // min-height keeps single-line "(empty)" messages from
+          // collapsing to nothing while the first measurement lands.
+          // Transparent iframe + embedded doc uses transparent chrome so
+          // the thread pane shows through — avoids browser color-scheme
+          // rims and mismatched solids around inverted HTML bodies.
+          style={{
+            width: "100%",
+            height: height || undefined,
+            minHeight: height ? undefined : 32,
+            borderWidth: 0,
+            outline: "none",
+            display: "block",
+            background: "transparent",
+          }}
+        />
+      </div>
+      {mounted && inlineImagePreview
+        ? createPortal(
+            <div
+              role="dialog"
+              aria-modal="true"
+              aria-label={t("thread.imagePreview")}
+              className="fixed inset-0 z-[200] flex items-center justify-center bg-foreground/75 p-4"
+              onClick={() => setInlineImagePreview(null)}
+            >
+              <button
+                type="button"
+                className="absolute right-3 top-3 inline-flex h-10 w-10 items-center justify-center rounded-md border border-divider bg-background text-foreground shadow-lg hover:bg-hover"
+                aria-label={t("thread.closeImagePreview")}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setInlineImagePreview(null);
+                }}
+              >
+                <X size={18} aria-hidden />
+              </button>
+              <img
+                src={inlineImagePreview.src}
+                alt={inlineImagePreview.alt || t("thread.imagePreview")}
+                className="max-h-[92dvh] max-w-[min(96vw,1200px)] object-contain"
+                onClick={(e) => e.stopPropagation()}
+                draggable={false}
+              />
+            </div>,
+            document.body,
+          )
+        : null}
+    </>
   );
 }
 

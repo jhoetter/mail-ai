@@ -61,6 +61,11 @@ export interface EmailIframeThemeSnapshot {
   readonly readerPaper: string;
   /** Body text colour on that canvas before invert (preset light foreground). */
   readonly readerInk: string;
+  /**
+   * Host `background` (`--background`) for dark-mode iframe letterboxing so
+   * the embed matches reading-pane chrome (#191919, preset variants, rgb()).
+   */
+  readonly chromeBackground: string;
 }
 
 export function fallbackEmailIframeThemeSnapshot(): EmailIframeThemeSnapshot {
@@ -71,6 +76,7 @@ export function fallbackEmailIframeThemeSnapshot(): EmailIframeThemeSnapshot {
     divider: colors.divider,
     readerPaper: colors.background,
     readerInk: colors.foreground,
+    chromeBackground: colors.backgroundDark,
   };
 }
 
@@ -260,6 +266,7 @@ export function buildIframeDoc(sanitizedBody: string, opts: IframeDocOptions = {
   const div = sanitizeCssInjectable(t.divider, fb.divider);
   const paper = sanitizeCssInjectable(t.readerPaper, fb.readerPaper);
   const ink = sanitizeCssInjectable(t.readerInk, fb.readerInk);
+  const chromeBg = sanitizeCssInjectable(t.chromeBackground, fb.chromeBackground);
 
   const bodyInner = dark
     ? `<div class="mailai-dark-reader">${sanitizedBody}</div>`
@@ -272,19 +279,28 @@ export function buildIframeDoc(sanitizedBody: string, opts: IframeDocOptions = {
    * frame around iframe viewports when the embed root is dark-themed.
    */
   :root { color-scheme: normal; }
-  html, body {
+  /*
+   * Opaque canvas below/to the sides of content: transparent html lets many
+   * UAs paint the iframe viewport buffer white. Use host --background via
+   * chromeBackground — not inverted mail black (#000) — so seams match shell.
+   */
+  html {
+    margin: 0;
+    padding: 0;
+    background: ${chromeBg};
+    overflow-x: hidden;
+  }
+  body {
     margin: 0;
     padding: 0;
     background: transparent;
-  }
-  body {
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI",
       system-ui, sans-serif;
     font-size: 15px;
     line-height: 1.6;
     word-wrap: break-word;
     overflow-wrap: anywhere;
-    padding: 0;
+    overflow-x: hidden;
   }
   /*
    * Padding lives on .mailai-dark-reader so no inset gutter sits
@@ -292,7 +308,6 @@ export function buildIframeDoc(sanitizedBody: string, opts: IframeDocOptions = {
    */
   .mailai-dark-reader {
     box-sizing: border-box;
-    min-height: 100%;
     padding: 12px 14px;
     color-scheme: only light;
     background: ${paper};
@@ -306,6 +321,7 @@ export function buildIframeDoc(sanitizedBody: string, opts: IframeDocOptions = {
     filter: invert(1) hue-rotate(180deg);
   }
   .mailai-dark-reader img {
+    cursor: zoom-in;
     max-width: 100%;
     height: auto;
   }
@@ -343,6 +359,7 @@ export function buildIframeDoc(sanitizedBody: string, opts: IframeDocOptions = {
   }
   a { color: ${ac}; }
   img {
+    cursor: zoom-in;
     max-width: 100%;
     height: auto;
   }
