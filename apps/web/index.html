@@ -33,11 +33,15 @@
     <script>
       (function () {
         try {
-          var stored = localStorage.getItem("theme");
+          var stored = localStorage.getItem("hof-color-scheme");
           var systemDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
           var resolved =
             stored === "light" || stored === "dark" ? stored : systemDark ? "dark" : "light";
           document.documentElement.classList.add(resolved);
+          if (stored === "light" || stored === "dark") {
+            document.documentElement.classList.add("hof-theme-" + stored);
+            document.documentElement.dataset.theme = stored;
+          }
         } catch (_) {
           /* localStorage / matchMedia missing — let React handle it */
         }

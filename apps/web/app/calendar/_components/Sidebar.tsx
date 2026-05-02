@@ -62,7 +62,7 @@ export function Sidebar({ cursor, onCursorChange, calendars, onToggleCalendar, o
 // is visible the chip is filled, otherwise outlined — Google does the
 // same trick.
 function ColorChip({ color, active }: { color: string | null; active: boolean }) {
-  const c = color ?? "#94a3b8";
+  const c = color ?? "var(--color-tertiary)";
   return (
     <span
       className="inline-flex h-4 w-4 shrink-0 items-center justify-center rounded-[3px] border"
@@ -76,7 +76,7 @@ function ColorChip({ color, active }: { color: string | null; active: boolean })
 
 function CheckIcon() {
   return (
-    <svg viewBox="0 0 12 12" className="h-3 w-3" fill="none" stroke="white" strokeWidth={2}>
+    <svg viewBox="0 0 12 12" className="h-3 w-3 text-on-accent" fill="none" stroke="currentColor" strokeWidth={2}>
       <path d="M2 6.5L5 9.5L10 3" strokeLinecap="round" strokeLinejoin="round" />
     </svg>
   );
@@ -152,7 +152,7 @@ function MiniMonth({ cursor, onSelect }: MiniMonthProps) {
               className={
                 "h-6 w-6 rounded-full text-[11px] transition-colors " +
                 (isCursor
-                  ? "bg-accent text-white"
+                  ? "bg-accent text-on-accent"
                   : isToday
                     ? "ring-1 ring-accent text-foreground"
                     : inMonth

@@ -58,7 +58,7 @@ export function EventDetailsPopover({
       <header className="flex items-start gap-2">
         <span
           className="mt-1 inline-block h-3 w-3 shrink-0 rounded-sm"
-          style={{ backgroundColor: calendar?.color ?? "#94a3b8" }}
+          style={{ backgroundColor: calendar?.color ?? "var(--color-tertiary)" }}
         />
         <div className="flex-1">
           <h3 className="text-sm font-semibold leading-tight">{event.summary || "(no title)"}</h3>
@@ -88,7 +88,7 @@ export function EventDetailsPopover({
           href={event.meetingJoinUrl}
           target="_blank"
           rel="noreferrer noopener"
-          className="mt-3 inline-flex items-center gap-1 rounded-md bg-accent px-3 py-1.5 text-sm font-medium text-white hover:brightness-110"
+          className="mt-3 inline-flex items-center gap-1 rounded-md bg-accent px-3 py-1.5 text-sm font-medium text-on-accent hover:brightness-110"
         >
           {event.meetingProvider === "ms-teams" ? t("calendar.joinTeams") : t("calendar.joinMeet")}
         </a>

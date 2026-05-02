@@ -151,7 +151,7 @@ function DayHeader({ days }: { days: Date[] }) {
             <div
               className={
                 "mx-auto mt-0.5 inline-flex h-7 w-7 items-center justify-center rounded-full text-sm " +
-                (isToday ? "bg-accent font-semibold text-white" : "text-foreground")
+                (isToday ? "bg-accent font-semibold text-on-accent" : "text-foreground")
               }
             >
               {day.getDate()}
@@ -211,7 +211,7 @@ function AllDayStrip({
                   e.stopPropagation();
                   onSelectEvent(ev, e.currentTarget as HTMLElement);
                 }}
-                className="truncate rounded px-1.5 py-0.5 text-[11px] font-medium text-white"
+                className="truncate rounded px-1.5 py-0.5 text-[11px] font-medium text-on-accent"
                 style={{ backgroundColor: colorForCalendar(ev.calendarId) }}
               >
                 {ev.summary || "(no title)"}
@@ -533,7 +533,7 @@ function EventTile({
         // because we don't preventDefault when no movement happened.
         onStartMove(e);
       }}
-      className="absolute cursor-pointer overflow-hidden rounded-md text-[11px] text-white shadow-sm ring-1 ring-black/5 hover:brightness-110"
+      className="absolute cursor-pointer overflow-hidden rounded-md text-[11px] text-on-accent shadow-sm ring-1 ring-foreground/5 hover:brightness-110"
       style={{
         top,
         height,
@@ -553,7 +553,7 @@ function EventTile({
       <span
         data-resize-handle
         onPointerDown={onStartResize}
-        className="absolute bottom-0 left-0 right-0 h-1.5 cursor-ns-resize bg-black/0 hover:bg-black/20"
+        className="absolute bottom-0 left-0 right-0 h-1.5 cursor-ns-resize bg-foreground/0 hover:bg-foreground/20"
       />
     </div>
   );

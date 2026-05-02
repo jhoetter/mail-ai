@@ -124,7 +124,7 @@ export function MonthGrid({
                 className={
                   "self-end rounded-full px-1.5 text-[11px] " +
                   (isToday
-                    ? "bg-accent font-semibold text-white"
+                    ? "bg-accent font-semibold text-on-accent"
                     : inMonth
                       ? "text-foreground hover:bg-hover"
                       : "text-tertiary hover:bg-hover")
@@ -232,7 +232,7 @@ function MonthChip({ event, color, onPick, onDragStart, onDragEnd }: MonthChipPr
       }}
       onDragEnd={onDragEnd}
       onClick={onPick}
-      className="flex items-center gap-1 truncate rounded px-1 py-0.5 text-left text-[11px] text-white"
+      className="flex items-center gap-1 truncate rounded px-1 py-0.5 text-left text-[11px] text-on-accent"
       style={{ backgroundColor: color }}
     >
       <span className="truncate font-medium">{event.summary || "(no title)"}</span>

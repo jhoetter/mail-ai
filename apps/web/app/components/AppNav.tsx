@@ -3,6 +3,7 @@ import { useLocation, useNavigate, useSearchParams } from "react-router";
 import {
   HofShellLayout,
   fetchHofShellUser,
+  signOutOfHofShell,
   type HofShellUser,
   type HofShellNavGroup,
 } from "@hofos/shell-ui";
@@ -97,6 +98,7 @@ export function MailShell({ children }: { children: ReactNode }) {
       primaryNavGroups={primaryNavGroups}
       appLinks={createHandoffAppLinks({ selfAppId: "mailai", selfHref: "/inbox" })}
       user={shellUser}
+      onSignOut={() => signOutOfHofShell()}
       onCommand={() => palette.open()}
       onNavigate={(path) => {
         if (path.startsWith("/") && !path.startsWith("/__subapps/")) navigate(path);

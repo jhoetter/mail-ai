@@ -394,7 +394,7 @@ function CalendarEmptyState({
               type="button"
               disabled={busy}
               onClick={onSync}
-              className="inline-flex h-8 items-center rounded-md bg-accent px-3 text-sm text-background hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
+              className="inline-flex h-8 items-center rounded-md bg-accent px-3 text-sm text-on-accent hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
             >
               {busy ? t("calendar.syncingCalendars") : t("calendar.syncCalendars")}
             </button>

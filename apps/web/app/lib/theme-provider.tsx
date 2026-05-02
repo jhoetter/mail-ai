@@ -1,4 +1,12 @@
+import {
+  applyColorScheme,
+  getStoredColorScheme,
+  subscribeColorSchemeChange,
+  type HofColorScheme,
+} from "@hofos/shell-ui";
 import { ThemeProvider as NextThemesProvider } from "next-themes";
+import { useEffect } from "react";
+import { useTheme } from "next-themes";
 import type { ReactNode } from "react";
 
 /**
@@ -24,7 +32,27 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
       enableSystem
       disableTransitionOnChange
     >
+      <HofShellThemeBridge />
       {children}
     </NextThemesProvider>
   );
+}
+
+function HofShellThemeBridge() {
+  const { theme, setTheme } = useTheme();
+
+  useEffect(() => {
+    applyColorScheme(getStoredColorScheme());
+    return subscribeColorSchemeChange((scheme) => {
+      setTheme(scheme);
+    });
+  }, [setTheme]);
+
+  useEffect(() => {
+    if (theme === "light" || theme === "dark" || theme === "system") {
+      applyColorScheme(theme as HofColorScheme);
+    }
+  }, [theme]);
+
+  return null;
 }
