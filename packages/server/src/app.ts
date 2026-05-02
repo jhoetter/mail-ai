@@ -35,6 +35,7 @@ import { registerWebhookRoutes } from "./routes/webhooks.js";
 import type { SyncScheduler } from "./sync/scheduler.js";
 import { registerSsoMiddleware } from "./middleware/sso.js";
 import { registerStaticWeb } from "./static-web.js";
+import { registerSessionCookieRoute } from "./routes/session-cookie.js";
 
 export interface AppDeps {
   readonly bus: CommandBus;
@@ -74,6 +75,8 @@ export interface AppDeps {
 export async function buildApp(deps: AppDeps): Promise<FastifyInstance> {
   const app = Fastify({ logger: true });
   registerSsoMiddleware(app);
+  registerSessionCookieRoute(app, { identity: deps.identity });
+
   const providers = deps.providers ?? buildMailProviderRegistry();
   const calendarProviders = deps.calendarProviders ?? buildCalendarProviderRegistry();
   const contactsProviders = deps.contactsProviders ?? buildContactsProviderRegistry();

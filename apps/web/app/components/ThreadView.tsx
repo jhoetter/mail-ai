@@ -651,10 +651,6 @@ interface HtmlBodyProps {
 
 function HtmlBody({ html, attachments, allowRemoteImages, onAllowImages }: HtmlBodyProps) {
   const { t } = useTranslator();
-  // resolvedTheme collapses "system" to the actual rendered theme.
-  // We only paint the iframe canvas dark once the client mounts; SSR
-  // and the first paint stay on white so a light-mode user never sees
-  // a flash of dark canvas.
   const { resolvedTheme } = useTheme();
   const iframeRef = useRef<HTMLIFrameElement | null>(null);
   // Start at 0 so empty/short messages don't reserve a fat blank
@@ -717,12 +713,11 @@ function HtmlBody({ html, attachments, allowRemoteImages, onAllowImages }: HtmlB
   );
 
   const safe = useMemo(() => (mounted ? sanitizeEmailHtml(rewritten) : ""), [rewritten, mounted]);
-  // Match the iframe canvas to the app theme. We don't try to invert
-  // sender-pinned colours (see email-html.ts for the rationale) — we
-  // just blend the default canvas so personal/plain mail stops being
-  // a glowing white card inside the dark app.
-  const darkMode = mounted && resolvedTheme === "dark";
-  const doc = useMemo(() => buildIframeDoc(safe, { darkMode }), [safe, darkMode]);
+  const darkReader = mounted && resolvedTheme === "dark";
+  const doc = useMemo(
+    () => buildIframeDoc(safe, { darkMode: darkReader }),
+    [safe, darkReader],
+  );
 
   useEffect(() => {
     const el = iframeRef.current;
@@ -822,8 +817,8 @@ function HtmlBody({ html, attachments, allowRemoteImages, onAllowImages }: HtmlB
           minHeight: height ? undefined : 32,
           border: "0",
           display: "block",
-          background: darkMode ? "#191919" : "#ffffff",
-          colorScheme: darkMode ? "dark" : "only light",
+          background: darkReader ? "#191919" : "#ffffff",
+          colorScheme: darkReader ? "dark" : "only light",
         }}
       />
     </div>

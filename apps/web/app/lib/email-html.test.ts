@@ -215,18 +215,26 @@ describe("buildIframeDoc", () => {
     expect(doc).toContain(`<base target="_blank"`);
   });
 
-  it("paints the canvas dark when darkMode is true so personal mail blends with the app", () => {
+  it("darkMode uses invert reader so HTML mail fits a dark chrome without a white card", () => {
     const doc = buildIframeDoc(`<p>hi</p>`, { darkMode: true });
     expect(doc).toContain("background: #191919");
     expect(doc).toContain("color-scheme: dark");
-    // The canvas blends; we deliberately do NOT invert sender colours
-    // — that's what historically caused table-cell banner artifacts.
-    expect(doc).not.toContain("invert(1)");
-    expect(doc).not.toContain("hue-rotate");
+    expect(doc).toContain('class="mailai-dark-reader"');
+    expect(doc).toMatch(/\.mailai-dark-reader\s*\{[\s\S]*color-scheme:\s*only\s*light/);
+    expect(doc).toContain("invert(1)");
+    expect(doc).toContain("hue-rotate(180deg)");
   });
 
-  it("never reaches for the invert/hue-rotate dark trick in light mode either", () => {
+  it("light canvas uses default design-token foreground/blockquote tones", () => {
     const doc = buildIframeDoc(`<p>hi</p>`);
+    expect(doc).toContain("color: #37352f");
+    expect(doc).toContain("#787774");
+    expect(doc).toContain("#e9e9e7");
+  });
+
+  it("never applies the dark invert wrapper in light mode", () => {
+    const doc = buildIframeDoc(`<p>hi</p>`);
+    expect(doc).not.toContain("mailai-dark-reader");
     expect(doc).not.toContain("invert(1)");
     expect(doc).not.toContain("hue-rotate");
   });

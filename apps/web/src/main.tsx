@@ -21,6 +21,8 @@ import SettingsAccountPage from "../app/settings/account/page";
 import SettingsInboxesPage from "../app/settings/inboxes/page";
 import SettingsAuditPage from "../app/settings/audit/page";
 import SettingsTagsPage from "../app/settings/tags/page";
+import { consumeHofHandoff } from "./hof-handoff";
+import { syncSubappSessionCookie } from "../app/lib/session-cookie";
 
 // React Router replaces Next's file-based router. The route table is
 // intentionally flat: every page mounts its own <Shell> with the
@@ -47,20 +49,27 @@ function AppRoutes() {
 const rootEl = document.getElementById("root");
 if (!rootEl) throw new Error("#root not found in index.html");
 
-createRoot(rootEl).render(
-  <StrictMode>
-    <ThemeProvider>
-      <I18nProvider>
-        <DialogsProvider>
-          <RealtimeProvider>
-            <BrowserRouter>
-              <AppShell>
-                <AppRoutes />
-              </AppShell>
-            </BrowserRouter>
-          </RealtimeProvider>
-        </DialogsProvider>
-      </I18nProvider>
-    </ThemeProvider>
-  </StrictMode>,
-);
+async function bootstrap() {
+  await consumeHofHandoff("mailai");
+  await syncSubappSessionCookie();
+
+  createRoot(rootEl!).render(
+    <StrictMode>
+      <ThemeProvider>
+        <I18nProvider>
+          <DialogsProvider>
+            <RealtimeProvider>
+              <BrowserRouter>
+                <AppShell>
+                  <AppRoutes />
+                </AppShell>
+              </BrowserRouter>
+            </RealtimeProvider>
+          </DialogsProvider>
+        </I18nProvider>
+      </ThemeProvider>
+    </StrictMode>,
+  );
+}
+
+void bootstrap();

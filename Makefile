@@ -22,12 +22,36 @@
 # before running make. `-include .env` must not overwrite it (or clear JWT).
 _HOF_OS_IMPORT_DB := $(DATABASE_URL)
 _HOF_OS_IMPORT_JWT := $(HOF_SUBAPP_JWT_SECRET)
+_HOF_OS_IMPORT_S3_ENDPOINT := $(S3_ENDPOINT)
+_HOF_OS_IMPORT_S3_ACCESS_KEY := $(S3_ACCESS_KEY)
+_HOF_OS_IMPORT_S3_SECRET_KEY := $(S3_SECRET_KEY)
+_HOF_OS_IMPORT_S3_BUCKET := $(S3_BUCKET)
+_HOF_OS_IMPORT_S3_REGION := $(S3_REGION)
+_HOF_OS_IMPORT_S3_KEY_PREFIX := $(S3_KEY_PREFIX)
 -include .env
 export
 ifneq ($(and $(strip $(_HOF_OS_IMPORT_JWT)),$(strip $(_HOF_OS_IMPORT_DB))),)
 DATABASE_URL := $(_HOF_OS_IMPORT_DB)
 HOF_SUBAPP_JWT_SECRET := $(_HOF_OS_IMPORT_JWT)
 HOFOS_SUBAPP_NATIVE := 1
+endif
+ifneq ($(strip $(_HOF_OS_IMPORT_S3_ENDPOINT)),)
+S3_ENDPOINT := $(_HOF_OS_IMPORT_S3_ENDPOINT)
+endif
+ifneq ($(strip $(_HOF_OS_IMPORT_S3_ACCESS_KEY)),)
+S3_ACCESS_KEY := $(_HOF_OS_IMPORT_S3_ACCESS_KEY)
+endif
+ifneq ($(strip $(_HOF_OS_IMPORT_S3_SECRET_KEY)),)
+S3_SECRET_KEY := $(_HOF_OS_IMPORT_S3_SECRET_KEY)
+endif
+ifneq ($(strip $(_HOF_OS_IMPORT_S3_BUCKET)),)
+S3_BUCKET := $(_HOF_OS_IMPORT_S3_BUCKET)
+endif
+ifneq ($(strip $(_HOF_OS_IMPORT_S3_REGION)),)
+S3_REGION := $(_HOF_OS_IMPORT_S3_REGION)
+endif
+ifneq ($(strip $(_HOF_OS_IMPORT_S3_KEY_PREFIX)),)
+S3_KEY_PREFIX := $(_HOF_OS_IMPORT_S3_KEY_PREFIX)
 endif
 
 WEB_PORT ?= 3200
@@ -48,8 +72,16 @@ COMPOSE  := docker compose -f infra/docker/compose.dev.yml
 DEV_LOG  := .mailai-dev.log
 DEV_PID  := .mailai-dev.pid
 
+MAILAI_NEEDS_LOCAL_MINIO := 0
+ifneq (,$(findstring localhost,$(S3_ENDPOINT)))
+MAILAI_NEEDS_LOCAL_MINIO := 1
+endif
+ifneq (,$(findstring 127.0.0.1,$(S3_ENDPOINT)))
+MAILAI_NEEDS_LOCAL_MINIO := 1
+endif
+
 .PHONY: help install \
-        stack-up stack-up-dovecot stack-down stack-logs stack-reset \
+        stack-up stack-up-minio stack-up-dovecot stack-down stack-logs stack-reset \
         build-libs dev dev-wait dev-logs dev-stop dev-web dev-api dev-embed kill-ports \
         reset-db verify fixtures
 
@@ -57,6 +89,7 @@ help:
 	@echo "Targets:"
 	@echo "  install            Install JS dependencies (pnpm)"
 	@echo "  stack-up           Bring up Postgres, Redis, Greenmail, MinIO"
+	@echo "  stack-up-minio     MinIO only (S3 :9200) — needed for attachments when Postgres comes from elsewhere (hof-os native)"
 	@echo "  stack-up-dovecot   Same as stack-up plus the optional Dovecot IMAP server"
 	@echo "  stack-down         Stop the dev stack"
 	@echo "  stack-logs         Follow the dev-stack logs"
@@ -78,6 +111,13 @@ install:
 
 stack-up:
 	$(COMPOSE) up -d
+
+# Attachment blobs / presigns hit S3 (MinIO on :9200 by default).
+# `HOFOS_SUBAPP_NATIVE=1` skips full `stack-up` so Postgres can come from
+# hof-os — but inline images still need MinIO unless S3_* is unset.
+stack-up-minio:
+	@echo "→ MinIO (:9200) for attachment storage..."
+	@$(COMPOSE) up -d minio
 
 stack-up-dovecot:
 	$(COMPOSE) --profile dovecot up -d
@@ -136,7 +176,8 @@ build-libs:
 # `make dev` is split into three phases so "everything works" is *proven*,
 # not assumed:
 #
-#   1. boot   — stack-up + build-libs + kill-ports + start the dev
+#   1. boot   — stack-up (+ MinIO-only when native) + build-libs + kill-ports +
+#               start the dev servers DETACHED
 #               servers DETACHED (`(nohup ... &)` in a subshell so the
 #               child is reparented to launchd; an external SIGKILL on
 #               `make` itself can no longer take the dev stack down).
@@ -159,7 +200,11 @@ build-libs:
 # window between freeing ports and binding them isn't long enough for a
 # stale watcher to sneak back in.
 ifeq ($(HOFOS_SUBAPP_NATIVE),1)
+ifeq ($(MAILAI_NEEDS_LOCAL_MINIO),1)
+dev: stack-up-minio build-libs kill-ports
+else
 dev: build-libs kill-ports
+endif
 else
 dev: stack-up build-libs kill-ports
 endif

@@ -19,11 +19,11 @@
 //      tricks never recover.
 //
 //   3. buildIframeDoc — wraps the sanitized fragment in a minimal
-//      <html> document with our own base styles and forces a light
-//      color-scheme. We render every email on white regardless of the
-//      app theme: it matches what Gmail / Outlook do in dark mode and
-//      gives senders a predictable canvas (almost every email is
-//      designed against white).
+//      <html> document with baseline typography. Light theme uses a
+//      white canvas (#fff). When `darkMode: true` (app dark theme),
+//      the outer shell is #191919 and the fragment sits in a
+//      `.mailai-dark-reader` invert wrapper so typical light-paper HTML
+//      stays readable (images are re-inverted).
 //
 // Why these are exported from a standalone module: they're pure
 // string transforms and the test suite exercises them in node-only
@@ -184,56 +184,48 @@ export function sanitizeEmailHtml(html: string): string {
   });
 }
 
-// Dark mode for email content is hard. The two strategies the industry
-// uses are:
+// Dark mode for email content is hard. Strategies:
 //
-//   (a) "Always light" — render every email on white regardless of
-//       app theme (Gmail web, Outlook web, Front, Superhuman). Gives
-//       a predictable canvas for marketing templates that assume
-//       white but means the inbox momentarily flashes a bright card
-//       in an otherwise dark UI.
+//   (a) "Always light" — safe for sender-pinned colours; jarring in a
+//       dark chrome (bright white card).
 //
-//   (b) "Blend the canvas" — repaint just the html/body background
-//       to match the surrounding app and override the *default* text
-//       colour, but DON'T globally invert. Personal mail (Gmail-to-
-//       Gmail, Outlook-to-Outlook, plain-text replies) inherits the
-//       dark canvas and looks native. Marketing templates that hard-
-//       code their own bgcolor on tables/divs keep their colours and
-//       sit as light islands inside the dark frame — which is the
-//       same behaviour Apple Mail Desktop ships.
+//   (b) "Blend canvas only" — body color/background only; fails when
+//       mail uses inline `color:` (most HTML).
 //
-// We previously tried the third strategy — `filter: invert(1)
-// hue-rotate(180deg)` on body — and it always shipped collateral
-// damage: hard-coded `bgcolor` cells became near-black banners,
-// images grew white re-inverted seams, and the filter scope leaked
-// through the iframe padding. Don't reach for it.
+//   (c) "Invert wrapper" — keep a dark outer #191919 shell, wrap the
+//       sanitized fragment in `.mailai-dark-reader` with
+//       `filter: invert(1) hue-rotate(180deg)`, then re-invert `img`,
+//       `video`, and `svg` so photos/icons look normal. Same trade-offs
+//       as Apple Mail / many readers: unusual brand colours can look
+//       off, but typical black-on-white mail becomes light-on-dark.
 //
-// We default to (a) so the test-only / SSR path stays predictable;
-// the runtime caller (HtmlBody in ThreadView) opts into (b) when the
-// app theme resolves dark.
+// ThreadView uses (a) in light theme and (c) when the app resolves to
+// dark. `darkMode: true` still selects (c) for tests/embeds.
+//
+// We previously rejected unscoped invert on the entire iframe document
+// because it broke padding/flash; scoping to the content wrapper keeps
+// the outer canvas stable.
 export interface IframeDocOptions {
   readonly darkMode?: boolean;
 }
 
 export function buildIframeDoc(sanitizedBody: string, opts: IframeDocOptions = {}): string {
   const dark = opts.darkMode === true;
-  // The dark canvas matches `--background` from the design tokens
-  // (#191919). Foreground inherits the app's `--foreground` (#e3e2e0)
-  // for text whose colour the email did NOT pin itself.
-  const canvas = dark ? "#191919" : "#ffffff";
-  const text = dark ? "#e3e2e0" : "#1f1f1f";
-  const linkColor = dark ? "#7aa7ff" : "#2563eb";
-  const blockquoteBorder = dark ? "#3a3a3a" : "#d6d6d4";
-  const blockquoteText = dark ? "#a4a4a2" : "#6b6b69";
-  const colorScheme = dark ? "dark" : "only light";
 
-  const styles = `
-  :root { color-scheme: ${colorScheme}; }
+  const bodyInner = dark
+    ? `<div class="mailai-dark-reader">${sanitizedBody}</div>`
+    : sanitizedBody;
+
+  /* Hex values mirror @mailai/design-tokens/styles.css default brand
+   * (light + .dark) so the reader matches the app shell. The iframe
+   * cannot see host CSS variables, so we duplicate the literals here. */
+  const styles = dark
+    ? `
+  :root { color-scheme: dark; }
   html, body {
     margin: 0;
     padding: 0;
-    background: ${canvas};
-    color: ${text};
+    background: #191919;
   }
   body {
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI",
@@ -244,16 +236,66 @@ export function buildIframeDoc(sanitizedBody: string, opts: IframeDocOptions = {
     overflow-wrap: anywhere;
     padding: 12px 14px;
   }
-  a { color: ${linkColor}; }
+  /*
+   * The document uses color-scheme: dark, so unstyled nodes would get
+   * "dark UA" colors (light text). Most HTML mail paints a white card;
+   * that yields invisible light-on-white *before* invert — then after
+   * invert, illegible dark-on-black. Force the pre-filter subtree to
+   * light-scheme + token paper/ink so plain paragraphs inherit readable
+   * dark-on-white, then invert to light-on-dark matching --background.
+   */
+  .mailai-dark-reader {
+    color-scheme: only light;
+    background: #ffffff;
+    color: #37352f;
+    filter: invert(1) hue-rotate(180deg);
+  }
+  .mailai-dark-reader img,
+  .mailai-dark-reader picture > img,
+  .mailai-dark-reader video,
+  .mailai-dark-reader svg {
+    filter: invert(1) hue-rotate(180deg);
+  }
+  .mailai-dark-reader img {
+    max-width: 100%;
+    height: auto;
+  }
+  .mailai-dark-reader pre,
+  .mailai-dark-reader code {
+    white-space: pre-wrap;
+    word-wrap: break-word;
+  }
+  .mailai-dark-reader table {
+    max-width: 100%;
+  }
+`
+    : `
+  :root { color-scheme: only light; }
+  html, body {
+    margin: 0;
+    padding: 0;
+    background: #ffffff;
+    color: #37352f;
+  }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI",
+      system-ui, sans-serif;
+    font-size: 15px;
+    line-height: 1.6;
+    word-wrap: break-word;
+    overflow-wrap: anywhere;
+    padding: 12px 14px;
+  }
+  a { color: #2563eb; }
   img {
     max-width: 100%;
     height: auto;
   }
   blockquote {
-    border-left: 2px solid ${blockquoteBorder};
+    border-left: 2px solid #e9e9e7;
     margin: 0 0 8px 0;
     padding: 0 0 0 12px;
-    color: ${blockquoteText};
+    color: #787774;
   }
   pre, code {
     white-space: pre-wrap;
@@ -268,5 +310,5 @@ export function buildIframeDoc(sanitizedBody: string, opts: IframeDocOptions = {
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <base target="_blank" />
 <style>${styles}</style>
-</head><body>${sanitizedBody}</body></html>`;
+</head><body>${bodyInner}</body></html>`;
 }

@@ -71,7 +71,8 @@ function maxAgeFromExpiry(exp: number | string | undefined): number {
   return 120;
 }
 
-function cookieHeader(token: string, maxAgeSeconds: number): string {
+/** Set-Cookie header value for HttpOnly `hof_subapp_session`. Exported for `/api/auth/session-cookie`. */
+export function buildMailaiSubappSessionCookie(token: string, maxAgeSeconds: number): string {
   const secure = process.env["HOF_ENV"] === "production" ? "; Secure" : "";
   return `${SESSION_COOKIE}=${encodeURIComponent(token)}; HttpOnly; SameSite=Lax; Path=/; Max-Age=${maxAgeSeconds}${secure}`;
 }
@@ -112,7 +113,7 @@ async function handleHandoff(request: FastifyRequest, reply: FastifyReply): Prom
   if (code) {
     const exchanged = await exchangeHandoffCode(code);
     if (exchanged) {
-      reply.header("set-cookie", cookieHeader(exchanged.token, exchanged.maxAgeSeconds));
+      reply.header("set-cookie", buildMailaiSubappSessionCookie(exchanged.token, exchanged.maxAgeSeconds));
     }
     reply.redirect(cleanPath || "/");
     return;
@@ -125,18 +126,35 @@ async function handleHandoff(request: FastifyRequest, reply: FastifyReply): Prom
   // protected request will be challenged by `buildHofJwtIdentity`.
   const claims = verifyHandoffJwt(token);
   if (claims) {
-    reply.header("set-cookie", cookieHeader(token, maxAgeFromExpiry(claims.exp)));
+    reply.header("set-cookie", buildMailaiSubappSessionCookie(token, maxAgeFromExpiry(claims.exp)));
   }
   reply.redirect(cleanPath || "/");
 }
 
 export function registerSsoMiddleware(app: FastifyInstance): void {
+  app.post("/api/subapp-handoff/exchange", async (request, reply) => {
+    const body = request.body as { code?: unknown; audience?: unknown } | undefined;
+    const code = typeof body?.code === "string" ? body.code : "";
+    const audience = typeof body?.audience === "string" ? body.audience : "";
+    if (audience !== EXPECTED_AUDIENCE || !code) {
+      reply.code(400).send({ error: "audience and code are required" });
+      return;
+    }
+    const exchanged = await exchangeHandoffCode(code);
+    if (!exchanged) {
+      reply.code(401).send({ error: "invalid or expired handoff code" });
+      return;
+    }
+    reply
+      .header("set-cookie", buildMailaiSubappSessionCookie(exchanged.token, exchanged.maxAgeSeconds))
+      .send({ ok: true });
+  });
   app.addHook("onRequest", handleHandoff);
 }
 
 export const __testInternals = {
   verifyHandoffJwt,
-  cookieHeader,
+  buildMailaiSubappSessionCookie,
   exchangeHandoffCode,
   maxAgeFromExpiry,
 };

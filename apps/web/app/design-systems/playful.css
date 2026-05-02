@@ -17,8 +17,9 @@
   --font-mono: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
 }
 
+/* See default.css — avoid :root:not(.dark) in media; <html> always has light|dark. */
 @media (prefers-color-scheme: dark) {
-  :root:not(.light):not(.dark) {
+  :root:not(.light):not(.hof-theme-light) {
     --background: #0f0a1a;
     --foreground: #ede9fe;
     --surface: #1a1425;
@@ -31,5 +32,23 @@
     --warning: #fb923c;
     --error: #fb7185;
     --success: #34d399;
+    color-scheme: dark;
   }
+}
+
+:root.dark,
+:root.hof-theme-dark {
+  --background: #0f0a1a;
+  --foreground: #ede9fe;
+  --surface: #1a1425;
+  --hover: #2a1f3d;
+  --divider: #2e2640;
+  --secondary: #a5b4fc;
+  --tertiary: #6b7280;
+  --accent: #a78bfa;
+  --accent-light: rgba(167, 139, 250, 0.14);
+  --warning: #fb923c;
+  --error: #fb7185;
+  --success: #34d399;
+  color-scheme: dark;
 }

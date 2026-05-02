@@ -22,8 +22,9 @@
   --hof-radius-xl: 0.25rem;
 }
 
+/* See default.css — avoid :root:not(.dark) in media; <html> always has light|dark. */
 @media (prefers-color-scheme: dark) {
-  :root:not(.light):not(.dark) {
+  :root:not(.light):not(.hof-theme-light) {
     --background: #0c0a09;
     --foreground: #fafaf9;
     --surface: #1c1917;
@@ -37,5 +38,24 @@
     --error: #fca5a5;
     --success: #34d399;
     --on-accent: #0c0a09;
+    color-scheme: dark;
   }
+}
+
+:root.dark,
+:root.hof-theme-dark {
+  --background: #0c0a09;
+  --foreground: #fafaf9;
+  --surface: #1c1917;
+  --hover: #292524;
+  --divider: #44403c;
+  --secondary: #a8a29e;
+  --tertiary: #78716c;
+  --accent: #93c5fd;
+  --accent-light: rgba(147, 197, 253, 0.14);
+  --warning: #d97706;
+  --error: #fca5a5;
+  --success: #34d399;
+  --on-accent: #0c0a09;
+  color-scheme: dark;
 }

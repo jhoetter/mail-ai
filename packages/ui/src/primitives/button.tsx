@@ -10,9 +10,11 @@ interface Props extends ButtonHTMLAttributes<HTMLButtonElement> {
 }
 
 const VARIANTS: Record<Variant, string> = {
-  // Primary uses the foreground colour for a Notion-flavoured "near-black"
-  // button that flips to "near-white" in dark mode automatically.
-  primary: "bg-foreground text-background hover:opacity-85 active:opacity-100",
+  // Primary: Notion-flavoured near-black chip in light mode; in dark
+  // chrome `bg-foreground` becomes a bright slab — use semantic accent
+  // instead so CTAs stay on-token (matches --accent / --on-accent).
+  primary:
+    "bg-foreground text-background hover:opacity-85 active:opacity-100 dark:bg-accent dark:text-on-accent",
   secondary: "bg-hover text-foreground hover:bg-divider active:bg-hover",
   ghost: "bg-transparent text-foreground hover:bg-hover active:bg-divider",
   danger: "bg-error/10 text-error hover:bg-error/20 active:bg-error/10",

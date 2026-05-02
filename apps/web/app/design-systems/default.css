@@ -17,8 +17,18 @@
   --font-mono: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
 }
 
+/*
+ * Dark palette must apply when:
+ *   • <html> has .dark / .hof-theme-dark (next-themes + applyColorScheme), or
+ *   • OS prefers dark and the user is not forcing light (matches bootstrap:
+ *     system mode always resolves to class "light" | "dark" on <html>).
+ *
+ * Do NOT use :root:not(.dark) in the media query — mail-ai always sets one
+ * of light|dark on <html> before paint, so that selector would never match
+ * and unlayered :root light tokens would win over layered @mailai/design-tokens.
+ */
 @media (prefers-color-scheme: dark) {
-  :root:not(.light):not(.dark) {
+  :root:not(.light):not(.hof-theme-light) {
     --background: #191919;
     --foreground: #e3e2e0;
     --surface: #202020;
@@ -28,7 +38,26 @@
     --tertiary: #5a5a58;
     --accent: #529cca;
     --accent-light: rgba(82, 156, 202, 0.16);
+    --on-accent: #191919;
     --error: #ef4444;
     --success: #2f7d59;
+    color-scheme: dark;
   }
+}
+
+:root.dark,
+:root.hof-theme-dark {
+  --background: #191919;
+  --foreground: #e3e2e0;
+  --surface: #202020;
+  --hover: #252525;
+  --divider: #2f2f2f;
+  --secondary: #9b9a97;
+  --tertiary: #5a5a58;
+  --accent: #529cca;
+  --accent-light: rgba(82, 156, 202, 0.16);
+  --on-accent: #191919;
+  --error: #ef4444;
+  --success: #2f7d59;
+  color-scheme: dark;
 }
