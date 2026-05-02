@@ -1,12 +1,9 @@
-/* Web fonts are loaded via a <link rel="stylesheet"> tag in
-   apps/web/app/layout.tsx (with rel="preconnect" hints) instead of
-   `@import url(...)` here. Turbopack tries to resolve CSS @imports at
-   compile time; routing the font sheet through the runtime <link>
-   keeps the dev compile fully offline + fast. The system fallbacks
-   declared on --font-sans / --font-mono below cover the moment before
-   the network sheet lands. */
+/* Web fonts are loaded through @hofos/shell-ui/fonts.css before any
+   generated CSS so PostCSS never encounters late @import rules. */
+@import "@hofos/shell-ui/fonts.css";
 @import "tailwindcss";
 @import "@hofos/shell-ui/theme.css";
+@import "@hofos/ux/styles.css";
 
 /*
  * Default brand tokens. Swap by appending a brand pack stylesheet

@@ -5,8 +5,10 @@
 // usePaletteRegistry().open() to pop the palette without typing.
 
 import { useNavigate } from "react-router";
-import { useEffect, useMemo, type ReactNode } from "react";
+import { useMemo, type ReactNode } from "react";
 import { useTheme } from "next-themes";
+import { HOF_SHELL_APP_LINKS } from "@hofos/shell-ui";
+import { createAppLinkCommands, useRegisteredSearchShortcut, useShortcut } from "@hofos/ux";
 import { useTranslator } from "../i18n/useTranslator";
 import { useI18n } from "../i18n/I18nProvider";
 import { CommandPalette } from "./CommandPalette";
@@ -14,15 +16,6 @@ import { PaletteRegistryProvider, usePaletteRegistry } from "./paletteRegistry";
 import type { PaletteCommand } from "./types";
 import { CommandErrorToast } from "../../components/CommandErrorToast";
 import { ChromeProvider, useChrome } from "./ChromeContext";
-
-const GLOBAL_APP_LINKS = [
-  { id: "os", label: "App", href: "http://localhost:3000/" },
-  { id: "hofos", label: "hofOS", href: "http://localhost:3000/__subapps/hofos/customers" },
-  { id: "mailai", label: "Mail", href: "/inbox" },
-  { id: "collabai", label: "Chat", href: "http://localhost:3000/__subapps/collabai/" },
-  { id: "driveai", label: "Drive", href: "http://localhost:3000/__subapps/driveai/drive/home" },
-  { id: "pagesai", label: "Pages", href: "http://localhost:3000/__subapps/pagesai/pages" },
-] as const;
 
 /**
  * Visual mode for the shell.
@@ -117,13 +110,17 @@ function ShellWithStaticCommands({ children }: { children: ReactNode }) {
           setTheme(next);
         },
       },
-      ...GLOBAL_APP_LINKS.map((app) => ({
-        id: `open-app-${app.id}`,
-        label: `Open ${app.label}`,
+      ...createAppLinkCommands(
+        HOF_SHELL_APP_LINKS.map((link) =>
+          link.id === "mailai" ? { ...link, href: "/inbox" } : link,
+        ),
+      ).map((cmd) => ({
+        id: cmd.id,
+        label: String(cmd.label),
         hint: "Switch app",
-        section: "Apps",
+        section: cmd.group,
         run: () => {
-          window.location.href = app.href;
+          void cmd.perform?.();
         },
       })),
     ],
@@ -139,20 +136,23 @@ function KeybindLayer({ children }: { children: ReactNode }) {
   const reg = usePaletteRegistry();
   const chrome = useChrome();
 
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
-        e.preventDefault();
-        if (chrome === "content") {
-          e.stopPropagation();
-          e.stopImmediatePropagation();
-        }
-        reg.toggle();
-      }
-    };
-    window.addEventListener("keydown", onKey, { capture: chrome === "content" });
-    return () => window.removeEventListener("keydown", onKey, { capture: chrome === "content" });
-  }, [reg, chrome]);
+  useShortcut(
+    useMemo(
+      () => [
+        {
+          key: "k",
+          meta: true,
+          capture: chrome === "content",
+          stopPropagation: chrome === "content",
+          stopImmediatePropagation: chrome === "content",
+          description: "Open command palette",
+          run: reg.toggle,
+        },
+      ],
+      [chrome, reg.toggle],
+    ),
+  );
+  useRegisteredSearchShortcut();
 
   return <>{children}</>;
 }

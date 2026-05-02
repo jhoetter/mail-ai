@@ -14,6 +14,7 @@ import {
   GetObjectCommand,
   HeadBucketCommand,
   HeadObjectCommand,
+  PutBucketCorsCommand,
   PutObjectCommand,
   S3Client,
 } from "@aws-sdk/client-s3";
@@ -33,9 +34,11 @@ export interface S3ObjectStoreOptions {
 export class S3ObjectStore implements ObjectStore {
   private readonly client: S3Client;
   private readonly bucket: string;
+  private readonly endpoint: string | undefined;
 
   constructor(opts: S3ObjectStoreOptions) {
     this.bucket = opts.bucket;
+    this.endpoint = opts.endpoint;
     this.client = new S3Client({
       region: opts.region,
       ...(opts.endpoint ? { endpoint: opts.endpoint } : {}),
@@ -51,9 +54,10 @@ export class S3ObjectStore implements ObjectStore {
   // exists; createBucket otherwise. We swallow "already exists" races
   // so two server processes coming up simultaneously don't crash.
   async ensureBucket(): Promise<void> {
+    let bucketAccessible = false;
     try {
       await this.client.send(new HeadBucketCommand({ Bucket: this.bucket }));
-      return;
+      bucketAccessible = true;
     } catch (err) {
       const status = (err as { $metadata?: { httpStatusCode?: number } })?.$metadata
         ?.httpStatusCode;
@@ -64,13 +68,17 @@ export class S3ObjectStore implements ObjectStore {
         throw err;
       }
     }
-    try {
-      await this.client.send(new CreateBucketCommand({ Bucket: this.bucket }));
-    } catch (err) {
-      const code = (err as { name?: string }).name;
-      if (code === "BucketAlreadyOwnedByYou" || code === "BucketAlreadyExists") return;
-      throw err;
+    if (!bucketAccessible) {
+      try {
+        await this.client.send(new CreateBucketCommand({ Bucket: this.bucket }));
+      } catch (err) {
+        const code = (err as { name?: string }).name;
+        if (code !== "BucketAlreadyOwnedByYou" && code !== "BucketAlreadyExists") {
+          throw err;
+        }
+      }
     }
+    await this.ensureLocalCors();
   }
 
   async put(key: string, body: Buffer | Readable, contentType: string): Promise<void> {
@@ -154,6 +162,36 @@ export class S3ObjectStore implements ObjectStore {
     });
     const url = await getSignedUrl(this.client, cmd, { expiresIn });
     return { url, expiresAt: Date.now() + expiresIn * 1000 };
+  }
+
+  private async ensureLocalCors(): Promise<void> {
+    if (!this.endpoint || !/localhost|127\.0\.0\.1|minio/.test(this.endpoint)) return;
+    try {
+      await this.client.send(
+        new PutBucketCorsCommand({
+          Bucket: this.bucket,
+          CORSConfiguration: {
+            CORSRules: [
+              {
+                AllowedOrigins: [
+                  "http://localhost:3000",
+                  "http://localhost:3010",
+                  "http://localhost:5173",
+                  "http://localhost:5174",
+                  "http://localhost:5175",
+                ],
+                AllowedMethods: ["PUT", "GET", "HEAD", "POST"],
+                AllowedHeaders: ["*"],
+                ExposeHeaders: ["ETag", "x-amz-request-id", "x-amz-version-id"],
+                MaxAgeSeconds: 3600,
+              },
+            ],
+          },
+        }),
+      );
+    } catch (err) {
+      console.warn("warning: S3 local CORS bootstrap failed (continuing):", err);
+    }
   }
 }
 
