@@ -14,7 +14,7 @@ import { dispatchCommand } from "../lib/commands-client";
 import { ReadOnlyChips } from "./TagChips";
 import { useActiveView } from "./ViewTabs";
 import { listViewThreads, listViews, type ViewSummary } from "../lib/views-client";
-import { syncAccount, type AccountSummary } from "../lib/oauth-client";
+import { type AccountSummary } from "../lib/oauth-client";
 import { getCachedAccounts, loadAccountsCached } from "../lib/accounts-cache";
 import { firstSyncError, resolveEmptyKind } from "../lib/empty-view";
 import { useSyncEvents } from "../lib/realtime";
@@ -63,23 +63,28 @@ export function Inbox() {
     return cached ? { status: "ok", rows: cached } : { status: "loading" };
   });
   const hostThreadId = useMailHostThreadId();
-  const attemptedInitialSync = useRef<Set<string>>(new Set());
+  const previousViewId = useRef<string | null>(null);
+  const syncRefreshTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     let cancelled = false;
+    const viewChanged = previousViewId.current !== viewId;
+    previousViewId.current = viewId;
     setLoadError(null);
-    setThreads(null);
+    setThreads((prev) => (viewChanged || prev === null ? null : prev));
     const loader = viewId
       ? listViewThreads(viewId, { limit: 100 }).then((res) => res.threads)
       : listThreads({ limit: 100 });
     loader
       .then((rows) => {
-        if (!cancelled) setThreads(rows);
+        if (!cancelled) {
+          setThreads(rows);
+        }
       })
       .catch((err) => {
         if (!cancelled) {
           setLoadError(err instanceof Error ? err.message : String(err));
-          setThreads([]);
+          setThreads((prev) => prev ?? []);
         }
       });
     return () => {
@@ -96,7 +101,9 @@ export function Inbox() {
     if (!getCachedAccounts()) setAccounts({ status: "loading" });
     loadAccountsCached({ force: true })
       .then((rows) => {
-        if (!cancelled) setAccounts({ status: "ok", rows });
+        if (!cancelled) {
+          setAccounts({ status: "ok", rows });
+        }
       })
       .catch((err) => {
         if (!cancelled) {
@@ -112,26 +119,25 @@ export function Inbox() {
   }, [refreshTick]);
 
   const refresh = useCallback(() => setRefreshTick((n) => n + 1), []);
+  const refreshFromSync = useCallback(() => {
+    if (syncRefreshTimer.current) clearTimeout(syncRefreshTimer.current);
+    syncRefreshTimer.current = setTimeout(() => {
+      syncRefreshTimer.current = null;
+      refresh();
+    }, 500);
+  }, [refresh]);
 
   useEffect(() => {
-    if (accounts.status !== "ok" || accounts.rows.length === 0) return;
-    const pending = accounts.rows.filter(
-      (account) => account.status === "ok" && !attemptedInitialSync.current.has(account.id),
-    );
-    if (pending.length === 0) return;
-    for (const account of pending) {
-      attemptedInitialSync.current.add(account.id);
-    }
-    void Promise.allSettled(
-      pending.map((account) => syncAccount(account.id, { folders: ["inbox"] })),
-    ).then(refresh);
-  }, [accounts, refresh]);
+    return () => {
+      if (syncRefreshTimer.current) clearTimeout(syncRefreshTimer.current);
+    };
+  }, []);
 
   // Background SyncScheduler publishes a `sync` event on the realtime
   // ws after each successful provider pull. We just bump the same
   // refresh tick that the manual `Aktualisieren` button uses, so any
   // newly-arrived rows show up without the user clicking anything.
-  useSyncEvents(refresh);
+  useSyncEvents(refreshFromSync);
 
   // Inbox needs the view set to (a) resolve the active id back to a
   // ViewSummary for the empty-state branch and (b) keep the data
@@ -190,21 +196,24 @@ export function Inbox() {
     [refresh, t],
   );
 
-  const rows: ThreadRow[] =
-    threads?.map((t) => ({
-      id: t.id,
-      providerMessageId: t.providerMessageId,
-      subject: t.subject,
-      from: t.from,
-      status: t.unread ? "unread" : "read",
-      unread: t.unread,
-      snippet: t.snippet,
-      date: t.date,
-      tags: t.tags ?? [],
-      starred: !!t.starred,
-      hasAttachments: !!t.hasAttachments,
-      labels: t.labels ?? [],
-    })) ?? [];
+  const rows: ThreadRow[] = useMemo(
+    () =>
+      threads?.map((t) => ({
+        id: t.id,
+        providerMessageId: t.providerMessageId,
+        subject: t.subject,
+        from: t.from,
+        status: t.unread ? "unread" : "read",
+        unread: t.unread,
+        snippet: t.snippet,
+        date: t.date,
+        tags: t.tags ?? [],
+        starred: !!t.starred,
+        hasAttachments: !!t.hasAttachments,
+        labels: t.labels ?? [],
+      })) ?? [],
+    [threads],
+  );
   const emptyKind = resolveEmptyKind(viewId, views);
   const syncError = accounts.status === "ok" ? firstSyncError(accounts.rows) : null;
   const hasAccounts = accounts.status === "ok" && accounts.rows.length > 0;
@@ -273,9 +282,7 @@ export function Inbox() {
       <div
         className={
           "flex min-h-0 flex-1 md:grid " +
-          (hasLoadedEmptyRows
-            ? "md:grid-cols-1"
-            : "md:grid-cols-[minmax(240px,320px)_minmax(0,1fr)]")
+          (hasLoadedEmptyRows ? "md:grid-cols-1" : "md:grid-cols-[minmax(240px,320px)_minmax(0,1fr)]")
         }
       >
         <section
@@ -449,15 +456,25 @@ function useMailHostThreadId(): string | null {
 function readMailHostThreadId(): string | null {
   if (typeof window === "undefined") return null;
   const match = /^\/mail\/inbox\/thread\/([^/?#]+)/.exec(window.location.pathname);
-  return match?.[1] ? decodeURIComponent(match[1]) : null;
+  if (match?.[1]) return decodeURIComponent(match[1]);
+  const params = new URLSearchParams(window.location.search);
+  return params.get("thread");
 }
 
 function writeMailThreadPath(threadId: string, replace = false) {
   if (typeof window === "undefined") return;
   const params = new URLSearchParams(window.location.search);
-  params.delete("thread");
-  const q = params.toString();
-  const next = `/mail/inbox/thread/${encodeURIComponent(threadId)}${q ? `?${q}` : ""}`;
+  const isHostRoute = window.location.pathname === "/mail" || window.location.pathname.startsWith("/mail/");
+  let next: string;
+  if (isHostRoute) {
+    params.delete("thread");
+    const q = params.toString();
+    next = `/mail/inbox/thread/${encodeURIComponent(threadId)}${q ? `?${q}` : ""}`;
+  } else {
+    params.set("thread", threadId);
+    const q = params.toString();
+    next = `/inbox${q ? `?${q}` : ""}`;
+  }
   writeHostPath(next, replace);
 }
 
@@ -466,7 +483,9 @@ function writeMailInboxPath() {
   const params = new URLSearchParams(window.location.search);
   params.delete("thread");
   const q = params.toString();
-  writeHostPath(q ? `/mail/inbox?${q}` : "/mail/inbox");
+  const isHostRoute = window.location.pathname === "/mail" || window.location.pathname.startsWith("/mail/");
+  const base = isHostRoute ? "/mail/inbox" : "/inbox";
+  writeHostPath(q ? `${base}?${q}` : base);
 }
 
 function writeHostPath(path: string, replace = false) {

@@ -8,12 +8,12 @@
 // claims, fix BOTH sides at once — drift here breaks SSO across every
 // subapp.
 
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { createHmac } from "node:crypto";
 
 import { __testInternals } from "./sso.js";
 
-const { verifyHandoffJwt } = __testInternals;
+const { exchangeHandoffCode, verifyHandoffJwt } = __testInternals;
 
 function b64url(input: string | Buffer): string {
   const buf = typeof input === "string" ? Buffer.from(input, "utf-8") : input;
@@ -38,6 +38,9 @@ describe("SSO handoff verifier", () => {
   afterEach(() => {
     delete process.env["HOF_SUBAPP_JWT_SECRET"];
     delete process.env["HOF_SUBAPP_JWT_SECRET_PREVIOUS"];
+    delete process.env["HOF_DATA_APP_PUBLIC_URL"];
+    delete process.env["HOF_OS_PUBLIC_URL"];
+    vi.unstubAllGlobals();
   });
 
   it("accepts a JWT minted by hof-os' Python signer with the matching secret", () => {
@@ -119,5 +122,38 @@ describe("SSO handoff verifier", () => {
       exp: Math.floor(Date.now() / 1000) + 60,
     });
     expect(verifyHandoffJwt(token)).not.toBeNull();
+  });
+
+  it("exchanges opaque handoff codes through hof-os", async () => {
+    process.env["HOF_SUBAPP_JWT_SECRET"] = "shared-secret";
+    const exp = Math.floor(Date.now() / 1000) + 60;
+    const token = makeToken("shared-secret", {
+      aud: "mailai",
+      sub: "user-1",
+      tid: "tenant-x",
+      exp,
+    });
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        audience: "mailai",
+        token,
+        expires_at: new Date(exp * 1000).toISOString(),
+      }),
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const exchanged = await exchangeHandoffCode("opaque-code");
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      "http://localhost:3000/api/subapp-handoff/exchange",
+      expect.objectContaining({
+        method: "POST",
+        body: JSON.stringify({ audience: "mailai", code: "opaque-code" }),
+      }),
+    );
+    expect(exchanged?.token).toBe(token);
+    expect(exchanged?.maxAgeSeconds).toBeGreaterThan(0);
+    expect(exchanged?.maxAgeSeconds).toBeLessThanOrEqual(60);
   });
 });

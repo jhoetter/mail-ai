@@ -13,3 +13,4 @@ infra/docker/data
 .mailai-dev.log
 .mailai-dev.pid
 release-out/
+vendor/hofos/

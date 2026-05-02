@@ -27,7 +27,6 @@ export function CommandPalette() {
       open={reg.isOpen}
       onOpenChange={(open) => (open ? reg.open() : reg.close())}
       commands={commands}
-      placeholder={t("palette.placeholder")}
       emptyLabel={t("palette.empty")}
     />
   );

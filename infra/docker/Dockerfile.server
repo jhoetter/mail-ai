@@ -32,7 +32,12 @@ COPY scripts ./scripts
 COPY packages ./packages
 COPY apps ./apps
 
-RUN pnpm install --frozen-lockfile --prefer-offline
+RUN if [ -f vendor/hofos/use-local-hofos-packages.mjs ]; then \
+      node vendor/hofos/use-local-hofos-packages.mjs \
+      && pnpm install --no-frozen-lockfile --prefer-offline; \
+    else \
+      pnpm install --frozen-lockfile --prefer-offline; \
+    fi
 
 # Build only the server and its workspace deps. Building the whole
 # workspace would also build `@mailai/embed-host`, whose Vite bundle
