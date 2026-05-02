@@ -49,6 +49,7 @@ import {
   sanitizeEmailHtml,
   stripAngles,
 } from "../lib/email-html";
+import { readEmailIframeThemeSnapshot } from "../lib/email-iframe-theme";
 
 interface Props {
   threadId: string;
@@ -714,9 +715,17 @@ function HtmlBody({ html, attachments, allowRemoteImages, onAllowImages }: HtmlB
 
   const safe = useMemo(() => (mounted ? sanitizeEmailHtml(rewritten) : ""), [rewritten, mounted]);
   const darkReader = mounted && resolvedTheme === "dark";
+
+  const themeSnapshot = useMemo(() => {
+    if (!mounted || typeof document === "undefined") {
+      return readEmailIframeThemeSnapshot(null);
+    }
+    return readEmailIframeThemeSnapshot(document.documentElement);
+  }, [mounted, resolvedTheme]);
+
   const doc = useMemo(
-    () => buildIframeDoc(safe, { darkMode: darkReader }),
-    [safe, darkReader],
+    () => buildIframeDoc(safe, { darkMode: darkReader, theme: themeSnapshot }),
+    [safe, darkReader, themeSnapshot],
   );
 
   useEffect(() => {
@@ -800,6 +809,7 @@ function HtmlBody({ html, attachments, allowRemoteImages, onAllowImages }: HtmlB
       <iframe
         ref={iframeRef}
         title="message body"
+        className="block w-full rounded-none border-0 bg-transparent shadow-none outline-none ring-0 focus:outline-none"
         // `allow-same-origin` is required so we can read scrollHeight
         // and observe image load events from the parent. We DO NOT
         // grant `allow-scripts`, which is what keeps inline <style>
@@ -809,16 +819,17 @@ function HtmlBody({ html, attachments, allowRemoteImages, onAllowImages }: HtmlB
         srcDoc={doc}
         // min-height keeps single-line "(empty)" messages from
         // collapsing to nothing while the first measurement lands.
-        // The inline background matches the iframe's internal canvas
-        // so a brief gap during srcdoc load doesn't flash a contrast.
+        // Transparent iframe + embedded doc uses transparent chrome so
+        // the thread pane shows through — avoids browser color-scheme
+        // rims and mismatched solids around inverted HTML bodies.
         style={{
           width: "100%",
           height: height || undefined,
           minHeight: height ? undefined : 32,
-          border: "0",
+          borderWidth: 0,
+          outline: "none",
           display: "block",
-          background: darkReader ? "#191919" : "#ffffff",
-          colorScheme: darkReader ? "dark" : "only light",
+          background: "transparent",
         }}
       />
     </div>

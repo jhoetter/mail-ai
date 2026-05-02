@@ -42,6 +42,25 @@
   --color-success: var(--success);
   --color-error: var(--error);
   --color-on-accent: var(--on-accent);
+
+  /*
+   * Sanitized HTML reader (sandboxed iframe `srcDoc`). Mirrors the active
+   * brand: light chrome uses app paper/ink; dark chrome overrides paper/ink
+   * for the invert pipeline (see playful/conservative presets for `--mailai-
+   * reader-ink`).
+   */
+  --mailai-reader-paper: var(--background);
+  --mailai-reader-ink: var(--foreground);
+}
+
+/*
+ * Reader paper is always a light canvas for the invert pipeline; reader
+ * ink is each preset's light foreground — set under :root.dark / media in
+ * app/design-systems/*.css (not here, so brand-specific ink wins).
+ */
+html.dark,
+html.hof-theme-dark {
+  --mailai-reader-paper: #ffffff;
 }
 
 /* Tailwind v4 only auto-scans the current package's source by default.

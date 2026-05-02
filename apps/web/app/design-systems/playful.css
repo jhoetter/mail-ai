@@ -32,6 +32,8 @@
     --warning: #fb923c;
     --error: #fb7185;
     --success: #34d399;
+    --mailai-reader-paper: #ffffff;
+    --mailai-reader-ink: #1e1b4b;
     color-scheme: dark;
   }
 }
@@ -50,5 +52,6 @@
   --warning: #fb923c;
   --error: #fb7185;
   --success: #34d399;
+  --mailai-reader-ink: #1e1b4b;
   color-scheme: dark;
 }

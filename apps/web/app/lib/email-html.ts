@@ -18,12 +18,14 @@
 //      because the sender's "everything is hidden until CSS arrives"
 //      tricks never recover.
 //
-//   3. buildIframeDoc — wraps the sanitized fragment in a minimal
-//      <html> document with baseline typography. Light theme uses a
-//      white canvas (#fff). When `darkMode: true` (app dark theme),
-//      the outer shell is #191919 and the fragment sits in a
-//      `.mailai-dark-reader` invert wrapper so typical light-paper HTML
-//      stays readable (images are re-inverted).
+//   3. buildIframeDoc — wraps the sanitized fragment in a minimal <html>
+//      document with baseline typography. The iframe html/body use a
+//      transparent canvas so thread chrome matches the shell.
+//      Colours mirror the active design-system tokens passed as
+//      `theme` from `readEmailIframeThemeSnapshot()` (fallback: package
+//      colors when no DOM / tests).
+//      When `darkMode: true`, the fragment sits in `.mailai-dark-reader`
+//      with invert + hue-rotate (images are re-inverted).
 //
 // Why these are exported from a standalone module: they're pure
 // string transforms and the test suite exercises them in node-only
@@ -36,6 +38,41 @@
 // `expression()` / `javascript:` URLs from CSS.
 
 import DOMPurify from "dompurify";
+import { colors } from "@mailai/design-tokens/colors";
+
+/** Allowlist CSS fragments we inject into the iframe stylesheet (never sender HTML). */
+const CSS_INTRINSIC_UNSAFE =
+  /[;{}<>\n\r\f\v]|\/\*|\*\/|@\s*import|\\0|url\s*\(|javascript:/i;
+
+export function sanitizeCssInjectable(value: string, fallback: string): string {
+  const v = value.trim();
+  if (v.length === 0 || v.length > 140 || CSS_INTRINSIC_UNSAFE.test(v)) {
+    return fallback;
+  }
+  return v;
+}
+
+export interface EmailIframeThemeSnapshot {
+  readonly foreground: string;
+  readonly accent: string;
+  readonly secondary: string;
+  readonly divider: string;
+  /** Light canvas colour for invert reader (typically white). */
+  readonly readerPaper: string;
+  /** Body text colour on that canvas before invert (preset light foreground). */
+  readonly readerInk: string;
+}
+
+export function fallbackEmailIframeThemeSnapshot(): EmailIframeThemeSnapshot {
+  return {
+    foreground: colors.foreground,
+    accent: colors.accent,
+    secondary: colors.secondary,
+    divider: colors.divider,
+    readerPaper: colors.background,
+    readerInk: colors.foreground,
+  };
+}
 
 export function stripAngles(s: string): string {
   return s.replace(/^<|>$/g, "");
@@ -192,12 +229,11 @@ export function sanitizeEmailHtml(html: string): string {
 //   (b) "Blend canvas only" — body color/background only; fails when
 //       mail uses inline `color:` (most HTML).
 //
-//   (c) "Invert wrapper" — keep a dark outer #191919 shell, wrap the
-//       sanitized fragment in `.mailai-dark-reader` with
-//       `filter: invert(1) hue-rotate(180deg)`, then re-invert `img`,
-//       `video`, and `svg` so photos/icons look normal. Same trade-offs
-//       as Apple Mail / many readers: unusual brand colours can look
-//       off, but typical black-on-white mail becomes light-on-dark.
+//   (c) "Invert wrapper" — transparent iframe chrome outside the subtree;
+//       wrap content in `.mailai-dark-reader` with invert + hue-rotate,
+//       then re-invert `img`, `video`, and `svg` so photos/icons look normal.
+//       Same trade-offs as Apple Mail / many readers: unusual brand colours
+//       can look off, but typical black-on-white mail becomes light-on-dark.
 //
 // ThreadView uses (a) in light theme and (c) when the app resolves to
 // dark. `darkMode: true` still selects (c) for tests/embeds.
@@ -207,25 +243,39 @@ export function sanitizeEmailHtml(html: string): string {
 // the outer canvas stable.
 export interface IframeDocOptions {
   readonly darkMode?: boolean;
+  /**
+   * Computed semantic colours from `readEmailIframeThemeSnapshot(document.documentElement)`.
+   * When omitted (SSR / tests), defaults to `@mailai/design-tokens` literals.
+   */
+  readonly theme?: EmailIframeThemeSnapshot;
 }
 
 export function buildIframeDoc(sanitizedBody: string, opts: IframeDocOptions = {}): string {
   const dark = opts.darkMode === true;
+  const fb = fallbackEmailIframeThemeSnapshot();
+  const t = opts.theme ?? fb;
+  const fg = sanitizeCssInjectable(t.foreground, fb.foreground);
+  const ac = sanitizeCssInjectable(t.accent, fb.accent);
+  const sec = sanitizeCssInjectable(t.secondary, fb.secondary);
+  const div = sanitizeCssInjectable(t.divider, fb.divider);
+  const paper = sanitizeCssInjectable(t.readerPaper, fb.readerPaper);
+  const ink = sanitizeCssInjectable(t.readerInk, fb.readerInk);
 
   const bodyInner = dark
     ? `<div class="mailai-dark-reader">${sanitizedBody}</div>`
     : sanitizedBody;
 
-  /* Hex values mirror @mailai/design-tokens/styles.css default brand
-   * (light + .dark) so the reader matches the app shell. The iframe
-   * cannot see host CSS variables, so we duplicate the literals here. */
   const styles = dark
     ? `
-  :root { color-scheme: dark; }
+  /*
+   * Do not advertise :root dark — WebKit/Chromium paint a contrasting
+   * frame around iframe viewports when the embed root is dark-themed.
+   */
+  :root { color-scheme: normal; }
   html, body {
     margin: 0;
     padding: 0;
-    background: #191919;
+    background: transparent;
   }
   body {
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI",
@@ -234,20 +284,19 @@ export function buildIframeDoc(sanitizedBody: string, opts: IframeDocOptions = {
     line-height: 1.6;
     word-wrap: break-word;
     overflow-wrap: anywhere;
-    padding: 12px 14px;
+    padding: 0;
   }
   /*
-   * The document uses color-scheme: dark, so unstyled nodes would get
-   * "dark UA" colors (light text). Most HTML mail paints a white card;
-   * that yields invisible light-on-white *before* invert — then after
-   * invert, illegible dark-on-black. Force the pre-filter subtree to
-   * light-scheme + token paper/ink so plain paragraphs inherit readable
-   * dark-on-white, then invert to light-on-dark matching --background.
+   * Padding lives on .mailai-dark-reader so no inset gutter sits
+   * outside the inverted subtree (avoids visible seams against the iframe).
    */
   .mailai-dark-reader {
+    box-sizing: border-box;
+    min-height: 100%;
+    padding: 12px 14px;
     color-scheme: only light;
-    background: #ffffff;
-    color: #37352f;
+    background: ${paper};
+    color: ${ink};
     filter: invert(1) hue-rotate(180deg);
   }
   .mailai-dark-reader img,
@@ -259,6 +308,12 @@ export function buildIframeDoc(sanitizedBody: string, opts: IframeDocOptions = {
   .mailai-dark-reader img {
     max-width: 100%;
     height: auto;
+  }
+  .mailai-dark-reader blockquote {
+    border-left: 2px solid ${div};
+    margin: 0 0 8px 0;
+    padding: 0 0 0 12px;
+    color: ${sec};
   }
   .mailai-dark-reader pre,
   .mailai-dark-reader code {
@@ -274,8 +329,8 @@ export function buildIframeDoc(sanitizedBody: string, opts: IframeDocOptions = {
   html, body {
     margin: 0;
     padding: 0;
-    background: #ffffff;
-    color: #37352f;
+    background: transparent;
+    color: ${fg};
   }
   body {
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI",
@@ -286,16 +341,16 @@ export function buildIframeDoc(sanitizedBody: string, opts: IframeDocOptions = {
     overflow-wrap: anywhere;
     padding: 12px 14px;
   }
-  a { color: #2563eb; }
+  a { color: ${ac}; }
   img {
     max-width: 100%;
     height: auto;
   }
   blockquote {
-    border-left: 2px solid #e9e9e7;
+    border-left: 2px solid ${div};
     margin: 0 0 8px 0;
     padding: 0 0 0 12px;
-    color: #787774;
+    color: ${sec};
   }
   pre, code {
     white-space: pre-wrap;

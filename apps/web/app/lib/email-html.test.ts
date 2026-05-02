@@ -1,7 +1,14 @@
 // @vitest-environment jsdom
 
 import { describe, expect, it } from "vitest";
-import { buildIframeDoc, rewriteEmailHtml, sanitizeEmailHtml, stripAngles } from "./email-html";
+import { colors } from "@mailai/design-tokens/colors";
+import {
+  buildIframeDoc,
+  rewriteEmailHtml,
+  sanitizeCssInjectable,
+  sanitizeEmailHtml,
+  stripAngles,
+} from "./email-html";
 
 const inlineUrl = (id: string) =>
   `https://test.local/api/attachments/${encodeURIComponent(id)}/inline`;
@@ -204,32 +211,44 @@ describe("sanitizeEmailHtml", () => {
   });
 });
 
+describe("sanitizeCssInjectable", () => {
+  it("rejects values that could break out of injected declarations", () => {
+    expect(sanitizeCssInjectable(";", "#000")).toBe("#000");
+    expect(sanitizeCssInjectable(`url(javascript:alert(1))`, "#000")).toBe("#000");
+  });
+});
+
 describe("buildIframeDoc", () => {
-  it("defaults to a light HTML shell with a white canvas", () => {
+  it("defaults to a light scheme with a transparent iframe canvas and token colours", () => {
     const doc = buildIframeDoc(`<p>hello</p>`);
     expect(doc).toContain("<!doctype html>");
     expect(doc).toContain("<p>hello</p>");
     expect(doc).toContain("color-scheme: only light");
-    expect(doc).toContain("background: #ffffff");
+    expect(doc).toContain("background: transparent");
+    expect(doc).toContain(colors.foreground);
+    expect(doc).toContain(colors.accent);
     // Always opens links in a new tab.
     expect(doc).toContain(`<base target="_blank"`);
   });
 
-  it("darkMode uses invert reader so HTML mail fits a dark chrome without a white card", () => {
+  it("darkMode uses invert reader without an opaque iframe shell around the subtree", () => {
     const doc = buildIframeDoc(`<p>hi</p>`, { darkMode: true });
-    expect(doc).toContain("background: #191919");
-    expect(doc).toContain("color-scheme: dark");
+    expect(doc).toContain("background: transparent");
+    expect(doc).not.toContain("background: #191919");
+    expect(doc).toContain("color-scheme: normal");
     expect(doc).toContain('class="mailai-dark-reader"');
     expect(doc).toMatch(/\.mailai-dark-reader\s*\{[\s\S]*color-scheme:\s*only\s*light/);
+    expect(doc).toContain(colors.background);
+    expect(doc).toContain(colors.foreground);
     expect(doc).toContain("invert(1)");
     expect(doc).toContain("hue-rotate(180deg)");
   });
 
-  it("light canvas uses default design-token foreground/blockquote tones", () => {
+  it("light mode body and blockquotes use fallback design-token accents", () => {
     const doc = buildIframeDoc(`<p>hi</p>`);
-    expect(doc).toContain("color: #37352f");
-    expect(doc).toContain("#787774");
-    expect(doc).toContain("#e9e9e7");
+    expect(doc).toContain(`color: ${colors.foreground}`);
+    expect(doc).toContain(colors.secondary);
+    expect(doc).toContain(colors.divider);
   });
 
   it("never applies the dark invert wrapper in light mode", () => {

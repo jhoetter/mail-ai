@@ -38,6 +38,8 @@
     --error: #fca5a5;
     --success: #34d399;
     --on-accent: #0c0a09;
+    --mailai-reader-paper: #ffffff;
+    --mailai-reader-ink: #0c0a09;
     color-scheme: dark;
   }
 }
@@ -57,5 +59,6 @@
   --error: #fca5a5;
   --success: #34d399;
   --on-accent: #0c0a09;
+  --mailai-reader-ink: #0c0a09;
   color-scheme: dark;
 }
