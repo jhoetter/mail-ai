@@ -439,7 +439,7 @@ function AttachmentsList({ attachments }: { attachments: readonly ThreadAttachme
       }
       const data = (await res.json()) as { url?: unknown };
       if (typeof data.url !== "string" || !data.url) throw new Error("Missing editor URL");
-      window.location.href = data.url;
+      navigateToOfficeEditor(data.url);
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
       window.alert(`Could not open attachment in OfficeAI: ${message}`);
@@ -484,6 +484,22 @@ function AttachmentsList({ attachments }: { attachments: readonly ThreadAttachme
       })}
     </div>
   );
+}
+
+function navigateToOfficeEditor(url: string): void {
+  if (isFramed()) {
+    const opened = window.open(url, "_blank", "noopener,noreferrer");
+    if (opened) return;
+  }
+  window.location.assign(url);
+}
+
+function isFramed(): boolean {
+  try {
+    return window.self !== window.top;
+  } catch {
+    return true;
+  }
 }
 
 const OFFICE_ATTACHMENT_EXTENSIONS = new Set(["docx", "xlsx", "pptx", "pdf"]);

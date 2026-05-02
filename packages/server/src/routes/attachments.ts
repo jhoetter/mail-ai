@@ -89,6 +89,8 @@ export function registerAttachmentRoutes(app: FastifyInstance, deps: AttachmentR
       url: buildOfficeEditorUrl(
         prefixedObjectKey(row.objectKey),
         readSingleQueryValue((req.query as { from?: unknown }).from),
+        row.filename ?? null,
+        row.mime,
       ),
     };
   });
@@ -170,7 +172,12 @@ function prefixedObjectKey(objectKey: string): string {
   return `${prefix}/${objectKey.replace(/^\/+/, "")}`;
 }
 
-function buildOfficeEditorUrl(objectKey: string, from: string | null): string {
+function buildOfficeEditorUrl(
+  objectKey: string,
+  from: string | null,
+  filename: string | null,
+  contentType: string | null,
+): string {
   const base = (
     process.env["HOF_OS_PUBLIC_URL"] ??
     process.env["HOF_DATA_APP_PUBLIC_URL"] ??
@@ -179,6 +186,8 @@ function buildOfficeEditorUrl(objectKey: string, from: string | null): string {
   const url = new URL("/edit-asset", base);
   url.searchParams.set("key", objectKey);
   if (from) url.searchParams.set("from", from);
+  if (filename?.trim()) url.searchParams.set("filename", filename.trim());
+  if (contentType?.trim()) url.searchParams.set("content_type", contentType.trim());
   return url.toString();
 }
 
