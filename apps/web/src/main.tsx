@@ -21,6 +21,8 @@ import SettingsAccountPage from "../app/settings/account/page";
 import SettingsInboxesPage from "../app/settings/inboxes/page";
 import SettingsAuditPage from "../app/settings/audit/page";
 import SettingsTagsPage from "../app/settings/tags/page";
+import SettingsMailRulesPage from "../app/settings/mail-rules/page";
+import SettingsVacationPage from "../app/settings/vacation/page";
 import { consumeHofHandoff } from "./hof-handoff";
 import { syncSubappSessionCookie } from "../app/lib/session-cookie";
 
@@ -41,6 +43,8 @@ function AppRoutes() {
       <Route path="/settings/inboxes" element={<SettingsInboxesPage />} />
       <Route path="/settings/audit" element={<SettingsAuditPage />} />
       <Route path="/settings/tags" element={<SettingsTagsPage />} />
+      <Route path="/settings/mail-rules" element={<SettingsMailRulesPage />} />
+      <Route path="/settings/vacation" element={<SettingsVacationPage />} />
       <Route path="*" element={<Navigate to="/inbox" replace />} />
     </Routes>
   );

@@ -42,16 +42,25 @@ interface UpdatePayload {
   subject?: string;
   bodyText?: string;
   bodyHtml?: string;
+  /** ISO-8601 timestamp or null to clear scheduled send. */
+  scheduledSendAt?: string | null;
+}
+
+interface ScheduleSendPayload {
+  draftId: string;
+  sendAt: string;
 }
 
 interface IdPayload {
   id: string;
+  requestReadReceipt?: boolean;
 }
 
 export function buildDraftCreateHandler(
-  deps: DraftHandlerDeps,
+  base: DraftHandlerDeps,
 ): CommandHandler<"draft:create", CreatePayload> {
-  return async (cmd) => {
+  return async (cmd, hx) => {
+    const deps = { ...base, tenantId: hx.tenantId ?? base.tenantId };
     return withTenant(deps.pool, deps.tenantId, async (tx) => {
       const repo = new DraftsRepository(tx);
       const row = await repo.create({
@@ -73,9 +82,10 @@ export function buildDraftCreateHandler(
 }
 
 export function buildDraftUpdateHandler(
-  deps: DraftHandlerDeps,
+  base: DraftHandlerDeps,
 ): CommandHandler<"draft:update", UpdatePayload> {
-  return async (cmd) => {
+  return async (cmd, hx) => {
+    const deps = { ...base, tenantId: hx.tenantId ?? base.tenantId };
     return withTenant(deps.pool, deps.tenantId, async (tx) => {
       const repo = new DraftsRepository(tx);
       const before = await repo.byId(deps.tenantId, cmd.actorId, cmd.payload.id);
@@ -89,6 +99,37 @@ export function buildDraftUpdateHandler(
         ...(cmd.payload.subject !== undefined ? { subject: cmd.payload.subject } : {}),
         ...(cmd.payload.bodyText !== undefined ? { bodyText: cmd.payload.bodyText } : {}),
         ...(cmd.payload.bodyHtml !== undefined ? { bodyHtml: cmd.payload.bodyHtml } : {}),
+        ...(cmd.payload.scheduledSendAt !== undefined
+          ? {
+              scheduledSendAt:
+                cmd.payload.scheduledSendAt === null
+                  ? null
+                  : new Date(cmd.payload.scheduledSendAt),
+            }
+          : {}),
+      });
+      return diff(before, updated);
+    });
+  };
+}
+
+export function buildMailScheduleSendHandler(
+  base: DraftHandlerDeps,
+): CommandHandler<"mail:schedule-send", ScheduleSendPayload> {
+  return async (cmd, hx) => {
+    const deps = { ...base, tenantId: hx.tenantId ?? base.tenantId };
+    const when = new Date(cmd.payload.sendAt);
+    if (Number.isNaN(when.getTime())) {
+      throw new MailaiError("validation_error", "invalid sendAt");
+    }
+    return withTenant(deps.pool, deps.tenantId, async (tx) => {
+      const repo = new DraftsRepository(tx);
+      const before = await repo.byId(deps.tenantId, cmd.actorId, cmd.payload.draftId);
+      if (!before) {
+        throw new MailaiError("not_found", `draft ${cmd.payload.draftId} not found`);
+      }
+      const updated = await repo.update(deps.tenantId, cmd.actorId, cmd.payload.draftId, {
+        scheduledSendAt: when,
       });
       return diff(before, updated);
     });
@@ -96,9 +137,10 @@ export function buildDraftUpdateHandler(
 }
 
 export function buildDraftDeleteHandler(
-  deps: DraftHandlerDeps,
+  base: DraftHandlerDeps,
 ): CommandHandler<"draft:delete", IdPayload> {
-  return async (cmd) => {
+  return async (cmd, hx) => {
+    const deps = { ...base, tenantId: hx.tenantId ?? base.tenantId };
     return withTenant(deps.pool, deps.tenantId, async (tx) => {
       const repo = new DraftsRepository(tx);
       const before = await repo.byId(deps.tenantId, cmd.actorId, cmd.payload.id);
@@ -116,9 +158,10 @@ export function buildDraftDeleteHandler(
 // the bus so the audit log + idempotency cache pick up the actual
 // network mutation, then deletes the draft row.
 export function buildDraftSendHandler(
-  deps: DraftHandlerDeps,
+  base: DraftHandlerDeps,
 ): CommandHandler<"draft:send", IdPayload> {
-  return async (cmd) => {
+  return async (cmd, hx) => {
+    const deps = { ...base, tenantId: hx.tenantId ?? base.tenantId };
     const draft = await withTenant(deps.pool, deps.tenantId, (tx) => {
       const repo = new DraftsRepository(tx);
       return repo.byId(deps.tenantId, cmd.actorId, cmd.payload.id);
@@ -127,20 +170,23 @@ export function buildDraftSendHandler(
       throw new MailaiError("not_found", `draft ${cmd.payload.id} not found`);
     }
     const body = draft.bodyText ?? stripHtml(draft.bodyHtml ?? "");
+    const readRcpt = cmd.payload.requestReadReceipt === true;
     if (draft.replyToMessageId) {
       const reply: Command = {
         type: "mail:reply",
         payload: {
           threadId: draft.replyToMessageId,
           body,
+          ...(draft.bodyHtml ? { bodyHtml: draft.bodyHtml } : {}),
           ...(draft.oauthAccountId ? { accountId: draft.oauthAccountId } : {}),
+          ...(readRcpt ? { requestReadReceipt: true } : {}),
         },
         source: cmd.source,
         actorId: cmd.actorId,
         timestamp: Date.now(),
         sessionId: cmd.sessionId,
       };
-      await deps.bus.dispatch(reply);
+      await deps.bus.dispatch(reply, { tenantId: deps.tenantId });
     } else {
       if (draft.toAddr.length === 0) {
         throw new MailaiError("validation_error", "draft has no To recipients");
@@ -153,14 +199,16 @@ export function buildDraftSendHandler(
           bcc: draft.bccAddr,
           subject: draft.subject ?? "",
           body,
+          ...(draft.bodyHtml ? { bodyHtml: draft.bodyHtml } : {}),
           ...(draft.oauthAccountId ? { accountId: draft.oauthAccountId } : {}),
+          ...(readRcpt ? { requestReadReceipt: true } : {}),
         },
         source: cmd.source,
         actorId: cmd.actorId,
         timestamp: Date.now(),
         sessionId: cmd.sessionId,
       };
-      await deps.bus.dispatch(send);
+      await deps.bus.dispatch(send, { tenantId: deps.tenantId });
     }
     await withTenant(deps.pool, deps.tenantId, (tx) => {
       const repo = new DraftsRepository(tx);

@@ -63,6 +63,7 @@ export function InlineReply({ thread, onSent, autoExpand, autoExpandKey, forward
   const [mode, setMode] = useState<ComposeMode | null>(autoExpand ? "reply" : null);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
+  const [requestReadReceipt, setRequestReadReceipt] = useState(false);
   const valueRef = useRef<RichEditorChange>({ html: "", text: "" });
   const editorRef = useRef<RichEditorHandle | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
@@ -221,6 +222,7 @@ export function InlineReply({ thread, onSent, autoExpand, autoExpandKey, forward
             ...(html.trim().length > 0 ? { bodyHtml: html } : {}),
             ...(attachmentRefs.length > 0 ? { attachments: attachmentRefs } : {}),
             includeOriginalAsEml: true,
+            ...(requestReadReceipt ? { requestReadReceipt: true } : {}),
           },
           idempotencyKey,
         });
@@ -240,6 +242,7 @@ export function InlineReply({ thread, onSent, autoExpand, autoExpandKey, forward
             to,
             ...(cc.length > 0 ? { cc } : {}),
             ...(bcc.length > 0 ? { bcc } : {}),
+            ...(requestReadReceipt ? { requestReadReceipt: true } : {}),
           },
           idempotencyKey,
         });
@@ -251,7 +254,7 @@ export function InlineReply({ thread, onSent, autoExpand, autoExpandKey, forward
     } finally {
       setBusy(false);
     }
-  }, [bcc, cc, forwardMessage, mode, onSent, reset, t, thread.id, thread.subject, to, uploads]);
+  }, [bcc, cc, forwardMessage, mode, onSent, reset, t, thread.id, thread.subject, to, uploads, requestReadReceipt]);
 
   const onPickFiles = useCallback(() => {
     fileInputRef.current?.click();
@@ -434,6 +437,14 @@ export function InlineReply({ thread, onSent, autoExpand, autoExpandKey, forward
           onSubmit={() => void send()}
         />
         <AttachmentTray slots={uploads.slots} onRemove={uploads.remove} onPick={onPickFiles} />
+        <label className="flex cursor-pointer items-center gap-2 border-t border-divider px-3 py-2 text-xs text-secondary">
+          <input
+            type="checkbox"
+            checked={requestReadReceipt}
+            onChange={(e) => setRequestReadReceipt(e.target.checked)}
+          />
+          {t("composer.requestReadReceipt")}
+        </label>
         {err ? (
           <p className="border-t border-divider bg-error-bg/40 px-3 py-2 text-xs text-error-text">
             {t("composer.sendError", { error: err })}

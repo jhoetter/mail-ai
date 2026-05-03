@@ -1,4 +1,5 @@
 import { Button, SegmentedControl } from "@mailai/ui";
+import { ConnectionStatus } from "../../components/ConnectionStatus";
 import { useTranslator } from "../../lib/i18n/useTranslator";
 import type { CalendarView } from "../_lib/calendar-time";
 import { startOfWeek } from "../_lib/calendar-time";
@@ -100,6 +101,7 @@ export function CalendarToolbar({
       </div>
       <h2 className="text-base font-semibold text-foreground">{formatRangeLabel(view, cursor)}</h2>
       <div className="ml-auto flex items-center gap-2">
+        <ConnectionStatus surface="calendar" />
         <Button
           size="sm"
           variant="ghost"

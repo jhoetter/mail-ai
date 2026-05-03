@@ -37,6 +37,14 @@ export interface OauthMessageRow {
   readonly bodyText: string | null;
   readonly bodyHtml: string | null;
   readonly bodyFetchedAt: Date | null;
+  /** RFC 5322 Message-ID header value (no angle brackets). NULL until first body fetch. */
+  readonly rfc822MessageId: string | null;
+  readonly bodyIcs: string | null;
+  readonly important: boolean;
+  readonly listUnsubscribe: string | null;
+  readonly listUnsubscribePost: string | null;
+  readonly readReceiptRequested: boolean;
+  readonly readReceiptReceivedAt: Date | null;
   readonly hasAttachments: boolean;
   readonly starred: boolean;
   readonly wellKnownFolder: WellKnownFolder;
@@ -63,6 +71,10 @@ export interface OauthMessageInsert {
   readonly labelsJson: string[];
   readonly unread: boolean;
   readonly wellKnownFolder: WellKnownFolder;
+  readonly starred?: boolean;
+  readonly hasAttachments?: boolean;
+  readonly important?: boolean;
+  readonly readReceiptRequested?: boolean;
 }
 
 export class OauthMessagesRepository {
@@ -85,7 +97,8 @@ export class OauthMessagesRepository {
           provider_message_id, provider_thread_id,
           subject, from_name, from_email, to_addr, cc_addr, bcc_addr,
           snippet, internal_date, labels_json, unread, fetched_at,
-          well_known_folder
+          well_known_folder,
+          starred, has_attachments, important, read_receipt_requested
         ) VALUES (
           ${r.id}, ${r.tenantId}, ${r.oauthAccountId}, ${r.provider},
           ${r.providerMessageId}, ${r.providerThreadId},
@@ -93,7 +106,11 @@ export class OauthMessagesRepository {
           ${r.ccAddr}, ${r.bccAddr},
           ${r.snippet}, ${r.internalDate.toISOString()}::timestamptz,
           ${JSON.stringify(r.labelsJson)}::jsonb, ${r.unread}, now(),
-          ${r.wellKnownFolder}
+          ${r.wellKnownFolder},
+          ${r.starred ?? false},
+          ${r.hasAttachments ?? false},
+          ${r.important ?? false},
+          ${r.readReceiptRequested ?? false}
         )
         ON CONFLICT (oauth_account_id, provider_message_id) DO UPDATE SET
           subject = EXCLUDED.subject,
@@ -106,6 +123,11 @@ export class OauthMessagesRepository {
           labels_json = EXCLUDED.labels_json,
           unread = EXCLUDED.unread,
           well_known_folder = EXCLUDED.well_known_folder,
+          starred = EXCLUDED.starred,
+          has_attachments = EXCLUDED.has_attachments,
+          important = EXCLUDED.important,
+          read_receipt_requested = oauth_messages.read_receipt_requested OR EXCLUDED.read_receipt_requested,
+          read_receipt_received_at = oauth_messages.read_receipt_received_at,
           fetched_at = now()
         RETURNING (xmax = 0) AS inserted
       `);
@@ -163,6 +185,25 @@ export class OauthMessagesRepository {
     return typeof n === "number" ? n : 0;
   }
 
+  async byProviderMessage(
+    tenantId: string,
+    oauthAccountId: string,
+    providerMessageId: string,
+  ): Promise<OauthMessageRow | null> {
+    const rows = await this.db
+      .select()
+      .from(oauthMessages)
+      .where(
+        and(
+          eq(oauthMessages.tenantId, tenantId),
+          eq(oauthMessages.oauthAccountId, oauthAccountId),
+          eq(oauthMessages.providerMessageId, providerMessageId),
+        ),
+      )
+      .limit(1);
+    return (rows[0] as OauthMessageRow | undefined) ?? null;
+  }
+
   async byId(tenantId: string, id: string): Promise<OauthMessageRow | null> {
     const rows = await this.db
       .select()
@@ -171,21 +212,84 @@ export class OauthMessagesRepository {
     return (rows[0] as OauthMessageRow | undefined) ?? null;
   }
 
-  // Persist a body we just pulled from the provider. We always stamp
+  // Persist a body after a successful provider fetch. We always stamp
   // body_fetched_at even when both columns are null so the reader can
   // tell "we tried, the message genuinely has no body" apart from
-  // "we never asked yet".
+  // "we never asked yet". Callers must not invoke this on token failure
+  // or thrown fetches — those leave body_fetched_at NULL for retry.
+  //
+  // `rfc822MessageId` is optional — when supplied, we overwrite the
+  // column; when omitted (or null) we leave any previously-captured
+  // value alone via COALESCE. This matters when an adapter fetches
+  // the body in a code path that doesn't surface headers.
   async setBody(
     tenantId: string,
     id: string,
-    body: { text: string | null; html: string | null },
+      body: {
+      text: string | null;
+      html: string | null;
+      rfc822MessageId?: string | null;
+      bodyIcs?: string | null;
+      listUnsubscribe?: string | null;
+      listUnsubscribePost?: string | null;
+    },
   ): Promise<void> {
+    const newRfc822 = body.rfc822MessageId ?? null;
+    const newIcs = body.bodyIcs ?? null;
+    const lu = body.listUnsubscribe ?? null;
+    const lup = body.listUnsubscribePost ?? null;
     await this.db.execute(sql`
       UPDATE oauth_messages
       SET body_text = ${body.text},
           body_html = ${body.html},
-          body_fetched_at = now()
+          body_fetched_at = now(),
+          rfc822_message_id = COALESCE(${newRfc822}, rfc822_message_id),
+          body_ics = COALESCE(${newIcs}, body_ics),
+          list_unsubscribe = COALESCE(${lu}, list_unsubscribe),
+          list_unsubscribe_post = COALESCE(${lup}, list_unsubscribe_post)
       WHERE tenant_id = ${tenantId} AND id = ${id}
+    `);
+  }
+
+  async setImportant(tenantId: string, id: string, important: boolean): Promise<void> {
+    await this.db.execute(sql`
+      UPDATE oauth_messages
+      SET important = ${important}
+      WHERE tenant_id = ${tenantId} AND id = ${id}
+    `);
+  }
+
+  async setImportantByProvider(
+    tenantId: string,
+    oauthAccountId: string,
+    providerMessageId: string,
+    important: boolean,
+  ): Promise<void> {
+    await this.db.execute(sql`
+      UPDATE oauth_messages
+      SET important = ${important}
+      WHERE tenant_id = ${tenantId}
+        AND oauth_account_id = ${oauthAccountId}
+        AND provider_message_id = ${providerMessageId}
+    `);
+  }
+
+  async applyReadReceiptForOriginal(
+    tenantId: string,
+    oauthAccountId: string,
+    originalRfc822MessageId: string,
+  ): Promise<void> {
+    const clean = originalRfc822MessageId.replace(/^<|>$/g, "").trim();
+    if (!clean) return;
+    await this.db.execute(sql`
+      UPDATE oauth_messages
+      SET read_receipt_received_at = now()
+      WHERE tenant_id = ${tenantId}
+        AND oauth_account_id = ${oauthAccountId}
+        AND well_known_folder = 'sent'
+        AND rfc822_message_id = ${clean}
+        AND read_receipt_requested = true
+        AND read_receipt_received_at IS NULL
     `);
   }
 

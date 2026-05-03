@@ -3,7 +3,7 @@
 // send, the route dispatches mail:send / mail:reply through the bus
 // and deletes the draft row in the same transaction.
 
-import { and, desc, eq, sql } from "drizzle-orm";
+import { and, asc, desc, eq, isNotNull, lte, sql } from "drizzle-orm";
 import { randomUUID } from "node:crypto";
 import type { Database } from "../client.js";
 import { drafts } from "../schema.js";
@@ -47,6 +47,7 @@ export interface DraftPatch {
   readonly subject?: string | null;
   readonly bodyHtml?: string | null;
   readonly bodyText?: string | null;
+  readonly scheduledSendAt?: Date | null;
 }
 
 export class DraftsRepository {
@@ -94,6 +95,9 @@ export class DraftsRepository {
     if (patch.subject !== undefined) setFragments.push(sql`subject = ${patch.subject}`);
     if (patch.bodyHtml !== undefined) setFragments.push(sql`body_html = ${patch.bodyHtml}`);
     if (patch.bodyText !== undefined) setFragments.push(sql`body_text = ${patch.bodyText}`);
+    if (patch.scheduledSendAt !== undefined) {
+      setFragments.push(sql`scheduled_send_at = ${patch.scheduledSendAt}`);
+    }
 
     const setClause = sql.join(setFragments, sql`, `);
     await this.db.execute(sql`
@@ -123,6 +127,17 @@ export class DraftsRepository {
       .from(drafts)
       .where(and(eq(drafts.tenantId, tenantId), eq(drafts.userId, userId)))
       .orderBy(desc(drafts.updatedAt))
+      .limit(limit);
+    return rows as DraftRow[];
+  }
+
+  /** Drafts with `scheduled_send_at` in the past (or now), for the send-later worker. */
+  async listDueScheduled(now: Date, limit = 50): Promise<DraftRow[]> {
+    const rows = await this.db
+      .select()
+      .from(drafts)
+      .where(and(isNotNull(drafts.scheduledSendAt), lte(drafts.scheduledSendAt, now)))
+      .orderBy(asc(drafts.scheduledSendAt))
       .limit(limit);
     return rows as DraftRow[];
   }

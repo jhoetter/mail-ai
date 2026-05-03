@@ -16,6 +16,7 @@ export * from "./repositories/oauth-thread-tags.js";
 export * from "./repositories/oauth-thread-state.js";
 export * from "./repositories/views.js";
 export * from "./repositories/drafts.js";
+export * from "./repositories/mail-rules.js";
 export * from "./repositories/calendar.js";
 export * from "./repositories/attachments.js";
 export * from "./repositories/oauth-attachments.js";

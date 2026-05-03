@@ -47,6 +47,45 @@ export async function sendGmail(args: GmailSendArgs): Promise<GmailSendResult> {
   });
   if (!res.ok) {
     const text = await safeText(res);
+    // Thread mis-alignment happens when callers pass Gmail's `threadId`
+    // that doesn't reconcile with RFC822 References/In-Reply-To (often
+    // after our own mirrored rows land as the conversational tail).
+    // Re-sending identical raw MIME *without* `threadId` still threads
+    // correctly for recipients as long as the headers are sane; Gmail
+    // may place the message slightly differently locally.
+    // Narrow match: Gmail often returns INVALID_ARGUMENT referencing
+    // `threadId` when the MIME envelope disagrees with the requested
+    // conversation id. Retry without pinning `threadId` — RFC822
+    // headers still drive recipient threading.
+    const recoverableWithoutThread =
+      args.threadId !== undefined &&
+      (res.status === 400 || res.status === 403) &&
+      /thread\b|conversation|invalidargument|INVALID_ARGUMENT|"threadId"/i.test(`${text}`);
+    if (recoverableWithoutThread) {
+      const res2 = await f(GMAIL_SEND_URL, {
+        method: "POST",
+        headers: {
+          authorization: `Bearer ${args.accessToken}`,
+          "content-type": "application/json",
+        },
+        body: JSON.stringify({ raw: toBase64Url(buf) }),
+      });
+      if (res2.ok) {
+        const json2 = (await res2.json()) as {
+          id?: string;
+          threadId?: string;
+          labelIds?: string[];
+        };
+        if (!json2.id || !json2.threadId) {
+          throw new Error("gmail send retry response missing id/threadId");
+        }
+        return {
+          id: json2.id,
+          threadId: json2.threadId,
+          labelIds: json2.labelIds ?? [],
+        };
+      }
+    }
     throw new Error(`gmail send failed: ${res.status} ${text.slice(0, 300)}`);
   }
   const json = (await res.json()) as { id?: string; threadId?: string; labelIds?: string[] };

@@ -55,6 +55,10 @@ export interface SyncDeps {
   // watermark by hand.
   readonly forceFull?: boolean;
   readonly fetchImpl?: typeof fetch;
+  readonly onBatchUpserted?: (
+    account: OauthAccountRow,
+    rows: readonly OauthMessageInsert[],
+  ) => void | Promise<void>;
 }
 
 export interface SyncResult {
@@ -195,6 +199,9 @@ async function runDeltaSync(
   }
   const counts =
     rows.length > 0 ? await deps.messages.upsertMany(rows) : { inserted: 0, updated: 0 };
+  if (rows.length > 0) {
+    await deps.onBatchUpserted?.(account, rows);
+  }
 
   const deletedCount =
     result.deleted.length > 0
@@ -261,6 +268,9 @@ async function runFullSync(
       totalFetched += rows.length;
       totalInserted += counts.inserted;
       totalUpdated += counts.updated;
+      if (rows.length > 0) {
+        await deps.onBatchUpserted?.(account, rows);
+      }
       folderFetched += rows.length;
       if (!page.nextCursor) break;
       cursor = page.nextCursor;
@@ -308,5 +318,8 @@ export function toInsertRow(
     labelsJson: [...m.userLabels],
     unread: m.flags.includes("unread"),
     wellKnownFolder: folder,
+    starred: m.flags.includes("starred"),
+    hasAttachments: m.hasAttachments,
+    important: m.flags.includes("important"),
   };
 }

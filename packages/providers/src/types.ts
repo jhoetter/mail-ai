@@ -60,6 +60,22 @@ export interface NormalizedBody {
   readonly text: string | null;
   readonly html: string | null;
   readonly attachments: ReadonlyArray<NormalizedAttachment>;
+  /**
+   * RFC 5322 Message-ID header value (no angle brackets). Adapters
+   * SHOULD populate this when they have it cheaply (Gmail returns it
+   * inside `format=full`; Graph exposes `internetMessageId`). The
+   * reply path uses it for In-Reply-To / References so threading
+   * works on the recipient side.
+   */
+  readonly rfc822MessageId?: string | null;
+  /** First inline text/calendar part body, when present. */
+  readonly icsText?: string | null;
+  /** Raw List-Unsubscribe header (RFC 2369). */
+  readonly listUnsubscribe?: string | null;
+  /** List-Unsubscribe-Post (RFC 8058). */
+  readonly listUnsubscribePost?: string | null;
+  /** Parsed from Importance: / X-Priority: when available. */
+  readonly important?: boolean;
 }
 
 export interface NormalizedAttachment {
@@ -106,6 +122,8 @@ export interface NormalizedMessage {
   // Used for cross-provider dedupe when a message we just sent
   // shows up in a Sent folder sync.
   readonly rfc822MessageId: string | null;
+  /** High importance / priority from provider metadata (Graph importance, etc.). */
+  readonly important?: boolean;
 }
 
 // What the caller hands the adapter when sending. We keep the same

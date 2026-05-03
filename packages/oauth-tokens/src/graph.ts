@@ -11,7 +11,7 @@ const MAIL_FOLDERS_BASE = "https://graph.microsoft.com/v1.0/me/mailFolders";
 const GRAPH_MESSAGE_SELECT =
   "id,conversationId,subject,bodyPreview,receivedDateTime," +
   "isRead,categories,from,toRecipients,ccRecipients,bccRecipients," +
-  "parentFolderId";
+  "parentFolderId,hasAttachments,importance";
 
 export interface MicrosoftUserInfo {
   readonly email: string;
@@ -66,6 +66,8 @@ export interface GraphMessageMetadata {
   readonly bcc: string | null;
   readonly labelIds: readonly string[]; // categories
   readonly unread: boolean;
+  readonly hasAttachments: boolean;
+  readonly importance: string | null;
 }
 
 interface GraphRecipient {
@@ -84,6 +86,8 @@ interface GraphMessage {
   toRecipients?: GraphRecipient[];
   ccRecipients?: GraphRecipient[];
   bccRecipients?: GraphRecipient[];
+  hasAttachments?: boolean;
+  importance?: string | null;
 }
 
 interface GraphMessagesResponse {
@@ -167,6 +171,8 @@ function toMetadata(m: GraphMessage): GraphMessageMetadata {
     bcc: joinRecipients(m.bccRecipients),
     labelIds: m.categories ?? [],
     unread: m.isRead === false,
+    hasAttachments: m.hasAttachments === true,
+    importance: m.importance ?? null,
   };
 }
 
@@ -200,6 +206,12 @@ export interface GraphMessageBody {
   readonly text: string | null;
   readonly html: string | null;
   readonly attachments: readonly GraphAttachmentMeta[];
+  /** RFC 5322 Message-ID header value (no angle brackets). NULL only when Graph omits it. */
+  readonly rfc822MessageId: string | null;
+  readonly icsText: string | null;
+  readonly listUnsubscribe: string | null;
+  readonly listUnsubscribePost: string | null;
+  readonly important: boolean | null;
 }
 
 interface GraphAttachmentResponse {
@@ -214,6 +226,9 @@ interface GraphAttachmentResponse {
 interface GraphMessageBodyResponse {
   id: string;
   conversationId: string;
+  internetMessageId?: string | null;
+  internetMessageHeaders?: readonly { name?: string | null; value?: string | null }[];
+  importance?: string | null;
   body?: { contentType?: "text" | "html"; content?: string | null };
   attachments?: GraphAttachmentResponse[];
 }
@@ -226,7 +241,7 @@ export async function getGraphMessageBody(args: {
   const f = args.fetchImpl ?? fetch;
   const url =
     `https://graph.microsoft.com/v1.0/me/messages/${encodeURIComponent(args.messageId)}` +
-    `?$select=id,conversationId,body` +
+    `?$select=id,conversationId,internetMessageId,internetMessageHeaders,importance,body` +
     `&$expand=attachments($select=id,name,contentType,size,isInline,contentId)`;
   const res = await f(url, {
     headers: {
@@ -249,13 +264,70 @@ export async function getGraphMessageBody(args: {
     contentId: a.contentId ? a.contentId.replace(/^<|>$/g, "") : null,
     isInline: a.isInline === true,
   }));
+  const rawMid = json.internetMessageId?.trim() ?? "";
+  const hdr = parseInternetMessageHeaders(json.internetMessageHeaders);
+  const imp =
+    (json.importance ?? "").toLowerCase() === "high" ? true : hdr.important === true ? true : null;
+
+  let icsText: string | null = null;
+  for (const a of atts) {
+    const mt = (a.mime ?? "").toLowerCase();
+    if (
+      (mt.includes("calendar") || mt.includes("ics")) &&
+      a.providerAttachmentId &&
+      a.providerAttachmentId.length > 0
+    ) {
+      try {
+        const buf = await fetchGraphAttachmentBytes({
+          accessToken: args.accessToken,
+          messageId: args.messageId,
+          attachmentId: a.providerAttachmentId,
+          ...(args.fetchImpl ? { fetchImpl: args.fetchImpl } : {}),
+        });
+        icsText = buf.toString("utf8");
+      } catch {
+        icsText = null;
+      }
+      break;
+    }
+  }
+
   return {
     id: json.id,
     threadId: json.conversationId,
     text: ct === "text" ? content : null,
     html: ct === "html" ? content : null,
     attachments: atts,
+    rfc822MessageId: rawMid.length > 0 ? rawMid.replace(/^<|>$/g, "") : null,
+    icsText,
+    listUnsubscribe: hdr.listUnsubscribe,
+    listUnsubscribePost: hdr.listUnsubscribePost,
+    important: imp,
   };
+}
+
+function parseInternetMessageHeaders(
+  headers: readonly { name?: string | null; value?: string | null }[] | undefined,
+): {
+  listUnsubscribe: string | null;
+  listUnsubscribePost: string | null;
+  important: boolean | null;
+} {
+  let listUnsubscribe: string | null = null;
+  let listUnsubscribePost: string | null = null;
+  let important: boolean | null = null;
+  for (const h of headers ?? []) {
+    const name = (h.name ?? "").toLowerCase();
+    const value = (h.value ?? "").trim();
+    if (name === "list-unsubscribe") listUnsubscribe = value || null;
+    if (name === "list-unsubscribe-post") listUnsubscribePost = value || null;
+    if (name === "importance" && value.toLowerCase() === "high") important = true;
+    if (name === "x-priority") {
+      const n = Number.parseInt(value, 10);
+      if (n === 1 || n === 2) important = true;
+    }
+  }
+  return { listUnsubscribe, listUnsubscribePost, important };
 }
 
 // Fetch the actual bytes for one Graph attachment. We bypass the

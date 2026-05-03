@@ -56,6 +56,8 @@ interface SendPayload {
   accountId?: string;
   attachments?: AttachmentRef[];
   draftId?: string;
+  /** Request MDN (RFC 8098) — adds Disposition-Notification-To. */
+  requestReadReceipt?: boolean;
 }
 
 interface ReplyPayload {
@@ -71,6 +73,7 @@ interface ReplyPayload {
   to?: string[];
   cc?: string[];
   bcc?: string[];
+  requestReadReceipt?: boolean;
 }
 
 interface ForwardPayload {
@@ -84,6 +87,7 @@ interface ForwardPayload {
   attachments?: AttachmentRef[];
   includeOriginalAsEml?: boolean;
   accountId?: string;
+  requestReadReceipt?: boolean;
 }
 
 interface MarkReadPayload {
@@ -97,11 +101,12 @@ interface StarPayload {
   accountId?: string;
 }
 
-export function buildMailSendHandler(deps: MailSendDeps): CommandHandler<"mail:send", SendPayload> {
-  return async (cmd, ctx) => {
+export function buildMailSendHandler(base: MailSendDeps): CommandHandler<"mail:send", SendPayload> {
+  return async (cmd, hx) => {
+    const deps = { ...base, tenantId: hx.tenantId ?? base.tenantId };
     const payload = cmd.payload;
     const account = await pickAccount(deps, payload.accountId);
-    return sendAndSnapshot(deps, account, ctx, {
+    return sendAndSnapshot(deps, account, hx, {
       kind: "send",
       to: payload.to,
       ...(payload.cc ? { cc: payload.cc } : {}),
@@ -112,24 +117,40 @@ export function buildMailSendHandler(deps: MailSendDeps): CommandHandler<"mail:s
       ...(payload.inReplyTo ? { inReplyTo: payload.inReplyTo } : {}),
       ...(payload.attachments ? { attachmentRefs: payload.attachments } : {}),
       ...(payload.draftId ? { draftId: payload.draftId } : {}),
+      ...(payload.requestReadReceipt ? { readReceiptRequested: true } : {}),
     });
   };
 }
 
 export function buildMailReplyHandler(
-  deps: MailSendDeps,
+  base: MailSendDeps,
 ): CommandHandler<"mail:reply", ReplyPayload> {
-  return async (cmd, ctx) => {
+  return async (cmd, hx) => {
+    const deps = { ...base, tenantId: hx.tenantId ?? base.tenantId };
     const payload = cmd.payload;
 
-    const root = await withTenant(deps.pool, deps.tenantId, (tx) => {
+    // The UI sends the row id of *some* message in the thread (the
+    // route returns `id: root.id`, but root is only "first opened",
+    // not chronologically first). Fetch the row to learn the
+    // providerThreadId, then load the *latest* message in that thread
+    // — that's what In-Reply-To / References must point at, because
+    // recipient mail clients thread on the immediate parent.
+    const { anchor, latest } = await withTenant(deps.pool, deps.tenantId, async (tx) => {
       const repo = new OauthMessagesRepository(tx);
-      return repo.byId(deps.tenantId, payload.threadId);
+      const a = await repo.byId(deps.tenantId, payload.threadId);
+      if (!a) return { anchor: null, latest: null };
+      const all = await repo.listByProviderThread(deps.tenantId, a.providerThreadId);
+      // listByProviderThread orders ascending by internalDate; the
+      // last entry is the latest reply we know about. Fall back to
+      // the anchor itself if the list is empty (shouldn't happen,
+      // but defensive).
+      const l = all.length > 0 ? all[all.length - 1]! : a;
+      return { anchor: a, latest: l };
     });
-    if (!root) {
+    if (!anchor || !latest) {
       throw new MailaiError("not_found", `thread ${payload.threadId} not found`);
     }
-    const account = await pickAccount(deps, payload.accountId ?? root.oauthAccountId);
+    const account = await pickAccount(deps, payload.accountId ?? latest.oauthAccountId);
 
     // Recipient resolution. Caller-supplied lists take precedence — the
     // user might have removed the original sender, added a CC, etc. We
@@ -137,15 +158,35 @@ export function buildMailReplyHandler(
     // nothing, preserving the original simple-reply contract used by
     // CLI / agent callers.
     const to =
-      payload.to && payload.to.length > 0 ? payload.to : root.fromEmail ? [root.fromEmail] : [];
+      payload.to && payload.to.length > 0
+        ? payload.to
+        : latest.fromEmail
+          ? [latest.fromEmail]
+          : [];
     if (to.length === 0) {
       throw new MailaiError("validation_error", "source message has no from address to reply to");
     }
 
-    const subject = root.subject ? prefixRe(root.subject) : "(no subject)";
-    const ref = root.providerMessageId;
+    const subject = latest.subject ? prefixRe(latest.subject) : "(no subject)";
 
-    return sendAndSnapshot(deps, account, ctx, {
+    // Resolve the RFC 5322 Message-ID we need for In-Reply-To /
+    // References. Provider-internal ids (Gmail's 16-hex
+    // `providerMessageId`) are NOT valid here — recipient mail
+    // clients won't thread off them. If the column is empty
+    // (older row, never opened the body since the migration), fetch
+    // the body on demand and persist so future replies are cheap.
+    let inReplyToHeader = latest.rfc822MessageId;
+    if (!inReplyToHeader) {
+      inReplyToHeader = await backfillRfc822MessageId(deps, latest.oauthAccountId, latest);
+    }
+    if (!inReplyToHeader) {
+      console.warn("[mail:reply] sending without In-Reply-To/References", {
+        messageId: latest.id,
+        providerMessageId: latest.providerMessageId,
+      });
+    }
+
+    return sendAndSnapshot(deps, account, hx, {
       kind: "reply",
       to,
       ...(payload.cc && payload.cc.length > 0 ? { cc: payload.cc } : {}),
@@ -153,17 +194,60 @@ export function buildMailReplyHandler(
       subject,
       body: payload.body,
       ...(payload.bodyHtml ? { bodyHtml: payload.bodyHtml } : {}),
-      providerThreadId: root.providerThreadId,
-      inReplyToProviderId: ref,
+      providerThreadId: latest.providerThreadId,
+      ...(inReplyToHeader ? { inReplyToProviderId: inReplyToHeader } : {}),
       ...(payload.attachments ? { attachmentRefs: payload.attachments } : {}),
+      ...(payload.requestReadReceipt ? { readReceiptRequested: true } : {}),
     });
   };
 }
 
-export function buildMailForwardHandler(
+// On-demand backfill: fetch the message body from the provider just to
+// capture the RFC 5322 Message-ID header, then persist it through the
+// usual setBody path so subsequent replies are a pure DB read.
+//
+// Tolerates token / network / provider errors by returning null —
+// the caller logs and proceeds without In-Reply-To rather than failing
+// the whole send.
+async function backfillRfc822MessageId(
   deps: MailSendDeps,
+  accountId: string,
+  row: { id: string; providerMessageId: string },
+): Promise<string | null> {
+  try {
+    const account = await pickAccount(deps, accountId);
+    const accessToken = await refreshToken(deps, account);
+    const body = await deps.providers.for(account.provider).fetchMessageBody({
+      accessToken,
+      providerMessageId: row.providerMessageId,
+    });
+    const mid = body.rfc822MessageId ?? null;
+    if (mid) {
+      await withTenant(deps.pool, deps.tenantId, async (tx) => {
+        const repo = new OauthMessagesRepository(tx);
+        await repo.setBody(deps.tenantId, row.id, {
+          text: body.text,
+          html: body.html,
+          rfc822MessageId: mid,
+        });
+      });
+    }
+    return mid;
+  } catch (err) {
+    console.warn("[mail:reply] rfc822 Message-ID backfill failed", {
+      messageId: row.id,
+      providerMessageId: row.providerMessageId,
+      err: String(err),
+    });
+    return null;
+  }
+}
+
+export function buildMailForwardHandler(
+  base: MailSendDeps,
 ): CommandHandler<"mail:forward", ForwardPayload> {
-  return async (cmd, ctx) => {
+  return async (cmd, hx) => {
+    const deps = { ...base, tenantId: hx.tenantId ?? base.tenantId };
     const payload = cmd.payload;
     // Source must exist locally so we can borrow subject / threading
     // hooks, and so the includeOriginalAsEml path can fetch raw bytes
@@ -185,7 +269,7 @@ export function buildMailForwardHandler(
     if (payload.includeOriginalAsEml !== false) {
       forwardedRaw = await loadRawForMessage(deps, account, source.providerMessageId);
     }
-    return sendAndSnapshot(deps, account, ctx, {
+    return sendAndSnapshot(deps, account, hx, {
       kind: "forward",
       to: payload.to,
       ...(payload.cc ? { cc: payload.cc } : {}),
@@ -195,27 +279,79 @@ export function buildMailForwardHandler(
       ...(payload.bodyHtml ? { bodyHtml: payload.bodyHtml } : {}),
       ...(payload.attachments ? { attachmentRefs: payload.attachments } : {}),
       ...(forwardedRaw ? { forwardedRaw } : {}),
+      ...(payload.requestReadReceipt ? { readReceiptRequested: true } : {}),
     });
   };
 }
 
+interface ImportancePayload {
+  providerMessageId: string;
+  important: boolean;
+  accountId?: string;
+}
+
+export function buildMailSetImportanceHandler(
+  base: MailSendDeps,
+): CommandHandler<"mail:set-importance", ImportancePayload> {
+  return async (cmd, hx) => {
+    const deps = { ...base, tenantId: hx.tenantId ?? base.tenantId };
+    const payload = cmd.payload;
+    const message = await withTenant(deps.pool, deps.tenantId, async (tx) => {
+      const repo = new OauthMessagesRepository(tx);
+      const all = await repo.listByTenant(deps.tenantId, { limit: 500 });
+      return all.find((m) => m.providerMessageId === payload.providerMessageId) ?? null;
+    });
+    if (!message) {
+      throw new MailaiError("not_found", `message ${payload.providerMessageId} not found locally`);
+    }
+    const account = await pickAccount(deps, payload.accountId ?? message.oauthAccountId);
+    const accessToken = await refreshToken(deps, account);
+    await deps.providers.for(account.provider).setImportant({
+      accessToken,
+      providerMessageId: payload.providerMessageId,
+      important: payload.important,
+    });
+    await withTenant(deps.pool, deps.tenantId, async (tx) => {
+      const repo = new OauthMessagesRepository(tx);
+      await repo.setImportantByProvider(
+        deps.tenantId,
+        message.oauthAccountId,
+        payload.providerMessageId,
+        payload.important,
+      );
+    });
+    const snapshot: EntitySnapshot = {
+      kind: "message",
+      id: payload.providerMessageId,
+      version: 1,
+      data: { important: payload.important },
+    };
+    return {
+      before: [{ kind: "message", id: payload.providerMessageId, version: 0, data: {} }],
+      after: [snapshot],
+      imapSideEffects: [],
+    };
+  };
+}
+
 export function buildMailMarkReadHandler(
-  deps: MailSendDeps,
+  base: MailSendDeps,
 ): CommandHandler<"mail:mark-read", MarkReadPayload> {
-  return buildMarkReadOrUnread(deps, false);
+  return buildMarkReadOrUnread(base, false);
 }
 
 export function buildMailMarkUnreadHandler(
-  deps: MailSendDeps,
+  base: MailSendDeps,
 ): CommandHandler<"mail:mark-unread", MarkReadPayload> {
-  return buildMarkReadOrUnread(deps, true);
+  return buildMarkReadOrUnread(base, true);
 }
 
 function buildMarkReadOrUnread<T extends "mail:mark-read" | "mail:mark-unread">(
-  deps: MailSendDeps,
+  base: MailSendDeps,
   unread: boolean,
 ): CommandHandler<T, MarkReadPayload> {
-  return (async (cmd) => {
+  return (async (cmd, hx) => {
+    const deps = { ...base, tenantId: hx.tenantId ?? base.tenantId };
     const payload = cmd.payload;
     const rows = await withTenant(deps.pool, deps.tenantId, async (tx) => {
       const repo = new OauthMessagesRepository(tx);
@@ -264,8 +400,9 @@ function buildMarkReadOrUnread<T extends "mail:mark-read" | "mail:mark-unread">(
   }) as CommandHandler<T, MarkReadPayload>;
 }
 
-export function buildMailStarHandler(deps: MailSendDeps): CommandHandler<"mail:star", StarPayload> {
-  return async (cmd) => {
+export function buildMailStarHandler(base: MailSendDeps): CommandHandler<"mail:star", StarPayload> {
+  return async (cmd, hx) => {
+    const deps = { ...base, tenantId: hx.tenantId ?? base.tenantId };
     const payload = cmd.payload;
     const message = await withTenant(deps.pool, deps.tenantId, async (tx) => {
       const repo = new OauthMessagesRepository(tx);
@@ -319,6 +456,7 @@ interface SendIntent {
   attachmentRefs?: AttachmentRef[] | undefined;
   draftId?: string | undefined;
   forwardedRaw?: Buffer | undefined;
+  readReceiptRequested?: boolean;
 }
 
 async function sendAndSnapshot(
@@ -354,6 +492,11 @@ async function sendAndSnapshot(
     ...(attachments.length > 0 ? { attachments } : {}),
     ...(intent.forwardedRaw
       ? { forwarded: { raw: intent.forwardedRaw, filename: "forwarded.eml" } }
+      : {}),
+    ...(intent.readReceiptRequested
+      ? {
+          extraHeaders: [{ name: "Disposition-Notification-To", value: account.email }],
+        }
       : {}),
   });
   const messageId = composed.messageId.replace(/^<|>$/g, "");
@@ -439,6 +582,7 @@ async function mirrorSentMessage(
     ...(args.intent.bcc ? { bcc: args.intent.bcc } : {}),
     snippet: args.snippet,
     sentAt: new Date(),
+    readReceiptRequested: args.intent.readReceiptRequested === true,
   });
   await withTenant(deps.pool, deps.tenantId, async (tx) => {
     const repo = new OauthMessagesRepository(tx);
@@ -459,6 +603,7 @@ export interface SentMirrorInput {
   readonly bcc?: readonly string[];
   readonly snippet: string;
   readonly sentAt: Date;
+  readonly readReceiptRequested?: boolean;
 }
 
 // Pure factory exported for unit tests. Keeps the SQL-backed mirror
@@ -486,6 +631,7 @@ export function buildSentMirrorRow(input: SentMirrorInput) {
     labelsJson: [] as string[],
     unread: false,
     wellKnownFolder: "sent" as const,
+    ...(input.readReceiptRequested ? { readReceiptRequested: true } : {}),
   };
 }
 

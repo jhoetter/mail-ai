@@ -21,6 +21,7 @@ export interface ViewFilter {
   readonly status?: ReadonlyArray<"open" | "snoozed" | "done">;
   readonly fromContains?: string;
   readonly unread?: boolean;
+  readonly important?: boolean;
   readonly accountIds?: readonly string[];
   // Semantic view kinds. "drafts" pulls from its own table; the
   // others are filtered by oauth_messages.well_known_folder so the
@@ -71,24 +72,31 @@ const BUILTINS: ReadonlyArray<{
     position: 0,
     filter: { kind: "default", status: ["open"] },
   },
-  { suffix: "drafts", name: "Drafts", icon: "✏️", position: 1, filter: { kind: "drafts" } },
-  { suffix: "sent", name: "Sent", icon: "📤", position: 2, filter: { kind: "sent" } },
+  {
+    suffix: "important",
+    name: "Wichtig",
+    icon: "❗",
+    position: 1,
+    filter: { kind: "default", status: ["open"], important: true },
+  },
+  { suffix: "drafts", name: "Drafts", icon: "✏️", position: 2, filter: { kind: "drafts" } },
+  { suffix: "sent", name: "Sent", icon: "📤", position: 3, filter: { kind: "sent" } },
   {
     suffix: "snoozed",
     name: "Snoozed",
     icon: "💤",
-    position: 3,
+    position: 4,
     filter: { kind: "default", status: ["snoozed"] },
   },
   {
     suffix: "done",
     name: "Done",
     icon: "✓",
-    position: 4,
+    position: 5,
     filter: { kind: "default", status: ["done"] },
   },
-  { suffix: "trash", name: "Trash", icon: "🗑️", position: 5, filter: { kind: "trash" } },
-  { suffix: "spam", name: "Spam", icon: "🚫", position: 6, filter: { kind: "spam" } },
+  { suffix: "trash", name: "Trash", icon: "🗑️", position: 6, filter: { kind: "trash" } },
+  { suffix: "spam", name: "Spam", icon: "🚫", position: 7, filter: { kind: "spam" } },
 ];
 
 export class ViewsRepository {

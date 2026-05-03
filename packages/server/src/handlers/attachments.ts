@@ -13,7 +13,12 @@
 // real `oauth_attachments` rows and the staging bytes are copied into
 // the message namespace.
 
-import type { Command, CommandHandler, HandlerContext, HandlerResult } from "@mailai/core";
+import type {
+  Command,
+  CommandHandler,
+  HandlerContext,
+  HandlerResult,
+} from "@mailai/core";
 import { MailaiError, randomId } from "@mailai/core";
 import {
   DraftAttachmentsRepository,
@@ -50,12 +55,13 @@ interface RemovePayload {
 }
 
 export function buildAttachmentUploadInitHandler(
-  deps: AttachmentDeps,
+  base: AttachmentDeps,
 ): CommandHandler<"attachment:upload-init", UploadInitPayload> {
   return async (
     cmd: Command<"attachment:upload-init", UploadInitPayload>,
-    _ctx: HandlerContext,
+    hx: HandlerContext,
   ): Promise<HandlerResult> => {
+    const deps = { ...base, tenantId: hx.tenantId ?? base.tenantId };
     const payload = cmd.payload;
     const fileId = `file_${randomId()}`;
     // The "draft" prefix is intentional: we know nothing about a real
@@ -92,12 +98,13 @@ export function buildAttachmentUploadInitHandler(
 }
 
 export function buildAttachmentUploadFinaliseHandler(
-  deps: AttachmentDeps,
+  base: AttachmentDeps,
 ): CommandHandler<"attachment:upload-finalise", UploadFinalisePayload> {
   return async (
     cmd: Command<"attachment:upload-finalise", UploadFinalisePayload>,
-    _ctx: HandlerContext,
+    hx: HandlerContext,
   ): Promise<HandlerResult> => {
+    const deps = { ...base, tenantId: hx.tenantId ?? base.tenantId };
     const payload = cmd.payload;
     // Refuse to record metadata for an object that didn't actually
     // land in S3 — the browser may have aborted the PUT.
@@ -139,9 +146,10 @@ export function buildAttachmentUploadFinaliseHandler(
 }
 
 export function buildAttachmentRemoveHandler(
-  deps: AttachmentDeps,
+  base: AttachmentDeps,
 ): CommandHandler<"attachment:remove", RemovePayload> {
-  return async (cmd: { payload: RemovePayload }): Promise<HandlerResult> => {
+  return async (cmd: { payload: RemovePayload }, hx: HandlerContext): Promise<HandlerResult> => {
+    const deps = { ...base, tenantId: hx.tenantId ?? base.tenantId };
     const payload = cmd.payload;
     const row = await withTenant(deps.pool, deps.tenantId, async (tx) => {
       const repo = new DraftAttachmentsRepository(tx);

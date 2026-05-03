@@ -1,0 +1,17 @@
+BEGIN:VCALENDAR
+PRODID:-//Microsoft Corporation//Outlook 16.0 MIMEDIR//EN
+VERSION:2.0
+METHOD:REQUEST
+BEGIN:VEVENT
+UID:fixture-teams-001@outlook.com
+SEQUENCE:0
+DTSTAMP:20260420T120000Z
+DTSTART:20260424T083000Z
+DTEND:20260424T093000Z
+SUMMARY:Project sync
+DESCRIPTION:Microsoft Teams meeting\n_____\nJoin on your computer or mobile app\nClick here to join the meeting <https://teams.microsoft.com/l/meetup-join/19%3aabc%40thread.v2/0?context=%7b%22Tid%22%3a%22tid%22%2c%22Oid%22%3a%22oid%22%7d>
+LOCATION:Microsoft Teams Meeting
+ORGANIZER;CN=Alice:mailto:alice@example.com
+X-MICROSOFT-SKYPETEAMSMEETINGURL:https://teams.microsoft.com/l/meetup-join/19%3aabc%40thread.v2/0
+END:VEVENT
+END:VCALENDAR

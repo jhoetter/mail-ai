@@ -101,6 +101,10 @@ export interface MailProvider {
     args: AccessTokenArgs & { providerMessageId: string; starred: boolean },
   ): Promise<void>;
 
+  setImportant(
+    args: AccessTokenArgs & { providerMessageId: string; important: boolean },
+  ): Promise<void>;
+
   // Delta sync — optional in spirit but always present on the
   // type so callers don't have to do shape-sniffing. Adapters
   // without delta return {inserted:[], updated:[], deleted:[],

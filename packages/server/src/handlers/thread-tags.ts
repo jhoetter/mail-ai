@@ -41,9 +41,10 @@ interface RemoveTagPayload {
 }
 
 export function buildThreadAddTagHandler(
-  deps: ThreadTagDeps,
+  base: ThreadTagDeps,
 ): CommandHandler<"thread:add-tag", AddTagPayload> {
-  return async (cmd) => {
+  return async (cmd, hx) => {
+    const deps = { ...base, tenantId: hx.tenantId ?? base.tenantId };
     const { threadId, tag } = cmd.payload;
     return withTenant(deps.pool, deps.tenantId, async (tx) => {
       const messages = new OauthMessagesRepository(tx);
@@ -64,9 +65,10 @@ export function buildThreadAddTagHandler(
 }
 
 export function buildThreadRemoveTagHandler(
-  deps: ThreadTagDeps,
+  base: ThreadTagDeps,
 ): CommandHandler<"thread:remove-tag", RemoveTagPayload> {
-  return async (cmd) => {
+  return async (cmd, hx) => {
+    const deps = { ...base, tenantId: hx.tenantId ?? base.tenantId };
     const { threadId, tag } = cmd.payload;
     return withTenant(deps.pool, deps.tenantId, async (tx) => {
       const messages = new OauthMessagesRepository(tx);

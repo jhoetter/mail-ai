@@ -35,6 +35,7 @@ import {
 import type { MailProviderRegistry } from "@mailai/providers";
 import { NangoClient } from "./nango-client.js";
 import { syncOauthAccount } from "./sync.js";
+import { createMailRulesBatchCollector } from "../mail/apply-mail-rules.js";
 
 export interface OauthRoutesDeps {
   readonly pool: Pool;
@@ -221,18 +222,24 @@ export function registerOauthRoutes(app: FastifyInstance, deps: OauthRoutesDeps)
     // in oauth_accounts.last_sync_error and exposed on /api/accounts;
     // the connect flow itself still succeeds. We await briefly (≤8s)
     // so the typical case shows mail immediately, then return.
-    const syncPromise = withTenant(deps.pool, ident.tenantId, async (tx) => {
-      const accounts = new OauthAccountsRepository(tx);
-      const messages = new OauthMessagesRepository(tx);
-      const fresh = await accounts.byId(ident.tenantId, saved.id);
-      if (!fresh) return null;
-      return syncOauthAccount(fresh, {
-        accounts,
-        messages,
-        credentials,
-        providers: deps.providers,
+    const syncPromise = (async () => {
+      const rules = createMailRulesBatchCollector();
+      const inner = await withTenant(deps.pool, ident.tenantId, async (tx) => {
+        const accounts = new OauthAccountsRepository(tx);
+        const messages = new OauthMessagesRepository(tx);
+        const fresh = await accounts.byId(ident.tenantId, saved.id);
+        if (!fresh) return null;
+        return syncOauthAccount(fresh, {
+          accounts,
+          messages,
+          credentials,
+          providers: deps.providers,
+          onBatchUpserted: rules.onBatchUpserted,
+        });
       });
-    });
+      await rules.flush(deps.pool, ident.tenantId);
+      return inner;
+    })();
     let syncResult: Awaited<typeof syncPromise> | null = null;
     try {
       syncResult = await Promise.race([
@@ -269,6 +276,7 @@ export function registerOauthRoutes(app: FastifyInstance, deps: OauthRoutesDeps)
     const requestedFolders = parseFolders(q.folders);
     const backfillPages = parsePositiveInt(q.backfill);
     try {
+      const rules = createMailRulesBatchCollector();
       const result = await withTenant(deps.pool, ident.tenantId, async (tx) => {
         const accounts = new OauthAccountsRepository(tx);
         const messages = new OauthMessagesRepository(tx);
@@ -279,15 +287,14 @@ export function registerOauthRoutes(app: FastifyInstance, deps: OauthRoutesDeps)
           messages,
           credentials,
           providers: deps.providers,
+          onBatchUpserted: rules.onBatchUpserted,
           ...(requestedFolders ? { folders: requestedFolders } : {}),
           ...(backfillPages ? { maxPagesPerFolder: backfillPages } : {}),
-          // The Backfill button passes `backfill=N`; that intent is
-          // "walk listMessages, ignore any delta watermark". Encode it
-          // here so the UI doesn't have to know the column model.
           ...(backfillPages ? { forceFull: true } : {}),
         });
         return { notFound: false as const, ...r };
       });
+      await rules.flush(deps.pool, ident.tenantId);
       if (result.notFound) {
         return reply.code(404).send({ error: "not_found" });
       }
@@ -335,6 +342,7 @@ export function registerOauthRoutes(app: FastifyInstance, deps: OauthRoutesDeps)
           unread: m.unread,
           starred: m.starred,
           hasAttachments: m.hasAttachments,
+          important: m.important,
           labels: m.labelsJson,
           date: m.internalDate.toISOString(),
           tags: tags.map((t) => ({ id: t.id, name: t.name, color: t.color })),

@@ -21,6 +21,9 @@ export interface ThreadSummary {
   status?: "open" | "snoozed" | "done" | "draft";
   starred?: boolean;
   hasAttachments?: boolean;
+  important?: boolean;
+  /** Set on draft rows when using send-later. */
+  scheduledSendAt?: string | null;
 }
 
 export interface TagSummary {
@@ -69,10 +72,19 @@ export interface ThreadMessage {
   snippet: string;
   unread: boolean;
   starred: boolean;
+  important?: boolean;
+  hasInvite?: boolean;
   hasAttachments: boolean;
   bodyText: string | null;
   bodyHtml: string | null;
   bodyFetchedAt: string | null;
+  bodyIcs?: string | null;
+  listUnsubscribe?: string | null;
+  listUnsubscribePost?: string | null;
+  readReceiptRequested?: boolean;
+  readReceiptReceivedAt?: string | null;
+  /** Present when message is from Sent — used for read-receipt chips. */
+  wellKnownFolder?: "inbox" | "sent" | "drafts" | "trash" | "spam" | "archive";
   attachments: ThreadAttachment[];
 }
 

@@ -103,9 +103,36 @@ export const oauthAccounts = pgTable(
     // configured one.
     signatureHtml: text("signature_html"),
     signatureText: text("signature_text"),
+    // Local auto-reply (vacation) — optional sync with provider OOO APIs later.
+    vacationEnabled: boolean("vacation_enabled").notNull().default(false),
+    vacationSubject: text("vacation_subject"),
+    vacationMessage: text("vacation_message"),
+    vacationStartsAt: timestamp("vacation_starts_at", { withTimezone: true }),
+    vacationEndsAt: timestamp("vacation_ends_at", { withTimezone: true }),
   },
   (t) => ({
     emailIdx: uniqueIndex("oauth_accounts_tenant_email_idx").on(t.tenantId, t.provider, t.email),
+  }),
+);
+
+/** User-defined mail rules (filters). Applied post-sync / on demand. */
+export const mailRules = pgTable(
+  "mail_rules",
+  {
+    id: text("id").primaryKey(),
+    tenantId: text("tenant_id").notNull(),
+    oauthAccountId: text("oauth_account_id")
+      .references(() => oauthAccounts.id, { onDelete: "cascade" })
+      .notNull(),
+    name: text("name").notNull(),
+    conditionsJson: jsonb("conditions_json").notNull(),
+    actionsJson: jsonb("actions_json").notNull(),
+    enabled: boolean("enabled").notNull().default(true),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => ({
+    ruleIdx: index("mail_rules_tenant_account_idx").on(t.tenantId, t.oauthAccountId),
   }),
 );
 
@@ -137,6 +164,21 @@ export const oauthMessages = pgTable(
     bodyText: text("body_text"),
     bodyHtml: text("body_html"),
     bodyFetchedAt: timestamp("body_fetched_at", { withTimezone: true }),
+    // RFC 5322 Message-ID header value (no angle brackets). Captured
+    // on body fetch and used by the reply path so In-Reply-To /
+    // References match what other mail clients store. NULL until the
+    // first body fetch lands.
+    rfc822MessageId: text("rfc822_message_id"),
+    // Raw text/calendar body from the first inline VCALENDAR part, if any.
+    bodyIcs: text("body_ics"),
+    // High-priority / Important (Gmail IMPORTANT label, Outlook importance, or headers).
+    important: boolean("important").notNull().default(false),
+    // RFC 2369 / RFC 8058 one-click unsubscribe (raw List-Unsubscribe header).
+    listUnsubscribe: text("list_unsubscribe"),
+    listUnsubscribePost: text("list_unsubscribe_post"),
+    // Read receipt: user requested MDN on send; inbound MDN received for outbound.
+    readReceiptRequested: boolean("read_receipt_requested").notNull().default(false),
+    readReceiptReceivedAt: timestamp("read_receipt_received_at", { withTimezone: true }),
     // Cheap flags so list views can render attachment / star
     // indicators without joining `oauth_attachments` or parsing
     // `labels_json`. Kept in sync by the sync worker.

@@ -33,6 +33,8 @@
     "auditLog": "Audit-Log",
     "calendar": "Kalender",
     "tags": "Tags",
+    "mailRules": "Mail-Regeln",
+    "vacation": "Abwesenheit",
     "soon": "bald"
   },
   "inbox": {
@@ -47,7 +49,9 @@
     "columnDate": "Datum",
     "star": "Markieren",
     "unstar": "Markierung entfernen",
-    "hasAttachment": "Hat einen Anhang"
+    "hasAttachment": "Hat einen Anhang",
+    "important": "Wichtig",
+    "scheduledSend": "Später senden"
   },
   "emptyView": {
     "noAccountsTitle": "Verbinde ein Postfach, um loszulegen.",
@@ -123,13 +127,51 @@
     "imagePreview": "Bildvorschau",
     "closeImagePreview": "Vorschau schließen",
     "msgUnsupported": ".msg-Dateien können nicht in der Vorschau geöffnet werden; bitte herunterladen.",
-    "tags": {
-      "addPlaceholder": "Tag hinzufügen…",
-      "snooze": "Zurückstellen",
-      "snoozeUntil": "Zurückstellen bis…",
-      "markDone": "Als erledigt",
-      "reopen": "Wieder öffnen"
-    }
+    "inviteLoadError": "Einladung konnte nicht geladen werden",
+    "inviteLoading": "Kalendereinladung wird geladen…",
+    "inviteCancelled": "Dieser Termin wurde abgesagt: {title}",
+    "inviteUnknownOrganizer": "Unbekannte:r Organisator:in",
+    "inviteOrganizer": "Organisator:in",
+    "inviteWhere": "Ort",
+    "inviteJoin": "Meeting beitreten",
+    "inviteJoinGoogleMeet": "Mit Google Meet beitreten",
+    "inviteJoinTeams": "Microsoft Teams öffnen",
+    "inviteJoinZoom": "Zoom-Meeting öffnen",
+    "inviteJoinWebex": "Webex-Meeting öffnen",
+    "inviteJoinGoToMeeting": "GoToMeeting öffnen",
+    "inviteOnCalendar": "Im Kalender",
+    "inviteRsvpPrompt": "Zusagen?",
+    "inviteAccept": "Ja",
+    "inviteMaybe": "Vielleicht",
+    "inviteDecline": "Nein",
+    "inviteOpenCalendar": "Kalender öffnen",
+    "inviteConflicts": "Zu diesem Zeitpunkt gibt es Konflikte im Kalender.",
+    "inviteRecurDaily": "Wiederholt sich täglich",
+    "inviteRecurWeekly": "Wiederholt sich wöchentlich",
+    "inviteRecurMonthly": "Wiederholt sich monatlich",
+    "inviteRecurYearly": "Wiederholt sich jährlich",
+    "inviteRecurs": "Wiederkehrender Termin",
+    "showOriginalMessage": "Originalnachricht anzeigen",
+    "hideOriginalMessage": "Originalnachricht ausblenden",
+    "markImportant": "Als wichtig markieren",
+    "unmarkImportant": "Wichtig entfernen",
+    "unsubscribe": "Abmelden",
+    "unsubscribeConfirm": "Von dieser Liste abmelden? Manche Optionen öffnen eine Bestätigungsseite oder den Mail-Client.",
+    "readReceiptRequested": "Lesebestätigung angefordert",
+    "readReceiptReceived": "Lesebestätigung erhalten"
+  },
+  "connection": {
+    "live": "Live",
+    "warning": "Aktion nötig",
+    "offline": "Getrennt",
+    "loading": "Prüfung…",
+    "errorPrefix": "Konten konnten nicht geprüft werden",
+    "noMailAccounts": "Kein Postfach verbunden. Verknüpfe ein Gmail- oder Outlook-Konto in den Einstellungen.",
+    "noCalendarAccounts": "Kein Kalender verbunden. Verknüpfe ein Gmail- oder Outlook-Konto in den Einstellungen.",
+    "statusOk": "verbunden",
+    "statusNeedsReauth": "Anmeldung erforderlich (Token abgelaufen oder widerrufen)",
+    "statusRevoked": "vom Anbieter getrennt",
+    "lastSyncError": "letzter Sync fehlgeschlagen"
   },
   "composer": {
     "newMessage": "Neue Nachricht",
@@ -156,7 +198,28 @@
     "uploadFailed": "Upload fehlgeschlagen",
     "attachmentTooLarge": "Anhang überschreitet das Limit (25 MB).",
     "dropFilesHere": "Dateien hier ablegen",
-    "toRequired": "Mindestens eine:n Empfänger:in eingeben."
+    "toRequired": "Mindestens eine:n Empfänger:in eingeben.",
+    "requestReadReceipt": "Lesebestätigung anfordern",
+    "sendLater": "Später senden",
+    "scheduleSendAt": "Senden am…"
+  },
+  "settings": {
+    "vacation": {
+      "help": "Speichert deine Abwesenheitsnachricht lokal. Synchronisation mit Gmail-/Outlook-Urlaubs-APIs kann später ergänzt werden.",
+      "enabled": "Automatische Antwort aktiv",
+      "message": "Text der Auto-Antwort",
+      "starts": "Beginn",
+      "ends": "Ende",
+      "saved": "Abwesenheit gespeichert."
+    },
+    "mailRules": {
+      "help": "Regeln laufen nach jedem Sync-Batch. Bedingungen: fromContains, subjectRegex (JS-RegExp-String), hasAttachment.",
+      "create": "Neue Regel",
+      "namePlaceholder": "Regelname",
+      "list": "Aktive Regeln",
+      "empty": "Noch keine Regeln.",
+      "disabled": "aus"
+    }
   },
   "contacts": {
     "suggestionsLabel": "Empfänger-Vorschläge",

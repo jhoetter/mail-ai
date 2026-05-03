@@ -226,6 +226,15 @@ export async function respondEvent(input: {
   await dispatchCommand({ type: "calendar:respond", payload: input });
 }
 
+export async function respondInviteFromIcs(input: {
+  messageId: string;
+  attachmentId?: string;
+  response: "accepted" | "declined" | "tentative";
+  comment?: string;
+}): Promise<void> {
+  await dispatchCommand({ type: "calendar:respond-from-ics", payload: input });
+}
+
 // Wrapper for /api/contacts/suggest used by ContactPicker. Returns
 // the normalized item shape the picker expects.
 export interface ContactsSuggestItem {

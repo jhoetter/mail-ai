@@ -34,6 +34,11 @@ function fakeAccount(over: Partial<OauthAccountRow> = {}): OauthAccountRow {
     signatureText: null,
     historyId: null,
     deltaLink: null,
+    vacationEnabled: false,
+    vacationSubject: null,
+    vacationMessage: null,
+    vacationStartsAt: null,
+    vacationEndsAt: null,
     ...over,
   };
 }

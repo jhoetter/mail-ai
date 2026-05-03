@@ -10,7 +10,8 @@
 // thread or message we walk every row whose body_fetched_at is NULL,
 // pull text/html bodies from the provider in parallel (capped
 // concurrency), and persist them through OauthMessagesRepository.setBody
-// so subsequent opens are a pure DB read.
+// after a successful provider response (never when the token was
+// unavailable or fetchMessageBody threw), so retries work on later opens.
 //
 // Why fetch the whole thread eagerly: this is what users expect from
 // Gmail/Outlook — open a conversation, see every message expanded
@@ -33,6 +34,7 @@ import {
 import { getValidAccessToken, type ProviderCredentials } from "@mailai/oauth-tokens";
 import type { MailProviderRegistry, NormalizedAttachment } from "@mailai/providers";
 import { randomId } from "@mailai/core";
+import { resolveIcsBufferForTenant } from "../calendar/ics-invite-response.js";
 
 export interface ThreadRoutesDeps {
   readonly pool: Pool;
@@ -93,6 +95,32 @@ export function registerThreadRoutes(app: FastifyInstance, deps: ThreadRoutesDep
     const row = filled ?? m;
     const attachmentsByMsg = await loadAttachments(deps, ident.tenantId, [row]);
     return toMessage(row, attachmentsByMsg.get(row.id) ?? []);
+  });
+
+  /** Parse `body_ics` for inline text/calendar parts (no `.ics` attachment). */
+  app.get("/api/messages/:id/ics", async (req, reply) => {
+    const ident = await deps.identity({ headers: req.headers as Record<string, unknown> });
+    const { id } = req.params as { id: string };
+    const m = await withTenant(deps.pool, ident.tenantId, async (tx) => {
+      const repo = new OauthMessagesRepository(tx);
+      return repo.byId(ident.tenantId, id);
+    });
+    if (!m) {
+      return reply.code(404).send({ error: "not_found", message: `message ${id} not found` });
+    }
+    const icsText = m.bodyIcs?.trim();
+    if (!icsText) {
+      return reply.code(404).send({ error: "not_found", message: "message has no inline calendar body" });
+    }
+    const resolved = await resolveIcsBufferForTenant(
+      deps.pool,
+      ident.tenantId,
+      Buffer.from(icsText, "utf8"),
+    );
+    if (!resolved.ok) {
+      return reply.code(422).send({ error: "parse_failed", message: "no VEVENT in ICS" });
+    }
+    return resolved.body;
   });
 }
 
@@ -160,9 +188,16 @@ async function fillBodiesIfMissing(
     id: string;
     text: string | null;
     html: string | null;
+    rfc822MessageId: string | null;
+    bodyIcs: string | null;
+    listUnsubscribe: string | null;
+    listUnsubscribePost: string | null;
     attachments: NormalizedAttachment[];
     providerMessageId: string;
     oauthAccountId: string;
+    /** False when we never successfully called the provider (no token, or fetch threw). */
+    persisted: boolean;
+    markImportant?: boolean;
   }
   const fetched: Fetched[] = await mapWithConcurrency(missing, 6, async (m) => {
     const tok = tokensByAccount.get(m.oauthAccountId);
@@ -172,21 +207,53 @@ async function fillBodiesIfMissing(
       oauthAccountId: m.oauthAccountId,
     };
     if (!tok) {
-      return { ...base, text: null, html: null, attachments: [] };
+      return {
+        ...base,
+        text: null,
+        html: null,
+        rfc822MessageId: null,
+        bodyIcs: null,
+        listUnsubscribe: null,
+        listUnsubscribePost: null,
+        attachments: [],
+        persisted: false,
+      };
     }
     try {
       const body = await deps.providers.for(tok.account.provider).fetchMessageBody({
         accessToken: tok.accessToken,
         providerMessageId: m.providerMessageId,
       });
-      return {
+      const out: Fetched = {
         ...base,
         text: body.text,
         html: body.html,
+        rfc822MessageId: body.rfc822MessageId ?? null,
+        bodyIcs: body.icsText ?? null,
+        listUnsubscribe: body.listUnsubscribe ?? null,
+        listUnsubscribePost: body.listUnsubscribePost ?? null,
         attachments: [...body.attachments],
+        persisted: true,
       };
-    } catch {
-      return { ...base, text: null, html: null, attachments: [] };
+      if (body.important === true) out.markImportant = true;
+      return out;
+    } catch (err) {
+      console.warn("[threads] fetchMessageBody failed (will retry next open)", {
+        messageId: m.id,
+        providerMessageId: m.providerMessageId,
+        err: String(err),
+      });
+      return {
+        ...base,
+        text: null,
+        html: null,
+        rfc822MessageId: null,
+        bodyIcs: null,
+        listUnsubscribe: null,
+        listUnsubscribePost: null,
+        attachments: [],
+        persisted: false,
+      };
     }
   });
 
@@ -198,7 +265,29 @@ async function fillBodiesIfMissing(
     const repo = new OauthMessagesRepository(tx);
     const attRepo = new OauthAttachmentsRepository(tx);
     for (const r of fetched) {
-      await repo.setBody(tenantId, r.id, { text: r.text, html: r.html });
+      if (!r.persisted) continue;
+      await repo.setBody(tenantId, r.id, {
+        text: r.text,
+        html: r.html,
+        rfc822MessageId: r.rfc822MessageId,
+        bodyIcs: r.bodyIcs,
+        listUnsubscribe: r.listUnsubscribe,
+        listUnsubscribePost: r.listUnsubscribePost,
+      });
+      if (r.markImportant) {
+        await repo.setImportant(tenantId, r.id, true);
+      }
+      const srcRow = missing.find((x) => x.id === r.id);
+      if (
+        srcRow &&
+        srcRow.wellKnownFolder === "inbox" &&
+        looksLikeDispositionNotification(r.text, r.html)
+      ) {
+        const origId = extractMdnOriginalMessageId(r.text, r.html);
+        if (origId) {
+          await repo.applyReadReceiptForOriginal(tenantId, r.oauthAccountId, origId);
+        }
+      }
       let hasAtts = false;
       for (const att of r.attachments) {
         const id = `att_${randomId()}`;
@@ -233,14 +322,39 @@ async function fillBodiesIfMissing(
   const byId = new Map(fetched.map((r) => [r.id, r]));
   return rows.map((row) => {
     const b = byId.get(row.id);
-    if (!b) return row;
+    if (!b || !b.persisted) return row;
     return {
       ...row,
       bodyText: b.text,
       bodyHtml: b.html,
       bodyFetchedAt: new Date(),
+      rfc822MessageId: b.rfc822MessageId ?? row.rfc822MessageId,
+      bodyIcs: b.bodyIcs ?? row.bodyIcs,
+      listUnsubscribe: b.listUnsubscribe ?? row.listUnsubscribe,
+      listUnsubscribePost: b.listUnsubscribePost ?? row.listUnsubscribePost,
+      important: b.markImportant ? true : row.important,
     };
   });
+}
+
+function looksLikeDispositionNotification(text: string | null, html: string | null): boolean {
+  const b = `${text ?? ""}\n${html ?? ""}`.toLowerCase();
+  return (
+    b.includes("disposition-notification") ||
+    b.includes("multipart/report") ||
+    b.includes("message/disposition-notification")
+  );
+}
+
+function extractMdnOriginalMessageId(text: string | null, html: string | null): string | null {
+  const blob = `${text ?? ""}\n${stripTags(html ?? "")}`;
+  const m = blob.match(/Original-Message-ID:\s*(?:<)?([^\s<>]+)/i);
+  if (!m?.[1]) return null;
+  return m[1].replace(/^<|>$/g, "").trim();
+}
+
+function stripTags(html: string): string {
+  return html.replace(/<[^>]+>/g, " ");
 }
 
 async function mapWithConcurrency<T, R>(
@@ -262,6 +376,11 @@ async function mapWithConcurrency<T, R>(
 }
 
 function toMessage(m: OauthMessageRow, attachments: OauthAttachmentRow[]) {
+  const inviteLike = attachments.some((a) => {
+    const fn = (a.filename ?? "").toLowerCase();
+    const mt = (a.mime ?? "").toLowerCase();
+    return mt.includes("calendar") || fn.endsWith(".ics");
+  });
   return {
     id: m.id,
     providerMessageId: m.providerMessageId,
@@ -276,10 +395,18 @@ function toMessage(m: OauthMessageRow, attachments: OauthAttachmentRow[]) {
     snippet: m.snippet,
     unread: m.unread,
     starred: m.starred,
+    important: m.important,
+    hasInvite: inviteLike || !!(m.bodyIcs && m.bodyIcs.length > 0),
     hasAttachments: m.hasAttachments,
     bodyText: m.bodyText,
     bodyHtml: m.bodyHtml,
     bodyFetchedAt: m.bodyFetchedAt ? m.bodyFetchedAt.toISOString() : null,
+    bodyIcs: m.bodyIcs,
+    listUnsubscribe: m.listUnsubscribe,
+    listUnsubscribePost: m.listUnsubscribePost,
+    readReceiptRequested: m.readReceiptRequested,
+    readReceiptReceivedAt: m.readReceiptReceivedAt ? m.readReceiptReceivedAt.toISOString() : null,
+    wellKnownFolder: m.wellKnownFolder,
     attachments: attachments.map((a) => ({
       id: a.id,
       filename: a.filename,

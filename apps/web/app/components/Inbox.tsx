@@ -1,5 +1,5 @@
 import { PageHeader, Button } from "@mailai/ui";
-import { Inbox as InboxIcon, Paperclip, Pencil, RefreshCw, Star } from "lucide-react";
+import { Inbox as InboxIcon, Clock, Paperclip, Pencil, RefreshCw, Star } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router";
 import { ThreadView } from "./ThreadView";
@@ -9,6 +9,7 @@ import { EmptyView } from "./EmptyView";
 import { type ThreadSummary, type TagSummary } from "../lib/threads-client";
 import { useTranslator } from "../lib/i18n/useTranslator";
 import { useChrome } from "../lib/shell/ChromeContext";
+import { ConnectionStatus } from "./ConnectionStatus";
 import { useRegisterPaletteCommands } from "../lib/shell/paletteRegistry";
 import { useMailHostChrome } from "../lib/shell/hostChrome";
 import { dispatchCommand } from "../lib/commands-client";
@@ -31,6 +32,9 @@ interface ThreadRow {
   date: string;
   tags: TagSummary[];
   starred: boolean;
+  important?: boolean;
+  scheduledSendAt: string | null;
+  messageStatus?: "open" | "snoozed" | "done" | "draft";
   hasAttachments: boolean;
   labels: string[];
 }
@@ -200,7 +204,8 @@ export function Inbox() {
 
   const headerActions = useMemo(
     () => (
-      <div className="flex gap-2">
+      <div className="flex items-center gap-2">
+        <ConnectionStatus surface="mail" />
         <Button onClick={refresh} variant="ghost" size="sm">
           <span className="inline-flex items-center gap-1.5">
             <RefreshCw size={14} aria-hidden />
@@ -231,6 +236,9 @@ export function Inbox() {
         date: t.date,
         tags: t.tags ?? [],
         starred: !!t.starred,
+        important: !!t.important,
+        scheduledSendAt: t.scheduledSendAt ?? null,
+        ...(t.status !== undefined ? { messageStatus: t.status } : {}),
         hasAttachments: !!t.hasAttachments,
         labels: t.labels ?? [],
       })) ?? [],
@@ -394,6 +402,24 @@ export function Inbox() {
                             {r.from}
                           </span>
                           <div className="flex shrink-0 items-center gap-1">
+                            {r.important ? (
+                              <span
+                                className="text-[11px] font-bold text-[var(--bit-orange)]"
+                                title={t("inbox.important")}
+                                aria-label={t("inbox.important")}
+                              >
+                                !
+                              </span>
+                            ) : null}
+                            {r.scheduledSendAt ? (
+                              <span
+                                className="inline-flex items-center gap-0.5 text-[10px] text-tertiary"
+                                title={t("inbox.scheduledSend")}
+                              >
+                                <Clock size={10} aria-hidden />
+                                {formatShort(r.scheduledSendAt)}
+                              </span>
+                            ) : null}
                             {r.hasAttachments ? (
                               <Paperclip size={11} aria-hidden className="text-tertiary" />
                             ) : null}

@@ -73,6 +73,8 @@ export function Composer({
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const [dragOver, setDragOver] = useState(false);
   const uploads = useAttachmentUploads({ draftId });
+  const [requestReadReceipt, setRequestReadReceipt] = useState(false);
+  const [scheduleAt, setScheduleAt] = useState("");
 
   const reset = useCallback(() => {
     setTo(initialDraft?.to ?? []);
@@ -162,6 +164,25 @@ export function Composer({
         .toString(36)
         .slice(0, 6)}`;
       const attachmentRefs = uploads.refs;
+
+      const scheduleIso = scheduleAt.trim();
+      if (!replyTo && draftId && scheduleIso) {
+        const sendAt = new Date(scheduleIso);
+        if (Number.isNaN(sendAt.getTime())) {
+          setErr("Invalid schedule time");
+          setBusy(false);
+          return;
+        }
+        await dispatchCommand({
+          type: "mail:schedule-send",
+          payload: { draftId, sendAt: sendAt.toISOString() },
+        });
+        onSent?.();
+        uploads.reset();
+        close();
+        return;
+      }
+
       if (replyTo) {
         await (
           await client()
@@ -172,11 +193,15 @@ export function Composer({
             body: text,
             ...(html ? { bodyHtml: html } : {}),
             ...(attachmentRefs.length > 0 ? { attachments: attachmentRefs } : {}),
+            ...(requestReadReceipt ? { requestReadReceipt: true } : {}),
           },
           idempotencyKey,
         });
       } else if (draftId) {
-        await dispatchCommand({ type: "draft:send", payload: { id: draftId } });
+        await dispatchCommand({
+          type: "draft:send",
+          payload: { id: draftId, ...(requestReadReceipt ? { requestReadReceipt: true } : {}) },
+        });
       } else {
         await (
           await client()
@@ -191,6 +216,7 @@ export function Composer({
             ...(html ? { bodyHtml: html } : {}),
             ...(attachmentRefs.length > 0 ? { attachments: attachmentRefs } : {}),
             ...(draftId ? { draftId } : {}),
+            ...(requestReadReceipt ? { requestReadReceipt: true } : {}),
           },
           idempotencyKey,
         });
@@ -202,7 +228,19 @@ export function Composer({
       setErr(e instanceof Error ? e.message : String(e));
       setBusy(false);
     }
-  }, [bcc, cc, close, draftId, onSent, replyTo, subject, to, uploads]);
+  }, [
+    bcc,
+    cc,
+    close,
+    draftId,
+    onSent,
+    replyTo,
+    requestReadReceipt,
+    scheduleAt,
+    subject,
+    to,
+    uploads,
+  ]);
 
   const onPickFiles = useCallback(() => {
     fileInputRef.current?.click();
@@ -403,8 +441,8 @@ export function Composer({
           <AttachmentTray slots={uploads.slots} onRemove={uploads.remove} onPick={onPickFiles} />
 
           {/* Footer */}
-          <div className="flex items-center justify-between gap-2 border-t border-divider px-3 py-2">
-            <div className="flex items-center gap-2">
+          <div className="flex flex-col gap-2 border-t border-divider px-3 py-2 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex flex-wrap items-center gap-2">
               <Button
                 variant="primary"
                 size="sm"
@@ -419,6 +457,26 @@ export function Composer({
               </Button>
               {savedAt ? (
                 <span className="text-[10px] text-tertiary">{t("draftsClient.saved")}</span>
+              ) : null}
+              <label className="flex cursor-pointer items-center gap-1.5 text-xs text-secondary">
+                <input
+                  type="checkbox"
+                  checked={requestReadReceipt}
+                  onChange={(e) => setRequestReadReceipt(e.target.checked)}
+                />
+                {t("composer.requestReadReceipt")}
+              </label>
+              {!replyTo ? (
+                <label className="flex flex-wrap items-center gap-1.5 text-xs text-secondary">
+                  <span className="shrink-0">{t("composer.scheduleSendAt")}</span>
+                  <input
+                    type="datetime-local"
+                    className="rounded-md border border-divider bg-background px-2 py-1 text-xs text-foreground"
+                    value={scheduleAt}
+                    onChange={(e) => setScheduleAt(e.target.value)}
+                    disabled={!draftId}
+                  />
+                </label>
               ) : null}
             </div>
             <div className="flex items-center gap-2">

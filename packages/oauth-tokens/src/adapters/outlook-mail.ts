@@ -122,6 +122,11 @@ export class OutlookMailAdapter implements MailProvider {
         contentId: a.contentId,
         isInline: a.isInline,
       })),
+      rfc822MessageId: body.rfc822MessageId,
+      icsText: body.icsText,
+      listUnsubscribe: body.listUnsubscribe,
+      listUnsubscribePost: body.listUnsubscribePost,
+      ...(body.important === true ? { important: true } : {}),
     };
   }
 
@@ -179,6 +184,16 @@ export class OutlookMailAdapter implements MailProvider {
       accessToken: args.accessToken,
       messageId: args.providerMessageId,
       patch: { flag: { flagStatus: args.starred ? "flagged" : "notFlagged" } },
+    });
+  }
+
+  async setImportant(
+    args: AccessTokenArgs & { providerMessageId: string; important: boolean },
+  ): Promise<void> {
+    await patchGraphMessage({
+      accessToken: args.accessToken,
+      messageId: args.providerMessageId,
+      patch: { importance: args.important ? "high" : "normal" },
     });
   }
 
@@ -282,8 +297,9 @@ function toNormalizedMessage(
   meta: GraphMessageMetadata,
   folder: WellKnownFolder,
 ): NormalizedMessage {
-  const flags: ("unread" | "starred")[] = [];
+  const flags: ("unread" | "starred" | "important")[] = [];
   if (meta.unread) flags.push("unread");
+  if ((meta.importance ?? "").toLowerCase() === "high") flags.push("important");
   return {
     providerMessageId: meta.id,
     providerThreadId: meta.threadId,
@@ -296,8 +312,9 @@ function toNormalizedMessage(
     snippet: meta.snippet,
     internalDate: meta.internalDate,
     flags,
-    hasAttachments: false,
+    hasAttachments: meta.hasAttachments,
     userLabels: graphLabelIdsToUserLabels(meta.labelIds),
     rfc822MessageId: null,
+    ...(flags.includes("important") ? { important: true } : {}),
   };
 }

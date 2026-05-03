@@ -1,0 +1,16 @@
+BEGIN:VCALENDAR
+PRODID:-//Zoom//Calendar//EN
+VERSION:2.0
+METHOD:REQUEST
+BEGIN:VEVENT
+UID:fixture-zoom-001@zoom.us
+SEQUENCE:0
+DTSTAMP:20260420T120000Z
+DTSTART:20260424T083000Z
+DTEND:20260424T093000Z
+SUMMARY:Demo with Acme
+DESCRIPTION:Alice is inviting you to a scheduled Zoom meeting.\n\nJoin Zoom Meeting\nhttps://us02web.zoom.us/j/12345678901?pwd=abc\n\nMeeting ID: 123 4567 8901\nPasscode: abc
+LOCATION:
+ORGANIZER;CN=Alice:mailto:alice@example.com
+END:VEVENT
+END:VCALENDAR

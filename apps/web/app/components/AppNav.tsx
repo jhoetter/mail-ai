@@ -83,7 +83,11 @@ export function MailShell({ children }: { children: ReactNode }) {
       {
         id: "settings",
         label: t("nav.settings"),
-        items: [{ id: "accounts", label: t("nav.accounts"), path: "/settings/account", icon: "user" }],
+        items: [
+          { id: "accounts", label: t("nav.accounts"), path: "/settings/account", icon: "user" },
+          { id: "mail-rules", label: t("nav.mailRules"), path: "/settings/mail-rules", icon: "filter" },
+          { id: "vacation", label: t("nav.vacation"), path: "/settings/vacation", icon: "moon" },
+        ],
       },
     ],
     [activeViewId, pathname, sortedViews, t],

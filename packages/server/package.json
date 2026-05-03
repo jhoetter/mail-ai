@@ -23,6 +23,7 @@
     "@mailai/agent": "workspace:*",
     "@mailai/collaboration": "workspace:*",
     "@mailai/core": "workspace:*",
+    "@mailai/ics-parser": "workspace:*",
     "@mailai/mime": "workspace:*",
     "@mailai/oauth-tokens": "workspace:*",
     "@mailai/overlay-db": "workspace:*",

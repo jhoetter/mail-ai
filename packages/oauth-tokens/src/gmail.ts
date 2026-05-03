@@ -277,7 +277,13 @@ export interface GmailMessageBody {
   readonly threadId: string;
   readonly text: string | null;
   readonly html: string | null;
+  /** RFC 5322 Message-ID header value, no angle brackets. NULL only when the message has no Message-ID header. */
+  readonly rfc822MessageId: string | null;
   readonly attachments: readonly GmailAttachmentMeta[];
+  readonly icsText: string | null;
+  readonly listUnsubscribe: string | null;
+  readonly listUnsubscribePost: string | null;
+  readonly important: boolean | null;
 }
 
 interface GmailPart {
@@ -315,20 +321,90 @@ export async function getGmailMessageBody(args: {
     text: null as string | null,
     html: null as string | null,
     attachments: [] as GmailAttachmentMeta[],
+    icsText: null as string | null,
   };
   if (json.payload) walkParts(json.payload, collected);
+  const rfc822MessageId = extractRfc822MessageIdDeep(json.payload);
+  const topHeaders = json.payload?.headers ?? [];
+  const headerExtras = parseListAndImportanceHeaders(topHeaders);
+
   return {
     id: json.id,
     threadId: json.threadId,
     text: collected.text,
     html: collected.html,
     attachments: collected.attachments,
+    rfc822MessageId,
+    icsText: collected.icsText,
+    listUnsubscribe: headerExtras.listUnsubscribe,
+    listUnsubscribePost: headerExtras.listUnsubscribePost,
+    important: headerExtras.important,
   };
+}
+
+/** Walk MIME tree shallow + deep for the first RFC5322 Message-ID header. */
+function extractRfc822MessageIdDeep(root: GmailPart | undefined): string | null {
+  if (!root) return null;
+  const direct = extractRfc822MessageId(root.headers ?? []);
+  if (direct) return direct;
+  const queue: GmailPart[] = [...(root.parts ?? [])];
+  while (queue.length > 0) {
+    const p = queue.shift()!;
+    const v = extractRfc822MessageId(p.headers ?? []);
+    if (v) return v;
+    for (const c of p.parts ?? []) queue.push(c);
+  }
+  return null;
+}
+
+// Pull "Message-ID" / "Message-Id" out of the top-level part headers
+// and strip the surrounding angle brackets so it lines up with the
+// shape composeMessage() emits. Returns null when the header is
+// missing — some chat-style providers omit it.
+function extractRfc822MessageId(
+  headers: ReadonlyArray<{ name: string; value: string }>,
+): string | null {
+  for (const h of headers) {
+    if (h.name.toLowerCase() === "message-id") {
+      const v = h.value.trim().replace(/^<|>$/g, "");
+      return v.length > 0 ? v : null;
+    }
+  }
+  return null;
+}
+
+function parseListAndImportanceHeaders(headers: ReadonlyArray<{ name: string; value: string }>): {
+  listUnsubscribe: string | null;
+  listUnsubscribePost: string | null;
+  important: boolean | null;
+} {
+  let listUnsubscribe: string | null = null;
+  let listUnsubscribePost: string | null = null;
+  let important: boolean | null = null;
+  for (const h of headers) {
+    const ln = h.name.toLowerCase();
+    if (ln === "list-unsubscribe") listUnsubscribe = h.value.trim() || null;
+    if (ln === "list-unsubscribe-post") listUnsubscribePost = h.value.trim() || null;
+    if (ln === "importance") {
+      const v = h.value.trim().toLowerCase();
+      if (v === "high") important = true;
+    }
+    if (ln === "x-priority") {
+      const n = Number.parseInt(h.value.trim(), 10);
+      if (n === 1 || n === 2) important = true;
+    }
+  }
+  return { listUnsubscribe, listUnsubscribePost, important };
 }
 
 function walkParts(
   part: GmailPart,
-  out: { text: string | null; html: string | null; attachments: GmailAttachmentMeta[] },
+  out: {
+    text: string | null;
+    html: string | null;
+    attachments: GmailAttachmentMeta[];
+    icsText: string | null;
+  },
 ): void {
   const mt = (part.mimeType ?? "").toLowerCase();
   const headerMap = new Map<string, string>();
@@ -359,6 +435,13 @@ function walkParts(
     const decoded = decodeBase64Url(part.body.data);
     if (mt === "text/plain" && out.text === null) out.text = decoded;
     else if (mt === "text/html" && out.html === null) out.html = decoded;
+    else if (
+      (mt === "text/calendar" || mt === "application/ics") &&
+      out.icsText === null &&
+      !looksLikeAttachment
+    ) {
+      out.icsText = decoded;
+    }
   }
   for (const child of part.parts ?? []) walkParts(child, out);
 }

@@ -33,6 +33,8 @@
     "auditLog": "Audit log",
     "calendar": "Calendar",
     "tags": "Tags",
+    "mailRules": "Mail rules",
+    "vacation": "Out of office",
     "soon": "soon"
   },
   "inbox": {
@@ -47,7 +49,9 @@
     "columnDate": "Date",
     "star": "Star",
     "unstar": "Remove star",
-    "hasAttachment": "Has attachment"
+    "hasAttachment": "Has attachment",
+    "important": "Important",
+    "scheduledSend": "Scheduled send"
   },
   "emptyView": {
     "noAccountsTitle": "Connect a mailbox to get started.",
@@ -123,13 +127,51 @@
     "imagePreview": "Image preview",
     "closeImagePreview": "Close preview",
     "msgUnsupported": ".msg files cannot be previewed inline; download to open.",
-    "tags": {
-      "addPlaceholder": "Add tag…",
-      "snooze": "Snooze",
-      "snoozeUntil": "Snooze until…",
-      "markDone": "Mark done",
-      "reopen": "Reopen"
-    }
+    "inviteLoadError": "Couldn't load meeting invite",
+    "inviteLoading": "Loading calendar invite…",
+    "inviteCancelled": "This meeting was cancelled: {title}",
+    "inviteUnknownOrganizer": "Unknown organizer",
+    "inviteOrganizer": "Organizer",
+    "inviteWhere": "Where",
+    "inviteJoin": "Join meeting",
+    "inviteJoinGoogleMeet": "Join with Google Meet",
+    "inviteJoinTeams": "Join Microsoft Teams meeting",
+    "inviteJoinZoom": "Join Zoom meeting",
+    "inviteJoinWebex": "Join Webex meeting",
+    "inviteJoinGoToMeeting": "Join GoToMeeting",
+    "inviteOnCalendar": "On your calendar",
+    "inviteRsvpPrompt": "Going?",
+    "inviteAccept": "Yes",
+    "inviteMaybe": "Maybe",
+    "inviteDecline": "No",
+    "inviteOpenCalendar": "Open calendar",
+    "inviteConflicts": "You have conflicting events at this time.",
+    "inviteRecurDaily": "Repeats daily",
+    "inviteRecurWeekly": "Repeats weekly",
+    "inviteRecurMonthly": "Repeats monthly",
+    "inviteRecurYearly": "Repeats yearly",
+    "inviteRecurs": "Recurring event",
+    "showOriginalMessage": "Show original message",
+    "hideOriginalMessage": "Hide original message",
+    "markImportant": "Mark as important",
+    "unmarkImportant": "Remove importance",
+    "unsubscribe": "Unsubscribe",
+    "unsubscribeConfirm": "Unsubscribe from this sender's list? Some options open a confirmation page or a mail client.",
+    "readReceiptRequested": "Read receipt requested",
+    "readReceiptReceived": "Read receipt received"
+  },
+  "connection": {
+    "live": "Live",
+    "warning": "Action needed",
+    "offline": "Disconnected",
+    "loading": "Checking…",
+    "errorPrefix": "Couldn't check accounts",
+    "noMailAccounts": "No mailbox connected. Connect a Gmail or Outlook account in Settings.",
+    "noCalendarAccounts": "No calendar connected. Connect a Gmail or Outlook account in Settings.",
+    "statusOk": "connected",
+    "statusNeedsReauth": "needs sign-in (token expired or revoked)",
+    "statusRevoked": "disconnected by provider",
+    "lastSyncError": "last sync failed"
   },
   "composer": {
     "newMessage": "New message",
@@ -156,7 +198,28 @@
     "uploadFailed": "Upload failed",
     "attachmentTooLarge": "Attachment exceeds size limit (25 MB).",
     "dropFilesHere": "Drop files to attach",
-    "toRequired": "Add at least one recipient."
+    "toRequired": "Add at least one recipient.",
+    "requestReadReceipt": "Request read receipt",
+    "sendLater": "Send later",
+    "scheduleSendAt": "Send at…"
+  },
+  "settings": {
+    "vacation": {
+      "help": "Stores your out-of-office message locally. Provider sync (Gmail/Outlook vacation APIs) can be enabled separately.",
+      "enabled": "Automatic reply enabled",
+      "message": "Auto-reply body",
+      "starts": "Starts",
+      "ends": "Ends",
+      "saved": "Vacation settings saved."
+    },
+    "mailRules": {
+      "help": "Rules run after each sync batch. Conditions support fromContains, subjectRegex (JavaScript RegExp string), hasAttachment.",
+      "create": "New rule",
+      "namePlaceholder": "Rule name",
+      "list": "Active rules",
+      "empty": "No rules yet.",
+      "disabled": "off"
+    }
   },
   "contacts": {
     "suggestionsLabel": "Recipient suggestions",

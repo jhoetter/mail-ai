@@ -20,6 +20,8 @@
 
 import {
   ArrowLeft,
+  AlertCircle,
+  CheckCircle2,
   Download,
   File,
   FileImage,
@@ -38,6 +40,7 @@ import {
   useMemo,
   useRef,
   useState,
+  type MouseEvent as ReactMouseEvent,
 } from "react";
 import { createPortal } from "react-dom";
 import { apiFetch, baseUrl } from "../lib/api";
@@ -48,7 +51,9 @@ import {
   type ThreadMessage,
 } from "../lib/threads-client";
 import { InlineReply } from "./InlineReply";
+import { InviteCard } from "./invite/InviteCard";
 import { TagChips } from "./TagChips";
+import { useDialogs } from "@mailai/ui";
 import { ThreadActions } from "./ThreadActions";
 import { useTranslator } from "../lib/i18n/useTranslator";
 import { useRegisterPaletteCommands } from "../lib/shell";
@@ -288,15 +293,67 @@ function MessageCard({
   onChanged,
 }: MessageCardProps) {
   const { t } = useTranslator();
+  const dialogs = useDialogs();
   const [expanded, setExpanded] = useState(defaultExpanded);
   const [showDetails, setShowDetails] = useState(false);
   const [starred, setStarred] = useState(message.starred);
+  const [important, setImportant] = useState(message.important ?? false);
 
   useEffect(() => {
     setStarred(message.starred);
   }, [message.starred]);
 
+  useEffect(() => {
+    setImportant(message.important ?? false);
+  }, [message.important]);
+
   const senderName = message.fromName ?? message.fromEmail ?? message.from;
+
+  const toggleImportant = useCallback(() => {
+    const next = !important;
+    setImportant(next);
+    void dispatchCommand({
+      type: "mail:set-importance",
+      payload: { providerMessageId: message.providerMessageId, important: next },
+    })
+      .then(() => onChanged())
+      .catch(() => setImportant(!next));
+  }, [important, message.providerMessageId, onChanged]);
+
+  const onUnsubscribe = useCallback(
+    async (e: ReactMouseEvent) => {
+      e.stopPropagation();
+      const ok = await dialogs.confirm({
+        title: t("thread.unsubscribe"),
+        description: t("thread.unsubscribeConfirm"),
+        confirmLabel: t("thread.unsubscribe"),
+        tone: "danger",
+      });
+      if (!ok) return;
+      try {
+        const res = await apiFetch(`/api/messages/${encodeURIComponent(message.id)}/unsubscribe`, {
+          method: "POST",
+        });
+        const data = (await res.json().catch(() => ({}))) as {
+          ok?: boolean;
+          mode?: string;
+          href?: string;
+        };
+        if (!res.ok) {
+          throw new Error((data as { message?: string }).message ?? res.statusText);
+        }
+        if (data.mode === "mailto" && data.href) {
+          window.location.href = data.href;
+        } else if (data.mode === "open" && data.href) {
+          window.open(data.href, "_blank", "noopener,noreferrer");
+        }
+        onChanged();
+      } catch (err) {
+        window.alert(err instanceof Error ? err.message : String(err));
+      }
+    },
+    [dialogs, message.id, onChanged, t],
+  );
 
   const toggleStar = useCallback(() => {
     const next = !starred;
@@ -354,8 +411,42 @@ function MessageCard({
               >
                 <Star size={14} aria-hidden fill={starred ? "currentColor" : "none"} />
               </button>
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  toggleImportant();
+                }}
+                title={important ? t("thread.unmarkImportant") : t("thread.markImportant")}
+                aria-label={important ? t("thread.unmarkImportant") : t("thread.markImportant")}
+                className={
+                  "inline-flex h-6 w-6 items-center justify-center rounded text-tertiary hover:text-foreground " +
+                  (important ? "text-[var(--bit-orange)] hover:text-[var(--bit-orange)]" : "")
+                }
+              >
+                <AlertCircle size={14} aria-hidden fill={important ? "currentColor" : "none"} />
+              </button>
               {message.hasAttachments ? (
                 <Paperclip size={12} aria-hidden className="text-tertiary" />
+              ) : null}
+              {message.wellKnownFolder === "sent" && message.readReceiptReceivedAt ? (
+                <span
+                  title={t("thread.readReceiptReceived")}
+                  aria-label={t("thread.readReceiptReceived")}
+                  className="inline-flex"
+                >
+                  <CheckCircle2 size={14} aria-hidden className="text-[var(--accent)]" />
+                </span>
+              ) : null}
+              {message.wellKnownFolder === "sent" &&
+              message.readReceiptRequested &&
+              !message.readReceiptReceivedAt ? (
+                <span
+                  className="text-[10px] text-tertiary"
+                  title={t("thread.readReceiptRequested")}
+                >
+                  RR
+                </span>
               ) : null}
               <time
                 dateTime={message.date}
@@ -420,10 +511,23 @@ function MessageCard({
       </header>
       {expanded ? (
         <div className="border-t border-divider px-3 py-3 sm:px-4 sm:py-4">
+          {message.hasInvite ? <InviteCard message={message} onChanged={onChanged} /> : null}
+          {message.listUnsubscribe ? (
+            <div className="mb-3 flex flex-wrap gap-2">
+              <button
+                type="button"
+                onClick={(e) => void onUnsubscribe(e)}
+                className="rounded-full border border-divider bg-hover px-2.5 py-1 text-[11px] font-medium text-secondary hover:text-foreground"
+              >
+                {t("thread.unsubscribe")}
+              </button>
+            </div>
+          ) : null}
           <MessageBody
             message={message}
             allowRemoteImages={allowRemoteImages}
             onAllowImages={onAllowImages}
+            hideByDefault={message.hasInvite ?? false}
           />
           {message.attachments.length > 0 ? (
             <AttachmentsList attachments={message.attachments} />
@@ -557,30 +661,69 @@ interface MessageBodyProps {
   message: ThreadMessage;
   allowRemoteImages: boolean;
   onAllowImages: () => void;
+  /**
+   * When `true`, the original email body is collapsed behind a
+   * `Show original message` disclosure. Set whenever a richer surface
+   * (e.g. the calendar `InviteCard` rendered above) is the primary
+   * content the user should act on.
+   */
+  hideByDefault?: boolean;
 }
 
-function MessageBody({ message, allowRemoteImages, onAllowImages }: MessageBodyProps) {
+function MessageBody({
+  message,
+  allowRemoteImages,
+  onAllowImages,
+  hideByDefault = false,
+}: MessageBodyProps) {
   const { t } = useTranslator();
-  if (message.bodyHtml && message.bodyHtml.trim().length > 0) {
+  const [showOriginal, setShowOriginal] = useState(false);
+
+  const hasHtml = !!message.bodyHtml && message.bodyHtml.trim().length > 0;
+  const hasText = !!message.bodyText && message.bodyText.trim().length > 0;
+
+  if (hideByDefault && (hasHtml || hasText) && !showOriginal) {
     return (
-      <HtmlBody
-        html={message.bodyHtml}
-        attachments={message.attachments}
-        allowRemoteImages={allowRemoteImages}
-        onAllowImages={onAllowImages}
-      />
+      <div className="rounded-lg border border-divider bg-surface px-3 py-2.5">
+        <button
+          type="button"
+          onClick={() => setShowOriginal(true)}
+          className="text-xs font-medium text-secondary hover:text-foreground"
+        >
+          {t("thread.showOriginalMessage")}
+        </button>
+      </div>
     );
   }
-  if (message.bodyText && message.bodyText.trim().length > 0) {
-    return <TextBody text={message.bodyText} />;
-  }
-  if (message.bodyFetchedAt === null) {
-    return <p className="text-xs text-secondary">{t("thread.fetchingBody")}</p>;
-  }
+
   return (
-    <p className="whitespace-pre-wrap text-foreground/90">
-      {message.snippet || t("thread.noBody")}
-    </p>
+    <div className="space-y-2">
+      {hasHtml ? (
+        <HtmlBody
+          html={message.bodyHtml ?? ""}
+          attachments={message.attachments}
+          allowRemoteImages={allowRemoteImages}
+          onAllowImages={onAllowImages}
+        />
+      ) : hasText ? (
+        <TextBody text={message.bodyText ?? ""} />
+      ) : message.bodyFetchedAt === null ? (
+        <p className="text-xs text-secondary">{t("thread.fetchingBody")}</p>
+      ) : (
+        <p className="whitespace-pre-wrap text-foreground/90">
+          {message.snippet || t("thread.noBody")}
+        </p>
+      )}
+      {hideByDefault && showOriginal ? (
+        <button
+          type="button"
+          onClick={() => setShowOriginal(false)}
+          className="text-xs font-medium text-secondary hover:text-foreground"
+        >
+          {t("thread.hideOriginalMessage")}
+        </button>
+      ) : null}
+    </div>
   );
 }
 

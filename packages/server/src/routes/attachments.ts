@@ -20,6 +20,7 @@
 // can prune unused rows later).
 
 import type { FastifyInstance, FastifyReply } from "fastify";
+import { resolveIcsBufferForTenant } from "../calendar/ics-invite-response.js";
 import {
   OauthAccountsRepository,
   OauthAttachmentsRepository,
@@ -30,6 +31,7 @@ import {
 } from "@mailai/overlay-db";
 import { getValidAccessToken, type ProviderCredentials } from "@mailai/oauth-tokens";
 import type { MailProviderRegistry } from "@mailai/providers";
+import { readOauthAttachmentBytes } from "../oauth/attachment-bytes.js";
 
 export interface AttachmentRoutesDeps {
   readonly pool: Pool;
@@ -72,6 +74,43 @@ function replyObjectStoreUnreachable(reply: FastifyReply) {
 }
 
 export function registerAttachmentRoutes(app: FastifyInstance, deps: AttachmentRoutesDeps): void {
+  app.get("/api/attachments/:id/ics", async (req, reply) => {
+    const ident = await deps.identity({ headers: req.headers as Record<string, unknown> });
+    const { id } = req.params as { id: string };
+    const row = await loadAttachment(deps, ident.tenantId, id);
+    if (!row) {
+      return reply.code(404).send({ error: "not_found", message: `attachment ${id} not found` });
+    }
+    const fn = (row.filename ?? "").toLowerCase();
+    const mt = (row.mime ?? "").toLowerCase();
+    if (!mt.includes("calendar") && !mt.includes("ics") && !fn.endsWith(".ics")) {
+      return reply
+        .code(400)
+        .send({ error: "not_calendar", message: "attachment is not a calendar invite" });
+    }
+    try {
+      await ensureCached(deps, ident.tenantId, row);
+      const buf = await readOauthAttachmentBytes(
+        {
+          pool: deps.pool,
+          credentials: deps.credentials,
+          providers: deps.providers,
+          objectStore: deps.objectStore,
+        },
+        ident.tenantId,
+        row,
+      );
+      const resolved = await resolveIcsBufferForTenant(deps.pool, ident.tenantId, buf);
+      if (!resolved.ok) {
+        return reply.code(422).send({ error: "parse_failed", message: "no VEVENT in ICS" });
+      }
+      return resolved.body;
+    } catch (err) {
+      if (isObjectStoreConnectivityError(err)) return replyObjectStoreUnreachable(reply);
+      throw err;
+    }
+  });
+
   app.get("/api/attachments/:id/bytes", async (req, reply) => {
     const ident = await deps.identity({ headers: req.headers as Record<string, unknown> });
     const { id } = req.params as { id: string };

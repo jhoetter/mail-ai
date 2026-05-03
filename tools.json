@@ -32,7 +32,41 @@
       "kind": "read",
       "summary": "List recent inbox messages for the current user."
     },
-    { "name": "mailai_read_thread", "kind": "read", "summary": "Read a single thread by id." }
+    {
+      "name": "mailai_read_thread",
+      "kind": "read",
+      "summary": "Read a single thread by id."
+    },
+    {
+      "name": "mailai_respond_invite",
+      "kind": "write",
+      "summary": "RSVP to a calendar invite from a thread (calendar:respond-from-ics)."
+    },
+    {
+      "name": "mailai_set_importance",
+      "kind": "write",
+      "summary": "Mark a message important / not important (mail:set-importance)."
+    },
+    {
+      "name": "mailai_schedule_send",
+      "kind": "write",
+      "summary": "Schedule a draft to send later (mail:schedule-send)."
+    },
+    {
+      "name": "mailai_unsubscribe",
+      "kind": "write",
+      "summary": "One-click unsubscribe via List-Unsubscribe (POST /api/messages/:id/unsubscribe)."
+    },
+    {
+      "name": "mailai_set_vacation",
+      "kind": "write",
+      "summary": "Configure out-of-office / vacation autoreply metadata (account:set-vacation)."
+    },
+    {
+      "name": "mailai_add_mail_rule",
+      "kind": "write",
+      "summary": "Create a mail filter rule (POST /api/mail-rules)."
+    }
   ],
   "subagent": null
 }

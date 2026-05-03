@@ -34,6 +34,7 @@ import {
 import { getValidAccessToken, type ProviderCredentials } from "@mailai/oauth-tokens";
 import type { MailProviderRegistry, PushProviderRegistry } from "@mailai/providers";
 import { syncOauthAccount, type SyncResult } from "../oauth/sync.js";
+import { createMailRulesBatchCollector } from "../mail/apply-mail-rules.js";
 import type { EventBroadcaster } from "../events.js";
 
 // Optional push-subscription configuration. When present, the
@@ -560,12 +561,16 @@ export function buildPostgresDriver(deps: {
         // could have run between tick selection and now).
         const fresh = await accounts.byId(tenantId, accountId);
         if (!fresh) return null;
-        return syncOauthAccount(fresh, {
+        const rules = createMailRulesBatchCollector();
+        const syncResult = await syncOauthAccount(fresh, {
           accounts,
           messages,
           credentials: deps.credentials,
           providers: deps.providers,
+          onBatchUpserted: rules.onBatchUpserted,
         });
+        await rules.flush(deps.pool, tenantId);
+        return syncResult;
       });
     },
   };

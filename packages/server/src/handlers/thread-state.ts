@@ -31,9 +31,10 @@ interface ThreadIdPayload {
 }
 
 export function buildThreadSnoozeHandler(
-  deps: ThreadStateDeps,
+  base: ThreadStateDeps,
 ): CommandHandler<"thread:snooze", SnoozePayload> {
-  return async (cmd) => {
+  return async (cmd, hx) => {
+    const deps = { ...base, tenantId: hx.tenantId ?? base.tenantId };
     const { providerThreadId, until } = cmd.payload;
     const date = parseUntil(until);
     if (!date) {
@@ -54,9 +55,10 @@ export function buildThreadSnoozeHandler(
 }
 
 export function buildThreadUnsnoozeHandler(
-  deps: ThreadStateDeps,
+  base: ThreadStateDeps,
 ): CommandHandler<"thread:unsnooze", ThreadIdPayload> {
-  return async (cmd) => {
+  return async (cmd, hx) => {
+    const deps = { ...base, tenantId: hx.tenantId ?? base.tenantId };
     return withTenant(deps.pool, deps.tenantId, async (tx) => {
       await ensureThreadExists(tx, deps.tenantId, cmd.payload.providerThreadId);
       const repo = new OauthThreadStateRepository(tx);
@@ -69,9 +71,10 @@ export function buildThreadUnsnoozeHandler(
 }
 
 export function buildThreadMarkDoneHandler(
-  deps: ThreadStateDeps,
+  base: ThreadStateDeps,
 ): CommandHandler<"thread:mark-done", ThreadIdPayload> {
-  return async (cmd) => {
+  return async (cmd, hx) => {
+    const deps = { ...base, tenantId: hx.tenantId ?? base.tenantId };
     return withTenant(deps.pool, deps.tenantId, async (tx) => {
       await ensureThreadExists(tx, deps.tenantId, cmd.payload.providerThreadId);
       const repo = new OauthThreadStateRepository(tx);
@@ -84,9 +87,10 @@ export function buildThreadMarkDoneHandler(
 }
 
 export function buildThreadReopenHandler(
-  deps: ThreadStateDeps,
+  base: ThreadStateDeps,
 ): CommandHandler<"thread:reopen", ThreadIdPayload> {
-  return async (cmd) => {
+  return async (cmd, hx) => {
+    const deps = { ...base, tenantId: hx.tenantId ?? base.tenantId };
     return withTenant(deps.pool, deps.tenantId, async (tx) => {
       await ensureThreadExists(tx, deps.tenantId, cmd.payload.providerThreadId);
       const repo = new OauthThreadStateRepository(tx);

@@ -8,7 +8,7 @@
 // provider, so a desync between our cache and Google/Graph just
 // means a missing event until the next sync — never a wrong one.
 
-import { and, asc, eq, gte, lte, sql } from "drizzle-orm";
+import { and, asc, eq, gt, gte, isNull, lte, lt, ne, or, sql } from "drizzle-orm";
 import type { Database } from "../client.js";
 import { calendars, events } from "../schema.js";
 
@@ -200,6 +200,37 @@ export class CalendarRepository {
       RETURNING sequence
     `);
     return (res.rows?.[0]?.sequence as number | undefined) ?? 0;
+  }
+
+  /**
+   * Events on visible calendars overlapping `[rangeStart, rangeEnd)`,
+   * optionally excluding an iCal UID (same invite already on the user's calendar).
+   */
+  async listOverlappingVisibleEvents(
+    tenantId: string,
+    rangeStart: Date,
+    rangeEnd: Date,
+    excludeIcalUid: string | null,
+  ): Promise<EventRow[]> {
+    const overlap = and(
+      eq(events.tenantId, tenantId),
+      eq(calendars.tenantId, tenantId),
+      eq(calendars.isVisible, true),
+      lt(events.startsAt, rangeEnd),
+      gt(events.endsAt, rangeStart),
+    );
+    const uidFilter =
+      excludeIcalUid === null || excludeIcalUid === ""
+        ? undefined
+        : or(isNull(events.icalUid), ne(events.icalUid, excludeIcalUid));
+    const whereClause = uidFilter ? and(overlap, uidFilter) : overlap;
+    const rows = await this.db
+      .select({ e: events })
+      .from(events)
+      .innerJoin(calendars, eq(events.calendarId, calendars.id))
+      .where(whereClause)
+      .orderBy(asc(events.startsAt));
+    return rows.map((r) => r.e as EventRow);
   }
 
   async listEventsInRange(

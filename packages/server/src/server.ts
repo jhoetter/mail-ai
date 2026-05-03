@@ -36,6 +36,7 @@ import {
   buildMailMarkUnreadHandler,
   buildMailReplyHandler,
   buildMailSendHandler,
+  buildMailSetImportanceHandler,
   buildMailStarHandler,
 } from "./handlers/mail-send.js";
 import {
@@ -44,6 +45,7 @@ import {
   buildAttachmentUploadInitHandler,
 } from "./handlers/attachments.js";
 import { buildAccountSetSignatureHandler } from "./handlers/account-signature.js";
+import { buildAccountSetVacationHandler } from "./handlers/account-vacation.js";
 import { buildThreadAddTagHandler, buildThreadRemoveTagHandler } from "./handlers/thread-tags.js";
 import {
   buildThreadMarkDoneHandler,
@@ -56,14 +58,17 @@ import {
   buildDraftDeleteHandler,
   buildDraftSendHandler,
   buildDraftUpdateHandler,
+  buildMailScheduleSendHandler,
 } from "./handlers/drafts.js";
 import {
   buildCalendarCreateEventHandler,
   buildCalendarDeleteEventHandler,
+  buildCalendarRespondFromIcsHandler,
   buildCalendarRespondHandler,
   buildCalendarUpdateEventHandler,
 } from "./handlers/calendar.js";
 import { SyncScheduler } from "./sync/scheduler.js";
+import { startScheduledDraftWorker } from "./workers/scheduled-drafts.js";
 import { buildHofJwtIdentity, type ResolvedIdentity } from "./auth/hof-jwt.js";
 
 async function main() {
@@ -136,6 +141,7 @@ async function main() {
   bus.register("mail:mark-read", buildMailMarkReadHandler(mailSendDeps));
   bus.register("mail:mark-unread", buildMailMarkUnreadHandler(mailSendDeps));
   bus.register("mail:star", buildMailStarHandler(mailSendDeps));
+  bus.register("mail:set-importance", buildMailSetImportanceHandler(mailSendDeps));
   bus.register(
     "attachment:upload-init",
     buildAttachmentUploadInitHandler({ pool, tenantId: DEV_TENANT, objectStore }),
@@ -152,6 +158,10 @@ async function main() {
     "account:set-signature",
     buildAccountSetSignatureHandler({ pool, tenantId: DEV_TENANT }),
   );
+  bus.register(
+    "account:set-vacation",
+    buildAccountSetVacationHandler({ pool, tenantId: DEV_TENANT }),
+  );
   bus.register("thread:add-tag", buildThreadAddTagHandler({ pool, tenantId: DEV_TENANT }));
   bus.register("thread:remove-tag", buildThreadRemoveTagHandler({ pool, tenantId: DEV_TENANT }));
   bus.register("thread:snooze", buildThreadSnoozeHandler({ pool, tenantId: DEV_TENANT }));
@@ -162,17 +172,20 @@ async function main() {
   bus.register("draft:update", buildDraftUpdateHandler({ pool, tenantId: DEV_TENANT, bus }));
   bus.register("draft:delete", buildDraftDeleteHandler({ pool, tenantId: DEV_TENANT, bus }));
   bus.register("draft:send", buildDraftSendHandler({ pool, tenantId: DEV_TENANT, bus }));
+  bus.register("mail:schedule-send", buildMailScheduleSendHandler({ pool, tenantId: DEV_TENANT, bus }));
   const calendarDeps = {
     pool,
     tenantId: DEV_TENANT,
     credentials,
     calendarProviders,
     mailProviders: providers,
+    objectStore,
   };
   bus.register("calendar:create-event", buildCalendarCreateEventHandler(calendarDeps));
   bus.register("calendar:update-event", buildCalendarUpdateEventHandler(calendarDeps));
   bus.register("calendar:delete-event", buildCalendarDeleteEventHandler(calendarDeps));
   bus.register("calendar:respond", buildCalendarRespondHandler(calendarDeps));
+  bus.register("calendar:respond-from-ics", buildCalendarRespondFromIcsHandler(calendarDeps));
   // Best-effort: don't crash the server if Postgres isn't up (the dev
   // stack might be starting in parallel). OAuth routes will return 500
   // until migrations land — acceptable for dev, and explicit in logs.
@@ -193,6 +206,13 @@ async function main() {
     console.error("warning: migrations/seed failed (continuing):", err);
   }
 
+  if (process.env["MAILAI_SCHEDULED_SEND_DISABLED"] !== "1") {
+    startScheduledDraftWorker({
+      pool,
+      bus,
+      tenants: async () => [DEV_TENANT],
+    });
+  }
   const nangoSecret = process.env["NANGO_SECRET_KEY"];
   const nangoHost = process.env["NANGO_HOST"] ?? "https://api.nango.dev";
   const nango = nangoSecret

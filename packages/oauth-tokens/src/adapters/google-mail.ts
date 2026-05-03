@@ -172,6 +172,11 @@ export class GoogleMailAdapter implements MailProvider {
         contentId: a.contentId,
         isInline: a.isInline,
       })),
+      rfc822MessageId: body.rfc822MessageId,
+      icsText: body.icsText,
+      listUnsubscribe: body.listUnsubscribe,
+      listUnsubscribePost: body.listUnsubscribePost,
+      ...(body.important === true ? { important: true } : {}),
     };
   }
 
@@ -230,6 +235,16 @@ export class GoogleMailAdapter implements MailProvider {
       accessToken: args.accessToken,
       messageId: args.providerMessageId,
       ...(args.starred ? { addLabelIds: ["STARRED"] } : { removeLabelIds: ["STARRED"] }),
+    });
+  }
+
+  async setImportant(
+    args: AccessTokenArgs & { providerMessageId: string; important: boolean },
+  ): Promise<void> {
+    await modifyGmailMessageLabels({
+      accessToken: args.accessToken,
+      messageId: args.providerMessageId,
+      ...(args.important ? { addLabelIds: ["IMPORTANT"] } : { removeLabelIds: ["IMPORTANT"] }),
     });
   }
 

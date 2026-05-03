@@ -253,7 +253,7 @@ describe.each(cases)("MailProvider contract: $id", (c) => {
     expect(result.providerMessageId.length).toBeGreaterThan(0);
   });
 
-  it("setRead and setStarred call without throwing", async () => {
+  it("setRead, setStarred, and setImportant call without throwing", async () => {
     await c.adapter.setRead({
       accessToken: "tok",
       providerMessageId: c.messageId,
@@ -263,6 +263,11 @@ describe.each(cases)("MailProvider contract: $id", (c) => {
       accessToken: "tok",
       providerMessageId: c.messageId,
       starred: true,
+    });
+    await c.adapter.setImportant({
+      accessToken: "tok",
+      providerMessageId: c.messageId,
+      important: true,
     });
   });
 

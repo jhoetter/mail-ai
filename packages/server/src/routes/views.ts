@@ -195,6 +195,7 @@ export function registerViewRoutes(app: FastifyInstance, deps: ViewRoutesDeps): 
             date: d.updatedAt.toISOString(),
             tags: [],
             status: "draft",
+            scheduledSendAt: d.scheduledSendAt ? d.scheduledSendAt.toISOString() : null,
           })),
         };
       }
@@ -282,6 +283,7 @@ export function registerViewRoutes(app: FastifyInstance, deps: ViewRoutesDeps): 
       }
 
       if (filter.unread) candidates = candidates.filter((m) => m.unread);
+      if (filter.important) candidates = candidates.filter((m) => m.important);
       if (filter.fromContains) {
         const needle = filter.fromContains.toLowerCase();
         candidates = candidates.filter(
@@ -323,6 +325,7 @@ export function registerViewRoutes(app: FastifyInstance, deps: ViewRoutesDeps): 
           hasAttachments: m.hasAttachments,
           labels: m.labelsJson,
           date: m.internalDate.toISOString(),
+          important: m.important,
           tags: (tagsByThread.get(m.providerThreadId) ?? []).map((t) => ({
             id: t.id,
             name: t.name,

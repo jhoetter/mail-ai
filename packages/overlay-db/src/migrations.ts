@@ -868,6 +868,57 @@ export const MIGRATIONS: Array<{ id: string; up: string }> = [
         ADD COLUMN IF NOT EXISTS bcc_addr text;
     `,
   },
+  {
+    // RFC 5322 Message-ID header value (no angle brackets), captured
+    // when the body is fetched. Required so replies can stamp
+    // In-Reply-To / References with a value the recipient's mail
+    // client understands — Gmail's internal id (16-hex) is provider-
+    // local and breaks cross-mailbox threading. Backfill is on-demand:
+    // existing rows stay NULL until the next body fetch.
+    id: "0024_oauth_messages_rfc822_message_id",
+    up: `
+      ALTER TABLE oauth_messages
+        ADD COLUMN IF NOT EXISTS rfc822_message_id text;
+      CREATE INDEX IF NOT EXISTS oauth_messages_rfc822_idx
+        ON oauth_messages(tenant_id, rfc822_message_id)
+        WHERE rfc822_message_id IS NOT NULL;    `,
+  },
+  {
+    id: "0025_mail_gmail_outlook_parity",
+    up: `
+      ALTER TABLE oauth_accounts
+        ADD COLUMN IF NOT EXISTS vacation_enabled boolean NOT NULL DEFAULT false,
+        ADD COLUMN IF NOT EXISTS vacation_subject text,
+        ADD COLUMN IF NOT EXISTS vacation_message text,
+        ADD COLUMN IF NOT EXISTS vacation_starts_at timestamptz,
+        ADD COLUMN IF NOT EXISTS vacation_ends_at timestamptz;
+      ALTER TABLE oauth_messages
+        ADD COLUMN IF NOT EXISTS important boolean NOT NULL DEFAULT false,
+        ADD COLUMN IF NOT EXISTS list_unsubscribe text,
+        ADD COLUMN IF NOT EXISTS list_unsubscribe_post text,
+        ADD COLUMN IF NOT EXISTS read_receipt_requested boolean NOT NULL DEFAULT false,
+        ADD COLUMN IF NOT EXISTS read_receipt_received_at timestamptz;
+      CREATE TABLE IF NOT EXISTS mail_rules (
+        id text PRIMARY KEY,
+        tenant_id text NOT NULL,
+        oauth_account_id text NOT NULL REFERENCES oauth_accounts(id) ON DELETE CASCADE,
+        name text NOT NULL,
+        conditions_json jsonb NOT NULL,
+        actions_json jsonb NOT NULL,
+        enabled boolean NOT NULL DEFAULT true,
+        created_at timestamptz NOT NULL DEFAULT now(),
+        updated_at timestamptz NOT NULL DEFAULT now()
+      );
+      CREATE INDEX IF NOT EXISTS mail_rules_tenant_account_idx
+        ON mail_rules(tenant_id, oauth_account_id);
+      ALTER TABLE mail_rules ENABLE ROW LEVEL SECURITY;
+      DO $$ BEGIN
+        CREATE POLICY tenant_iso_mr ON mail_rules
+          USING (tenant_id = current_setting('mailai.tenant_id', true)::text);
+      EXCEPTION WHEN duplicate_object THEN NULL;
+      END $$;
+    `,
+  },
 ];
 
 export async function runMigrations(pool: Pool): Promise<void> {

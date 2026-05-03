@@ -18,12 +18,13 @@ interface SetSignaturePayload {
 }
 
 export function buildAccountSetSignatureHandler(
-  deps: SignatureDeps,
+  base: SignatureDeps,
 ): CommandHandler<"account:set-signature", SetSignaturePayload> {
   return async (
     cmd: { payload: SetSignaturePayload },
-    _ctx: HandlerContext,
+    hx: HandlerContext,
   ): Promise<HandlerResult> => {
+    const deps = { ...base, tenantId: hx.tenantId ?? base.tenantId };
     const payload = cmd.payload;
     const updated = await withTenant(deps.pool, deps.tenantId, async (tx) => {
       const repo = new OauthAccountsRepository(tx);

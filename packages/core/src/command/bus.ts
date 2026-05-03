@@ -24,6 +24,8 @@ import type {
 
 export interface HandlerContext {
   readonly inboxId?: string;
+  /** When set (e.g. from `/api/commands` + JWT), handlers must use this tenant for DB + OAuth rows. */
+  readonly tenantId?: string;
   readonly nowMs: number;
 }
 
@@ -89,7 +91,7 @@ export class CommandBus {
     return Array.from(this.handlers.keys()) as CommandTypeString[];
   }
 
-  async dispatch(cmd: Command, ctx: { inboxId?: string } = {}): Promise<Mutation> {
+  async dispatch(cmd: Command, ctx: { inboxId?: string; tenantId?: string } = {}): Promise<Mutation> {
     const handler = this.handlers.get(cmd.type);
     if (!handler) {
       throw new MailaiError("validation_error", `no handler for command "${cmd.type}"`);
@@ -110,6 +112,14 @@ export class CommandBus {
     return this.executeHandler(id, cmd, handler, ctx, createdAt);
   }
 
+  private buildHandlerContext(ctx: { inboxId?: string; tenantId?: string }): HandlerContext {
+    return {
+      nowMs: this.now(),
+      ...(ctx.inboxId ? { inboxId: ctx.inboxId } : {}),
+      ...(ctx.tenantId !== undefined ? { tenantId: ctx.tenantId } : {}),
+    };
+  }
+
   getMutation(id: string): Promise<Mutation | null> {
     return this.store.get(id);
   }
@@ -118,14 +128,11 @@ export class CommandBus {
     id: string,
     cmd: Command,
     handler: CommandHandler,
-    ctx: { inboxId?: string },
+    ctx: { inboxId?: string; tenantId?: string },
     createdAt: number,
   ): Promise<Mutation> {
     try {
-      const result = await handler(cmd, {
-        nowMs: this.now(),
-        ...(ctx.inboxId ? { inboxId: ctx.inboxId } : {}),
-      });
+      const result = await handler(cmd, this.buildHandlerContext(ctx));
       const diffs = result.before.map((b, i) => {
         const a = result.after[i];
         if (!a) {

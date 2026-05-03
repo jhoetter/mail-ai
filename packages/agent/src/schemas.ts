@@ -275,7 +275,7 @@ export const CommandPayloadSchema = z.discriminatedUnion("type", [
   }),
   z.object({
     type: z.literal("draft:send"),
-    payload: z.object({ id: z.string() }),
+    payload: z.object({ id: z.string(), requestReadReceipt: z.boolean().optional() }),
   }),
   // Calendar (Phases 7-8).
   z.object({
@@ -342,6 +342,40 @@ export const CommandPayloadSchema = z.discriminatedUnion("type", [
     payload: z.object({
       eventId: z.string(),
       scope: z.enum(["single", "following", "series"]).optional(),
+    }),
+  }),
+  z.object({
+    type: z.literal("calendar:respond-from-ics"),
+    payload: z.object({
+      messageId: z.string(),
+      attachmentId: z.string().optional(),
+      response: z.enum(["accepted", "declined", "tentative"]),
+    }),
+  }),
+  z.object({
+    type: z.literal("mail:set-importance"),
+    payload: z.object({
+      providerMessageId: z.string(),
+      important: z.boolean(),
+      accountId: z.string().optional(),
+    }),
+  }),
+  z.object({
+    type: z.literal("mail:schedule-send"),
+    payload: z.object({
+      draftId: z.string(),
+      sendAt: z.string().datetime(),
+    }),
+  }),
+  z.object({
+    type: z.literal("account:set-vacation"),
+    payload: z.object({
+      accountId: z.string(),
+      enabled: z.boolean(),
+      subject: z.string().nullable().optional(),
+      message: z.string().nullable().optional(),
+      startsAt: z.string().datetime().nullable().optional(),
+      endsAt: z.string().datetime().nullable().optional(),
     }),
   }),
 ]);

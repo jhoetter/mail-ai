@@ -10,6 +10,7 @@ export interface ViewFilter {
   status?: ("open" | "snoozed" | "done")[];
   fromContains?: string;
   unread?: boolean;
+  important?: boolean;
   accountIds?: string[];
   kind?: "default" | "drafts" | "sent" | "trash" | "spam" | "all";
 }

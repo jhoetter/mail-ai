@@ -29,6 +29,8 @@ import { registerDraftRoutes } from "./routes/drafts.js";
 import { registerCalendarRoutes } from "./routes/calendar.js";
 import { registerAttachmentRoutes } from "./routes/attachments.js";
 import { registerRawMessageRoutes } from "./routes/messages-raw.js";
+import { registerMessageUnsubscribeRoutes } from "./routes/message-unsubscribe.js";
+import { registerMailRulesRoutes } from "./routes/mail-rules.js";
 import { registerSignatureRoutes } from "./routes/signatures.js";
 import { registerContactsRoutes } from "./routes/contacts.js";
 import { registerWebhookRoutes } from "./routes/webhooks.js";
@@ -103,6 +105,8 @@ export async function buildApp(deps: AppDeps): Promise<FastifyInstance> {
       providers,
       identity: deps.identity,
     });
+    registerMessageUnsubscribeRoutes(app, { pool: deps.oauth.pool, identity: deps.identity });
+    registerMailRulesRoutes(app, { pool: deps.oauth.pool, identity: deps.identity });
     registerInboxRoutes(app, { pool: deps.oauth.pool, identity: deps.identity });
     registerAuditRoutes(app, { pool: deps.oauth.pool, identity: deps.identity });
     registerTagRoutes(app, { pool: deps.oauth.pool, identity: deps.identity });
@@ -179,7 +183,10 @@ export async function buildApp(deps: AppDeps): Promise<FastifyInstance> {
         sessionId: headers["x-session-id"] ?? crypto.randomUUID(),
         ...(idempotencyKey ? { idempotencyKey } : {}),
       };
-      const m = await deps.bus.dispatch(cmd, inboxId ? { inboxId } : {});
+      const m = await deps.bus.dispatch(cmd, {
+        tenantId: ident.tenantId,
+        ...(inboxId ? { inboxId } : {}),
+      });
       results.push(m);
       deps.broadcaster.publish({
         kind: "mutation",
@@ -212,11 +219,12 @@ export async function buildApp(deps: AppDeps): Promise<FastifyInstance> {
 // to event/calendar mutations. Kept narrow + total so a new command
 // type forces a deliberate decision here.
 function subjectKindForCommand(type: Command["type"]): MutationSubjectKind {
-  if (type.startsWith("calendar:")) {
+    if (type.startsWith("calendar:")) {
     return type === "calendar:create-event" ||
       type === "calendar:update-event" ||
       type === "calendar:delete-event" ||
-      type === "calendar:respond"
+      type === "calendar:respond" ||
+      type === "calendar:respond-from-ics"
       ? "event"
       : "calendar";
   }

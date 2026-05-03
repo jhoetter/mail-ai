@@ -42,6 +42,11 @@ function makeAccount(partial: Partial<OauthAccountRow> & { id: string }): OauthA
     signatureText: null,
     historyId: null,
     deltaLink: null,
+    vacationEnabled: false,
+    vacationSubject: null,
+    vacationMessage: null,
+    vacationStartsAt: null,
+    vacationEndsAt: null,
   };
 }
 

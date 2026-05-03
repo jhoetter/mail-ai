@@ -41,6 +41,11 @@ export interface OauthAccountRow {
   // delta-capable sync, and reset to NULL on 404/410 expiries.
   readonly historyId: string | null;
   readonly deltaLink: string | null;
+  readonly vacationEnabled: boolean;
+  readonly vacationSubject: string | null;
+  readonly vacationMessage: string | null;
+  readonly vacationStartsAt: Date | null;
+  readonly vacationEndsAt: Date | null;
 }
 
 export interface OauthAccountInsert {
@@ -238,6 +243,30 @@ export class OauthAccountsRepository {
       .set({
         signatureHtml: sig.html,
         signatureText: sig.text,
+        updatedAt: new Date(),
+      })
+      .where(and(eq(oauthAccounts.tenantId, tenantId), eq(oauthAccounts.id, id)));
+  }
+
+  async setVacation(
+    tenantId: string,
+    id: string,
+    v: {
+      enabled: boolean;
+      subject?: string | null;
+      message?: string | null;
+      startsAt?: Date | null;
+      endsAt?: Date | null;
+    },
+  ): Promise<void> {
+    await this.db
+      .update(oauthAccounts)
+      .set({
+        vacationEnabled: v.enabled,
+        vacationSubject: v.subject ?? null,
+        vacationMessage: v.message ?? null,
+        vacationStartsAt: v.startsAt ?? null,
+        vacationEndsAt: v.endsAt ?? null,
         updatedAt: new Date(),
       })
       .where(and(eq(oauthAccounts.tenantId, tenantId), eq(oauthAccounts.id, id)));

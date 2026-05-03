@@ -82,7 +82,10 @@ export class MailAgent {
       sessionId: this.sessionId,
       ...(input.idempotencyKey !== undefined ? { idempotencyKey: input.idempotencyKey } : {}),
     };
-    return this.bus.dispatch(cmd, input.inboxId !== undefined ? { inboxId: input.inboxId } : {});
+    return this.bus.dispatch(cmd, {
+      tenantId: this.identity.tenantId,
+      ...(input.inboxId !== undefined ? { inboxId: input.inboxId } : {}),
+    });
   }
 
   async applyCommands(

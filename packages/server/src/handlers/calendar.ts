@@ -18,8 +18,11 @@ import { randomUUID } from "node:crypto";
 import {
   CalendarRepository,
   OauthAccountsRepository,
+  OauthAttachmentsRepository,
+  OauthMessagesRepository,
   withTenant,
   type EventMeetingProvider,
+  type ObjectStore,
   type Pool,
 } from "@mailai/overlay-db";
 import {
@@ -31,6 +34,7 @@ import {
   type IcsMethod,
   type IcsPartstat,
 } from "@mailai/mime";
+import { pickPrimaryInvite, parseIcs } from "@mailai/ics-parser";
 import { getValidAccessToken, type ProviderCredentials } from "@mailai/oauth-tokens";
 import type {
   CalendarProvider,
@@ -42,6 +46,7 @@ import type {
   NormalizedEventPatch,
   RecurrenceRule,
 } from "@mailai/providers/calendar";
+import { readOauthAttachmentBytes } from "../oauth/attachment-bytes.js";
 
 export interface CalendarHandlerDeps {
   readonly pool: Pool;
@@ -52,6 +57,7 @@ export interface CalendarHandlerDeps {
   // calendar handler also needs the MailProviderRegistry to fan out
   // REQUEST / REPLY / CANCEL.
   readonly mailProviders: MailProviderRegistry;
+  readonly objectStore: ObjectStore;
 }
 
 // 'gmeet' / 'teams' force a provider-side conference; 'none' skips it.
@@ -113,9 +119,10 @@ interface RespondPayload {
 }
 
 export function buildCalendarCreateEventHandler(
-  deps: CalendarHandlerDeps,
+  baseDeps: CalendarHandlerDeps,
 ): CommandHandler<"calendar:create-event", CreateEventPayload> {
-  return async (cmd) => {
+  return async (cmd, hx) => {
+    const deps = { ...baseDeps, tenantId: hx.tenantId ?? baseDeps.tenantId };
     const ctx = await loadCalendar(deps, cmd.payload.calendarId);
     const startsAt = new Date(cmd.payload.startsAt);
     const endsAt = new Date(cmd.payload.endsAt);
@@ -213,9 +220,10 @@ export function buildCalendarCreateEventHandler(
 }
 
 export function buildCalendarUpdateEventHandler(
-  deps: CalendarHandlerDeps,
+  baseDeps: CalendarHandlerDeps,
 ): CommandHandler<"calendar:update-event", UpdateEventPayload> {
-  return async (cmd) => {
+  return async (cmd, hx) => {
+    const deps = { ...baseDeps, tenantId: hx.tenantId ?? baseDeps.tenantId };
     const event = await withTenant(deps.pool, deps.tenantId, (tx) =>
       new CalendarRepository(tx).byId(deps.tenantId, cmd.payload.eventId),
     );
@@ -355,9 +363,10 @@ export function buildCalendarUpdateEventHandler(
 }
 
 export function buildCalendarDeleteEventHandler(
-  deps: CalendarHandlerDeps,
+  baseDeps: CalendarHandlerDeps,
 ): CommandHandler<"calendar:delete-event", DeleteEventPayload> {
-  return async (cmd) => {
+  return async (cmd, hx) => {
+    const deps = { ...baseDeps, tenantId: hx.tenantId ?? baseDeps.tenantId };
     const event = await withTenant(deps.pool, deps.tenantId, (tx) =>
       new CalendarRepository(tx).byId(deps.tenantId, cmd.payload.eventId),
     );
@@ -416,9 +425,10 @@ export function buildCalendarDeleteEventHandler(
 }
 
 export function buildCalendarRespondHandler(
-  deps: CalendarHandlerDeps,
+  baseDeps: CalendarHandlerDeps,
 ): CommandHandler<"calendar:respond", RespondPayload> {
-  return async (cmd) => {
+  return async (cmd, hx) => {
+    const deps = { ...baseDeps, tenantId: hx.tenantId ?? baseDeps.tenantId };
     const event = await withTenant(deps.pool, deps.tenantId, async (tx) => {
       const repo = new CalendarRepository(tx);
       if (cmd.payload.eventId) return repo.byId(deps.tenantId, cmd.payload.eventId);
@@ -486,6 +496,171 @@ export function buildCalendarRespondHandler(
   };
 }
 
+interface RespondFromIcsPayload {
+  messageId: string;
+  attachmentId?: string;
+  response: "accepted" | "declined" | "tentative";
+  comment?: string;
+}
+
+export function buildCalendarRespondFromIcsHandler(
+  baseDeps: CalendarHandlerDeps,
+): CommandHandler<"calendar:respond-from-ics", RespondFromIcsPayload> {
+  return async (cmd, hx) => {
+    const deps = { ...baseDeps, tenantId: hx.tenantId ?? baseDeps.tenantId };
+    const { messageId, attachmentId, response } = cmd.payload;
+
+    const { msg, buf } = await (async () => {
+      const { msg: m0, att } = await withTenant(deps.pool, deps.tenantId, async (tx) => {
+        const msgRepo = new OauthMessagesRepository(tx);
+        const attRepo = new OauthAttachmentsRepository(tx);
+        const m = await msgRepo.byId(deps.tenantId, messageId);
+        if (!m) throw new MailaiError("not_found", `message ${messageId} not found`);
+        if (!attachmentId) {
+          return { msg: m, att: null as null };
+        }
+        const a = await attRepo.byId(deps.tenantId, attachmentId);
+        if (!a || a.providerMessageId !== m.providerMessageId || a.oauthAccountId !== m.oauthAccountId) {
+          throw new MailaiError("not_found", `attachment ${attachmentId} not found for message`);
+        }
+        return { msg: m, att: a };
+      });
+
+      if (att) {
+        const b = await readOauthAttachmentBytes(
+          {
+            pool: deps.pool,
+            credentials: deps.credentials,
+            providers: deps.mailProviders,
+            objectStore: deps.objectStore,
+          },
+          deps.tenantId,
+          att,
+        );
+        return { msg: m0, buf: b };
+      }
+      const inline = m0.bodyIcs?.trim();
+      if (!inline) {
+        throw new MailaiError(
+          "validation_error",
+          "no calendar attachment id and message has no inline body_ics — cannot RSVP",
+        );
+      }
+      return { msg: m0, buf: Buffer.from(inline, "utf8") };
+    })();
+
+    const invites = parseIcs(buf);
+    const invite = pickPrimaryInvite(invites);
+    if (!invite) {
+      throw new MailaiError("validation_error", "attachment does not contain a usable VEVENT");
+    }
+    if (invite.method === "REPLY") {
+      throw new MailaiError("validation_error", "cannot RSVP to an ICS REPLY");
+    }
+    if (invite.isCancellation) {
+      throw new MailaiError("validation_error", "event is cancelled — remove from calendar in the grid");
+    }
+
+    const existing = await withTenant(deps.pool, deps.tenantId, (tx) =>
+      new CalendarRepository(tx).byIcalUid(deps.tenantId, invite.uid),
+    );
+
+    if (existing) {
+      const ctx = await loadCalendar(deps, existing.calendarId);
+      await ctx.calendarAdapter.respondEvent({
+        accessToken: ctx.accessToken,
+        calendarId: ctx.calendar.providerCalendarId,
+        providerEventId: existing.providerEventId,
+        attendeeEmail: ctx.account.email,
+        response,
+        ...(cmd.payload.comment ? { comment: cmd.payload.comment } : {}),
+      });
+      if (existing.icalUid && existing.organizerEmail) {
+        const partstat: IcsPartstat =
+          response === "accepted" ? "ACCEPTED" : response === "declined" ? "DECLINED" : "TENTATIVE";
+        await sendInvite({
+          deps,
+          ctx,
+          method: "REPLY",
+          icalUid: existing.icalUid,
+          sequence: existing.sequence,
+          startsAt: existing.startsAt,
+          endsAt: existing.endsAt,
+          allDay: existing.allDay,
+          summary: existing.summary ?? "",
+          ...(existing.location ? { location: existing.location } : {}),
+          organizerOverride: { email: existing.organizerEmail },
+          attendees: [{ email: ctx.account.email, partstat }],
+          recipientsOverride: [existing.organizerEmail],
+          meetingProvider: existing.meetingProvider,
+          joinUrl: existing.meetingJoinUrl,
+        });
+      }
+      return wrap(existing.id, { responseStatus: existing.responseStatus }, { responseStatus: response });
+    }
+
+    if (!invite.organizerEmail) {
+      throw new MailaiError("validation_error", "invite has no ORGANIZER — cannot send RSVP");
+    }
+
+    const ctx = await loadPrimaryCalendarForAccount(deps, msg.oauthAccountId);
+    const partstat: IcsPartstat =
+      response === "accepted" ? "ACCEPTED" : response === "declined" ? "DECLINED" : "TENTATIVE";
+
+    await sendInvite({
+      deps,
+      ctx,
+      method: "REPLY",
+      icalUid: invite.uid,
+      sequence: invite.sequence,
+      startsAt: invite.start,
+      endsAt: invite.end,
+      allDay: invite.allDay,
+      summary: invite.summary,
+      ...(invite.location ? { location: invite.location } : {}),
+      ...(invite.description ? { description: invite.description } : {}),
+      organizerOverride: {
+        email: invite.organizerEmail,
+        ...(invite.organizerName ? { name: invite.organizerName } : {}),
+      },
+      attendees: [
+        {
+          email: ctx.account.email,
+          partstat,
+        },
+      ],
+      recipientsOverride: [invite.organizerEmail],
+      meetingProvider: null,
+      joinUrl: invite.meetingUrl ?? null,
+    });
+
+    const localId = `evt_${randomUUID()}`;
+    await withTenant(deps.pool, deps.tenantId, async (tx) => {
+      const repo = new CalendarRepository(tx);
+      await repo.upsertEvent({
+        id: localId,
+        tenantId: deps.tenantId,
+        calendarId: ctx.calendar.id,
+        providerEventId: `itip-${invite.uid}`,
+        icalUid: invite.uid,
+        summary: invite.summary,
+        ...(invite.description ? { description: invite.description } : {}),
+        ...(invite.location ? { location: invite.location } : {}),
+        startsAt: invite.start,
+        endsAt: invite.end,
+        allDay: invite.allDay,
+        attendees: invite.attendees.map((a) => ({ email: a.email, ...(a.name ? { name: a.name } : {}) })),
+        organizerEmail: invite.organizerEmail,
+        responseStatus: response,
+        sequence: invite.sequence,
+        meetingJoinUrl: invite.meetingUrl ?? null,
+      });
+    });
+
+    return wrap(localId, null, { summary: invite.summary, responseStatus: response });
+  };
+}
+
 interface CalendarContext {
   readonly account: {
     id: string;
@@ -499,6 +674,50 @@ interface CalendarContext {
   // CalendarHandlerDeps because the iTIP fan-out is global, not
   // per-context.
   readonly calendarAdapter: CalendarProvider;
+}
+
+async function loadPrimaryCalendarForAccount(
+  deps: CalendarHandlerDeps,
+  oauthAccountId: string,
+): Promise<CalendarContext> {
+  return withTenant(deps.pool, deps.tenantId, async (tx) => {
+    const calRepo = new CalendarRepository(tx);
+    const calendars = await calRepo.listCalendars(deps.tenantId);
+    const mine = calendars.filter((c) => c.oauthAccountId === oauthAccountId);
+    const calendar = mine.find((c) => c.isPrimary) ?? mine[0];
+    if (!calendar) {
+      throw new MailaiError(
+        "not_found",
+        `no calendar found for account ${oauthAccountId} — run calendar sync`,
+      );
+    }
+    const accountsRepo = new OauthAccountsRepository(tx);
+    const account = await accountsRepo.byId(deps.tenantId, calendar.oauthAccountId);
+    if (!account) {
+      throw new MailaiError("not_found", `oauth account ${calendar.oauthAccountId} not found`);
+    }
+    const accessToken = await getValidAccessToken(account, {
+      tenantId: deps.tenantId,
+      accounts: accountsRepo,
+      credentials: deps.credentials,
+    });
+    const adapter = deps.calendarProviders.for(account.provider);
+    if (!adapter) {
+      throw new MailaiError(
+        "validation_error",
+        `no calendar adapter registered for provider ${account.provider}`,
+      );
+    }
+    return {
+      account: { id: account.id, email: account.email, provider: account.provider },
+      calendar: {
+        id: calendar.id,
+        providerCalendarId: calendar.providerCalendarId,
+      },
+      accessToken,
+      calendarAdapter: adapter,
+    };
+  });
 }
 
 async function loadCalendar(
