@@ -13,7 +13,7 @@ import { createHmac } from "node:crypto";
 
 import { __testInternals } from "./sso.js";
 
-const { exchangeHandoffCode, verifyHandoffJwt } = __testInternals;
+const { cleanHandoffRedirectPath, exchangeHandoffCode, verifyHandoffJwt } = __testInternals;
 
 function b64url(input: string | Buffer): string {
   const buf = typeof input === "string" ? Buffer.from(input, "utf-8") : input;
@@ -155,5 +155,15 @@ describe("SSO handoff verifier", () => {
     expect(exchanged?.token).toBe(token);
     expect(exchanged?.maxAgeSeconds).toBeGreaterThan(0);
     expect(exchanged?.maxAgeSeconds).toBeLessThanOrEqual(60);
+  });
+
+  it("cleans handoff URLs to the inbox route when launched at the host root", () => {
+    const rootUrl = new URL("/?__hof_handoff=opaque-code", "http://mailai.local");
+    const nestedUrl = new URL("/settings/account?__hof_handoff=opaque-code", "http://mailai.local");
+    rootUrl.searchParams.delete("__hof_handoff");
+    nestedUrl.searchParams.delete("__hof_handoff");
+
+    expect(cleanHandoffRedirectPath(rootUrl)).toBe("/inbox");
+    expect(cleanHandoffRedirectPath(nestedUrl)).toBe("/settings/account");
   });
 });

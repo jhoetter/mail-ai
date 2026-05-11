@@ -8,6 +8,8 @@ coverage
 .env.local
 .env.*.local
 .DS_Store
+.claude/
+.entire/
 fixtures/mailboxes/*.gen
 infra/docker/data
 .mailai-dev.log

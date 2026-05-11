@@ -109,7 +109,7 @@ async function handleHandoff(request: FastifyRequest, reply: FastifyReply): Prom
   if (!code && !token) return;
   url.searchParams.delete(HANDOFF_CODE_QUERY_PARAM);
   url.searchParams.delete(HANDOFF_QUERY_PARAM);
-  const cleanPath = `${url.pathname || "/"}${url.search}${url.hash}`;
+  const cleanPath = cleanHandoffRedirectPath(url);
   if (code) {
     const exchanged = await exchangeHandoffCode(code);
     if (exchanged) {
@@ -129,6 +129,11 @@ async function handleHandoff(request: FastifyRequest, reply: FastifyReply): Prom
     reply.header("set-cookie", buildMailaiSubappSessionCookie(token, maxAgeFromExpiry(claims.exp)));
   }
   reply.redirect(cleanPath || "/");
+}
+
+function cleanHandoffRedirectPath(url: URL): string {
+  const pathname = url.pathname && url.pathname !== "/" ? url.pathname : "/inbox";
+  return `${pathname}${url.search}${url.hash}`;
 }
 
 export function registerSsoMiddleware(app: FastifyInstance): void {
@@ -155,6 +160,7 @@ export function registerSsoMiddleware(app: FastifyInstance): void {
 export const __testInternals = {
   verifyHandoffJwt,
   buildMailaiSubappSessionCookie,
+  cleanHandoffRedirectPath,
   exchangeHandoffCode,
   maxAgeFromExpiry,
 };
