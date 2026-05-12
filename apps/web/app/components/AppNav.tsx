@@ -8,7 +8,7 @@ import {
   type HofShellNavGroup,
 } from "@hofos/shell-ui";
 import { useTranslator } from "../lib/i18n/useTranslator";
-import { createHandoffAppLinks, navigateHandoffHref } from "../lib/shell/hofShellNavigation";
+import { navigateHandoffHref, useHandoffAppLinks } from "../lib/shell/hofShellNavigation";
 import { usePaletteRegistry } from "../lib/shell/paletteRegistry";
 import { listViews, type ViewSummary } from "../lib/views-client";
 
@@ -31,6 +31,7 @@ export function MailShell({ children }: { children: ReactNode }) {
   const palette = usePaletteRegistry();
   const [views, setViews] = useState<ViewSummary[]>([]);
   const [shellUser, setShellUser] = useState<HofShellUser | null>(null);
+  const appLinks = useHandoffAppLinks({ selfAppId: "mailai", selfHref: "/inbox" });
 
   useEffect(() => {
     let alive = true;
@@ -100,7 +101,7 @@ export function MailShell({ children }: { children: ReactNode }) {
       appIcon="mail"
       currentPath={`${pathname}${window.location.search}`}
       primaryNavGroups={primaryNavGroups}
-      appLinks={createHandoffAppLinks({ selfAppId: "mailai", selfHref: "/inbox" })}
+      appLinks={appLinks}
       user={shellUser}
       onSignOut={() => signOutOfHofShell()}
       onCommand={() => palette.open()}

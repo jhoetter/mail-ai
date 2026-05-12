@@ -14,8 +14,8 @@
     "test:e2e": "playwright test --config playwright.config.ts"
   },
   "dependencies": {
-    "@hofos/shell-ui": "^0.1.0",
-    "@hofos/ux": "^0.1.0",
+    "@hofos/shell-ui": "file:../../vendor/hofos/hofos-shell-ui-0.1.0.tgz",
+    "@hofos/ux": "file:../../vendor/hofos/hofos-ux-0.1.0.tgz",
     "@mailai/agent": "workspace:*",
     "@mailai/core": "workspace:*",
     "@mailai/design-tokens": "workspace:*",

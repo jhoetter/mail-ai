@@ -125,7 +125,7 @@ export const RichEditor = forwardRef<RichEditorHandle, RichEditorProps>(function
     ref,
     () => ({
       setContent(html: string) {
-        editor?.commands.setContent(html, { emitUpdate: false });
+        editor?.commands.setContent(html, false);
         editor?.commands.focus("end");
         emit(html);
       },

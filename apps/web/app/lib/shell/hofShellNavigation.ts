@@ -1,43 +1,92 @@
-import { HOF_SHELL_APP_LINKS, type HofShellAppId, type HofShellAppLink } from "@hofos/shell-ui";
-
-const DATA_APP_LOCAL_ORIGIN = "http://localhost:3000";
-const SUBAPP_HOST_PREFIXES = new Set(["mail", "mailai", "chat", "collabai", "drive", "driveai", "pages", "pagesai", "hofos"]);
+import { useEffect, useMemo, useState } from "react";
+import {
+  HOF_SHELL_APP_LINKS,
+  createHofShellAppLinksFromRegistry,
+  resolveDataAppOrigin,
+  type HofShellAppId,
+  type HofShellAppLink,
+  type HofShellSubappRegistryEntry,
+} from "@hofos/shell-ui";
 
 type HandoffAppLinksOptions = {
   selfAppId?: HofShellAppId;
   selfHref?: string;
 };
 
-const SUBAPP_LINK_OVERRIDES: Partial<Record<HofShellAppId, string>> = {
-  mailai: "/__subapps/mailai/inbox",
-  collabai: "/__subapps/collabai/",
-  driveai: "/__subapps/driveai/drive/home",
-  pagesai: "/__subapps/pagesai/pages",
-  hofos: "/__subapps/hofos/customers",
-};
-
 export function createHandoffAppLinks(options: HandoffAppLinksOptions = {}): HofShellAppLink[] {
-  return HOF_SHELL_APP_LINKS.map((link) => {
-    const href =
-      options.selfAppId === link.id && options.selfHref
-        ? options.selfHref
-        : SUBAPP_LINK_OVERRIDES[link.id] ?? link.href;
-    return { ...link, href };
-  });
+  return withSelfHref(HOF_SHELL_APP_LINKS, options);
+}
+
+export function useHandoffAppLinks(options: HandoffAppLinksOptions = {}): HofShellAppLink[] {
+  const { selfAppId, selfHref } = options;
+  const selfOptions = useMemo(
+    (): HandoffAppLinksOptions => ({
+      ...(selfAppId ? { selfAppId } : {}),
+      ...(selfHref ? { selfHref } : {}),
+    }),
+    [selfAppId, selfHref],
+  );
+  const fallbackLinks = useMemo(
+    () => createHandoffAppLinks(selfOptions),
+    [selfOptions],
+  );
+  const [links, setLinks] = useState<HofShellAppLink[]>(fallbackLinks);
+
+  useEffect(() => {
+    let alive = true;
+    setLinks(fallbackLinks);
+    void fetchConfiguredAppLinks()
+      .then((configured) => {
+        if (alive) setLinks(withSelfHref(configured, selfOptions));
+      })
+      .catch(() => {
+        if (alive) setLinks(fallbackLinks);
+      });
+    return () => {
+      alive = false;
+    };
+  }, [fallbackLinks, selfOptions]);
+
+  return links;
 }
 
 export function navigateHandoffHref(href: string): void {
-  window.location.href = href.startsWith("/__subapps/") ? `${dataAppOrigin()}${href}` : href;
+  window.location.href = href.startsWith("/__subapps/") ? `${resolveDataAppOrigin()}${href}` : href;
 }
 
-function dataAppOrigin(): string {
-  const { protocol, hostname, port, origin } = window.location;
-  if (hostname === "localhost" || hostname === "127.0.0.1") {
-    return port === "3000" ? origin : DATA_APP_LOCAL_ORIGIN;
+function withSelfHref(links: readonly HofShellAppLink[], options: HandoffAppLinksOptions): HofShellAppLink[] {
+  return links.map((link) =>
+    options.selfAppId === link.id && options.selfHref ? { ...link, href: options.selfHref } : link,
+  );
+}
+
+function readStoredHofToken(): string | null {
+  try {
+    return window.localStorage.getItem("hof_token") || window.sessionStorage.getItem("hof_token");
+  } catch {
+    return null;
   }
-  const labels = hostname.split(".").filter(Boolean);
-  if (labels.length > 2 && SUBAPP_HOST_PREFIXES.has(labels[0] ?? "")) {
-    return `${protocol}//${labels.slice(1).join(".")}`;
-  }
-  return origin;
+}
+
+async function fetchConfiguredAppLinks(): Promise<HofShellAppLink[]> {
+  const dataAppOrigin = resolveDataAppOrigin();
+  const token = readStoredHofToken();
+  const response = await fetch(`${dataAppOrigin}/api/functions/list_attached_subapps`, {
+    method: "POST",
+    credentials: "include",
+    headers: {
+      "Content-Type": "application/json",
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
+    body: "{}",
+  });
+  if (!response.ok) throw new Error(`list_attached_subapps HTTP ${response.status}`);
+  const payload = (await response.json().catch(() => null)) as
+    | { result?: HofShellSubappRegistryEntry[] }
+    | HofShellSubappRegistryEntry[]
+    | null;
+  const entries = Array.isArray(payload) ? payload : (payload?.result ?? []);
+  return createHofShellAppLinksFromRegistry(Array.isArray(entries) ? entries : [], {
+    appHref: `${dataAppOrigin}/`,
+  });
 }

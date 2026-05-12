@@ -12,7 +12,7 @@ import { useTranslator } from "../i18n/useTranslator";
 import { useI18n } from "../i18n/I18nProvider";
 import { CommandPalette } from "./CommandPalette";
 import { PaletteRegistryProvider, usePaletteRegistry } from "./paletteRegistry";
-import { createHandoffAppLinks, navigateHandoffHref } from "./hofShellNavigation";
+import { navigateHandoffHref, useHandoffAppLinks } from "./hofShellNavigation";
 import type { PaletteCommand } from "./types";
 import { CommandErrorToast } from "../../components/CommandErrorToast";
 import { ChromeProvider, useChrome } from "./ChromeContext";
@@ -65,6 +65,7 @@ function ShellWithStaticCommands({ children }: { children: ReactNode }) {
   const { t } = useTranslator();
   const { setLocale, locale } = useI18n();
   const { theme, setTheme } = useTheme();
+  const appLinks = useHandoffAppLinks({ selfAppId: "mailai", selfHref: "/inbox" });
 
   const staticCommands = useMemo<PaletteCommand[]>(
     () => [
@@ -110,10 +111,7 @@ function ShellWithStaticCommands({ children }: { children: ReactNode }) {
           setTheme(next);
         },
       },
-      ...createAppLinkCommands(
-        createHandoffAppLinks({ selfAppId: "mailai", selfHref: "/inbox" }),
-        { navigate: (href) => navigateHandoffHref(href) },
-      ).map((cmd) => ({
+      ...createAppLinkCommands(appLinks, { navigate: (href) => navigateHandoffHref(href) }).map((cmd) => ({
         id: cmd.id,
         label: String(cmd.label),
         hint: "Switch app",
@@ -123,7 +121,7 @@ function ShellWithStaticCommands({ children }: { children: ReactNode }) {
         },
       })),
     ],
-    [t, navigate, setLocale, locale, theme, setTheme],
+    [appLinks, t, navigate, setLocale, locale, theme, setTheme],
   );
 
   return (
